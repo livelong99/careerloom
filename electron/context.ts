@@ -9,6 +9,7 @@ import path from 'node:path'
 
 import { agyDenied, ensureAgyProject } from './agy-project'
 import { checkRoot } from './careerops'
+import { logTail } from './scan-history'
 import { agyFormatter, agyResultOk, agySessionId, agyUsage, argsFor, argsForPrompt, claudeSessionId, isModelId, claudeUsage, formatClaudeLine, isRunner, MODES, resolveBin, spawnSpec, startRun, type ModeId, type PromptOptions, type RunnerId, type RunUsage, type SpawnSpec } from './runner'
 
 export type Handler = (...args: unknown[]) => unknown
@@ -150,6 +151,26 @@ export function readRunHistory(): RunSummary[] {
   }
 }
 
+/** Scan runs keep their log after the app restarts (runs.jsonl holds summaries only): the last
+ *  LOG_TAIL_LINES lines, minus anything that looks like a credential, in userData/run-logs/. */
+const TAIL_MODES = new Set(['scan', 'web-board'])
+const runLogFile = (id: string) => userFile(path.join('run-logs', `${id.replace(/[^\w-]/g, '')}.log`))
+
+function saveLogTail(run: RunRecord): void {
+  if (!TAIL_MODES.has(run.mode)) return
+  try {
+    fs.mkdirSync(path.dirname(runLogFile(run.id)), { recursive: true })
+    fs.writeFileSync(runLogFile(run.id), logTail(run.log), { mode: 0o600 })
+  } catch (err) { console.error('run log write failed:', err) }
+}
+
+/** A run's log: live from memory, else the saved tail of a past scan run, else ''. */
+export function runLog(id: string): string {
+  const live = runs.get(id)?.log
+  if (live !== undefined) return live
+  try { return fs.readFileSync(runLogFile(id), 'utf8') } catch { return '' }
+}
+
 function appendRunHistory(run: RunSummary): void {
   try { fs.appendFileSync(userFile(HISTORY_FILE), JSON.stringify(run) + '\n') } catch (err) { console.error('run history write failed:', err) }
 }
@@ -193,6 +214,7 @@ export function launch(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'in
   const finish = () => {
     run.endedAt = Date.now()
     appendRunHistory(summary(run))
+    saveLogTail(run)
     broadcast('careerloom:run', { id: run.id, kind: 'exit', status: run.status })
     try { opts.onExit?.(run) } catch (err) { console.error('run onExit failed:', err) }
   }
@@ -209,6 +231,8 @@ export function launch(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'in
       onExit: code => {
         if (pending) { consume([pending]); pending = '' }
         if (run.status === 'cancelled') return finish()
+        // No exit code = killed by a signal (Careerloom quit mid-run, or the OS stopped it): an interruption, not a failure.
+        if (code === null) { append('\n■ Stopped before it finished (Careerloom quit or the process was killed).\n'); run.status = 'cancelled'; return finish() }
         if (code === 0 && i + 1 < steps.length) return next(i + 1)
         // agy exits 0 even when headless mode denied every tool — don't report that as done.
         run.status = code === 0 && resultOk !== false && !(run.runner === 'antigravity' && agyDenied(run.log)) ? 'done' : 'failed'
@@ -238,6 +262,7 @@ export function launchTask(record: Pick<RunRecord, 'runner' | 'mode' | 'label' |
     .finally(() => {
       run.endedAt = Date.now()
       appendRunHistory(summary(run))
+      saveLogTail(run)
       broadcast('careerloom:run', { id: run.id, kind: 'exit', status: run.status })
     })
   return run

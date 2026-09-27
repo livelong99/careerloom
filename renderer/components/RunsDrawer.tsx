@@ -13,7 +13,8 @@ import { ListRow } from './ListRow'
 export const OPEN_RUNS_EVENT = 'careerloom:open-runs'
 /** Agent screen opens this thread on mount (set by "Continue in chat"). */
 export const OPEN_THREAD_KEY = 'careerloom.openThread'
-export const openRuns = () => window.dispatchEvent(new Event(OPEN_RUNS_EVENT))
+/** `id` focuses that run's log (e.g. "View log" on a past scan). */
+export const openRuns = (id?: unknown) => window.dispatchEvent(new CustomEvent<string | undefined>(OPEN_RUNS_EVENT, { detail: typeof id === 'string' ? id : undefined }))
 
 /** Every skill run, whichever screen started it: history on top, live log below.
  *  Opened from the top bar; replaces the old Runs screen's log pane. */

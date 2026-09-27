@@ -6,11 +6,11 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import type { ConfigField, HealthCheck, IntegrationDetail } from '../contract'
+import type { BrowserLoginStatus, ConfigField, HealthCheck, IntegrationDetail } from '../contract'
 import { resolveBin, spawnSpec } from '../runner'
 import { PLAYWRIGHT_MCP } from './browser-args'
 import {
-  APP_BOUND, chromeMacKey, chromeProfiles, chromeUserDataDir, cookiesDbPath, parseCookiesTxt, readChromeCookies, registrableDomain,
+  APP_BOUND, chromeLastUsed, chromeMacKey, chromeProfiles, chromeUserDataDir, cookiesDbPath, parseCookiesTxt, readChromeCookies, registrableDomain,
   validateCookiesFile, type PwCookie,
 } from './browser-cookies'
 import { readRegistry, writeRegistry, type BrowserLoginConfig } from './registry'
@@ -73,9 +73,34 @@ function readFailure(err: unknown, domain: string): Error {
   return new Error(`Couldn't read Chrome's cookies for ${domain}`) // no underlying detail: it could echo data
 }
 
-/** `domain`'s cookies (and its subdomains' only) from the configured source; [] when Off. */
-export async function domainCookies(domain: string): Promise<PwCookie[]> {
+const DEFAULT_WAIT_S = 10
+const MAX_WAIT_S = 60
+const localState = (dir: string | null) => { try { return dir ? fs.readFileSync(path.join(dir, 'Local State'), 'utf8') : '' } catch { return '' } }
+
+/** The source a scan will actually use: an "off" the user never chose means Chrome's
+ *  last-used profile (when Chrome is installed); an explicit choice is kept as is. */
+export function effectiveLogin(): BrowserLoginConfig {
   const cfg = readRegistry().browser
+  if (cfg.sourceSet || cfg.source !== 'off') return cfg
+  const dir = chromeUserDataDir()
+  if (!dir || !fs.existsSync(dir)) return cfg
+  return { ...cfg, source: 'chrome', profile: chromeLastUsed(localState(dir)) ?? 'Default' }
+}
+
+export const pageWaitSeconds = (cfg: BrowserLoginConfig = readRegistry().browser): number =>
+  Math.min(MAX_WAIT_S, Math.max(1, Math.round(cfg.pageWait ?? DEFAULT_WAIT_S)))
+
+export const loginLabel = (cfg: BrowserLoginConfig): string =>
+  cfg.source === 'chrome' ? `Chrome (${cfg.profile})` : cfg.source === 'file' ? 'cookies.txt' : 'no login'
+
+export function browserLoginStatus(): BrowserLoginStatus {
+  const cfg = effectiveLogin()
+  return { source: cfg.source, sourceSet: Boolean(cfg.sourceSet), profile: cfg.profile, profiles: profileOptions(), cookiesFile: cfg.cookiesFile, label: loginLabel(cfg), pageWait: pageWaitSeconds(cfg) }
+}
+
+/** `domain`'s cookies (and its subdomains' only) from the effective source; [] when Off. */
+export async function domainCookies(domain: string): Promise<PwCookie[]> {
+  const cfg = effectiveLogin()
   if (cfg.source === 'off') return []
   if (cfg.source === 'file') {
     if (!cfg.cookiesFile) throw new Error('Choose a cookies.txt file in Integrations → Browser login')
@@ -104,13 +129,12 @@ export function acknowledge(domains: string[]): void {
 // ————— Integrations card —————
 
 function profileOptions(): string[] {
-  const dir = chromeUserDataDir()
-  const profiles = dir ? chromeProfiles((() => { try { return fs.readFileSync(path.join(dir, 'Local State'), 'utf8') } catch { return '' } })()) : []
+  const profiles = chromeProfiles(localState(chromeUserDataDir()))
   return profiles.length ? profiles.map(p => p.dir) : ['Default']
 }
 
 export function browserLoginDetail(): IntegrationDetail {
-  const cfg = readRegistry().browser
+  const cfg = effectiveLogin()
   const userData = chromeUserDataDir()
   const chromeFound = Boolean(userData && fs.existsSync(userData))
   let fileError: string | null = null
@@ -129,6 +153,7 @@ export function browserLoginDetail(): IntegrationDetail {
     ...(cfg.source === 'chrome' ? [{ key: 'profile', label: 'Chrome profile', type: 'text' as const, options: profileOptions(), value: cfg.profile }] : []),
     ...(cfg.source === 'file' ? [{ key: 'cookiesFile', label: 'cookies.txt file', type: 'path' as const, value: cfg.cookiesFile, help: 'Inside your home folder, ≤5 MB, Netscape format' }] : []),
     { key: 'testDomain', label: 'Test domain', type: 'text', value: cfg.testDomain, help: 'Test shows how many cookies Careerloom can read for it — never their values' },
+    { key: 'pageWait', label: 'Page load wait (s)', type: 'text', value: String(pageWaitSeconds(cfg)), help: `Seconds the agent waits after each page loads (1–${MAX_WAIT_S}); raise it for slow boards` },
     { key: 'headless', label: 'Hide the browser window', type: 'boolean', value: cfg.headless },
   ]
   return {
@@ -140,11 +165,17 @@ export function browserLoginDetail(): IntegrationDetail {
 }
 
 export function setBrowserLoginConfig(patch: Record<string, string | boolean | null>): void {
-  const cfg = readRegistry().browser
+  const cfg = effectiveLogin()
   const next = { ...cfg }
   if (typeof patch.source === 'string') {
     if (!SOURCES.includes(patch.source as BrowserLoginConfig['source'])) throw new Error('Login source must be off, chrome or file')
     next.source = patch.source as BrowserLoginConfig['source']
+    next.sourceSet = true
+  }
+  if (typeof patch.pageWait === 'string' || typeof patch.pageWait === 'number') {
+    const n = Number(patch.pageWait)
+    if (!Number.isFinite(n) || n < 1 || n > MAX_WAIT_S) throw new Error(`Page load wait must be 1–${MAX_WAIT_S} seconds`)
+    next.pageWait = Math.round(n)
   }
   if (typeof patch.profile === 'string') {
     if (!profileOptions().includes(patch.profile)) throw new Error('Unknown Chrome profile')
@@ -163,7 +194,7 @@ export function setBrowserLoginConfig(patch: Record<string, string | boolean | n
 
 /** "Test": count the test domain's cookies. Only the count is kept or shown. */
 export async function testBrowserLogin(): Promise<IntegrationDetail> {
-  const cfg = readRegistry().browser
+  const cfg = effectiveLogin()
   let domain = cfg.testDomain
   try {
     domain = registrableDomain(cfg.testDomain)

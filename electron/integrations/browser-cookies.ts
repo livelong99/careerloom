@@ -177,6 +177,16 @@ export function chromeProfiles(localState: string): Array<{ dir: string; name: s
   }
 }
 
+/** Chrome's last-used profile dir from Local State, or null. */
+export function chromeLastUsed(localState: string): string | null {
+  try {
+    const last = (JSON.parse(localState) as { profile?: { last_used?: unknown } }).profile?.last_used
+    return typeof last === 'string' && last ? last : null
+  } catch {
+    return null
+  }
+}
+
 /** The profile's Cookies DB (Windows keeps it under Network/). */
 export function cookiesDbPath(userDataDir: string, profile: string): string | null {
   if (!/^(Default|Profile \d{1,3}|Guest Profile)$/.test(profile)) throw new Error('Unknown Chrome profile')

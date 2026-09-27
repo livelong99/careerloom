@@ -13,7 +13,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2dd4bf"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-fbbf24">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.1-fbbf24">
 </p>
 
 <p align="center"><img src="docs/screenshots/jobs.png" alt="Jobs screen" width="860"></p>

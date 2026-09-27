@@ -136,6 +136,13 @@
    codeburn's `.body > *` 1180px cap is for reading-width dashboards. */
 .body > .workspace { max-width: none; flex: 1 1 auto; min-height: 0; align-self: stretch; }
 .body:has(> .workspace) { padding: var(--sp-4); }
+/* A workspace that fills the body exactly: the body stops scrolling, the pane inside does. */
+.body:has(> .workspace-fill) { overflow: hidden; }
+.body > .workspace-fill { display: flex; flex-direction: column; }
+/* A table that fills its pane: this wrapper scrolls (both axes), the header sticks. */
+.fill-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.fill-scroll > [data-slot="table-container"] { overflow: visible; }
+.fill-scroll thead th { position: sticky; top: 0; z-index: 2; background: var(--panel); }
 
 /* ————— Final polish: one product, not two kits. ————— */
 

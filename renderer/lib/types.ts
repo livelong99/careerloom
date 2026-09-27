@@ -103,6 +103,20 @@ export type CareerloomBridge = {
   listJobs(): Promise<JobListing[]>
   listPortals(): Promise<Portal[]>
   scanPortals(ids: string[]): Promise<Run>
+  /** Unevaluated (new/queued) jobs per portal id. */
+  countUnevaluated(ids: string[]): Promise<Record<string, number>>
+  /** Remove portals (+ guideline, web index); evaluated jobs stay; optionally hide their unevaluated jobs. */
+  deletePortals(ids: string[], hideUnevaluated: boolean): Promise<{ removed: number; hidden: number }>
+  /** Merge career-ops' default portals + browser presets (disabled); returns how many were added. */
+  addDefaultPortals(): Promise<number>
+  getPortal(id: string): Promise<PortalDetail>
+  /** Validated in main (names, SSRF-checked URLs, provider id); a rename carries the guideline along. */
+  updatePortal(id: string, patch: PortalPatch): Promise<PortalDetail>
+  setPortalsEnabled(ids: string[], enabled: boolean): Promise<number>
+  listScans(): Promise<ScanHistoryRow[]>
+  /** SSRF-guard check for a board URL; the error message, or null when fine. */
+  checkBoardUrl(url: string): Promise<string | null>
+  browserLoginStatus(): Promise<BrowserLoginStatus>
   /** Pre-screen policy, local model runtime + trained head, and the user's relevance labels. */
   prescreenStatus(): Promise<PrescreenStatus>
   /** Screen jobs (empty = every unevaluated job) before spending agent tokens on them. */
@@ -187,4 +201,4 @@ export type SpendFlow = {
 // Feature contracts live in electron/contract.ts (types only) so the main
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
-import type { AtsResult, CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview } from '../../electron/contract'
+import type { AtsResult, CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow } from '../../electron/contract'
