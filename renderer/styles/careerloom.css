@@ -1,0 +1,206 @@
+/* Careerloom theme: token overrides on top of codeburn's plain.css, plus the
+   few classes the new screens need. Loaded last. "Loom": warm ivory paper in
+   light, deep ink in dark, one teal thread accent, amber as the second thread. */
+
+/* [data-theme='light'] too: plain.css's explicit-light block would otherwise
+   out-specify :root and bring codeburn's orange back. */
+:root, :root[data-theme='light'] {
+  --canvas: #ebe8e1; --side: #ebe8e1; --page: #f7f5f0; --panel: #ebe8e1; --phead: #f9f8f4;
+  --card-inner: #ffffff;
+  --accent: #0d7d6e; --accent-text: #0a6a5d; --thread: #d98a0b; --thread-text: #8a5200; --primary-ink: #ffffff;
+  --bar-hi: #0d7d6e; --grad: var(--accent);
+  --ok: #0d6a4d; --warn: #865300; --bad: #b0302a;
+  --s-flagship: #0d7d6e; --s-premium: #2f5bb0; --s-balanced: #c25b8f; --s-fast: #d98a0b; --s-other: #8c887e;
+  --ink: #16181d; --mut: #5e5b54; --mut2: #67635b;
+  --nav-on: rgba(13, 125, 110, .12); --nav-ink: #0b3b35;
+  /* Every text size is >= 12px; eyebrows are sentence-case small labels now. */
+  --fs-eyebrow: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --canvas: #0b0e13; --side: #0b0e13; --page: #131820; --panel: #0b0e13; --phead: #1c2330;
+    --card-inner: #1a202b;
+    --accent: #2dd4bf; --accent-text: #5eead4; --thread: #fbbf24; --thread-text: #fbbf24; --primary-ink: #06201c;
+    --bar-hi: #2dd4bf; --grad: var(--accent); --bad: #f78585; --ok: #4ade80; --warn: #fbbf24;
+    --s-flagship: #2dd4bf; --s-premium: #60a5fa; --s-balanced: #f472b6; --s-fast: #fbbf24; --s-other: #6b7280;
+    --ink: #eef2f6; --mut: #9aa4b2; --mut2: #8f99a8;
+    --nav-on: rgba(45, 212, 191, .12); --nav-ink: #ffffff;
+  }
+}
+:root[data-theme='dark'] {
+  --canvas: #0b0e13; --side: #0b0e13; --page: #131820; --panel: #0b0e13; --phead: #1c2330;
+  --card-inner: #1a202b;
+  --accent: #2dd4bf; --accent-text: #5eead4; --thread: #fbbf24; --thread-text: #fbbf24; --primary-ink: #06201c;
+  --bar-hi: #2dd4bf; --grad: var(--accent); --bad: #f78585; --ok: #4ade80; --warn: #fbbf24;
+  --s-flagship: #2dd4bf; --s-premium: #60a5fa; --s-balanced: #f472b6; --s-fast: #fbbf24; --s-other: #6b7280;
+  --ink: #eef2f6; --mut: #9aa4b2; --mut2: #8f99a8;
+  --nav-on: rgba(45, 212, 191, .12); --nav-ink: #ffffff;
+}
+/* The dark-button contrast: accent is light in dark mode, so primary text flips. */
+:root[data-theme='dark'] .btnp-primary { color: #06201c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .btnp-primary { color: #06201c; } }
+
+/* Wordmark (build/brand): "Career" in the teal thread, "loom" in the amber one,
+   split at the word boundary. Text-safe tokens keep 4.5:1 in light and dark. */
+.brand-text, .app .brand-text { font-weight: 700; letter-spacing: -.02em; color: var(--accent-text); }
+.brand-text .loom { color: var(--thread-text); }
+
+/* Section header (codeburn's TopBar `.bar`, minus the period/provider pickers). */
+.bar .t { margin: 0; }
+.bar .scope { color: var(--mut); font-size: var(--fs-meta); }
+
+/* Tracker table. */
+.tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
+.tbl th { text-align: left; font-size: var(--fs-label); color: var(--mut); font-weight: var(--fw-medium); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.tbl td { padding: 9px 10px; border-bottom: 1px solid var(--line2); vertical-align: middle; }
+.tbl tr.row { cursor: pointer; }
+.tbl tr.row:hover td { background: var(--hover); }
+.tbl .num { font-variant-numeric: tabular-nums; color: var(--mut); width: 1%; white-space: nowrap; }
+.tbl .company { font-weight: var(--fw-subhead); }
+.tbl .role { color: var(--mut); }
+
+/* Score + stage pills. */
+.score { font-variant-numeric: tabular-nums; font-weight: var(--fw-strong); }
+.score.hi { color: var(--ok); } .score.mid { color: var(--warn); } .score.lo { color: var(--bad); }
+.stage, .run-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: var(--fs-meta); font-weight: var(--fw-medium); font-family: var(--sans); line-height: 1.5; background: var(--fill); color: var(--mut); white-space: nowrap; }
+.stage-applied, .stage-responded { background: color-mix(in srgb, var(--s-premium) 16%, transparent); color: var(--s-premium); }
+.stage-interview { background: color-mix(in srgb, var(--thread) 18%, transparent); color: var(--thread-text); }
+.stage-offer, .stage-hired { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.stage-rejected { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+.stage-evaluated { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent-text); }
+
+/* Forms. */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field textarea, .field input { font: inherit; font-size: var(--fs-body); color: var(--ink); background: var(--card-inner); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; resize: vertical; }
+.field textarea:focus-visible, .field input:focus-visible { outline: none; border-color: var(--accent); }
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* Agent screen. */
+.mode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.mode { text-align: left; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--card-inner); color: var(--ink); font: inherit; cursor: pointer; }
+.mode:hover { border-color: var(--accent); }
+.mode.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.mode:disabled { opacity: .5; cursor: not-allowed; }
+.mode small { display: block; color: var(--mut); font-size: var(--fs-meta); margin-top: 2px; }
+.runs { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 12px; min-height: 360px; }
+/* Run status is the same pill as a stage; the raw status word is sentence-cased in CSS. */
+.run-status::first-letter { text-transform: uppercase; }
+.run-status.running { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent-text); }
+.run-status.failed { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+.run-status.cancelled { background: var(--fill); color: var(--mut); }
+.run-status.done { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.log { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--card-inner); border: 1px solid var(--line); border-radius: 9px; padding: 12px; max-height: 480px; overflow-y: auto; }
+
+/* Rendered career-ops markdown (reports). Raw HTML is dropped at parse time. */
+.md { font-size: var(--fs-body); line-height: 1.6; overflow-wrap: anywhere; }
+.md h1 { font-size: var(--fs-title); margin: 0 0 8px; }
+.md h2 { font-size: var(--fs-subhead); margin: 20px 0 6px; }
+.md table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: var(--fs-meta); }
+.md th, .md td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+.md code { font-family: var(--mono); font-size: 12px; background: var(--fill); padding: 1px 4px; border-radius: 4px; }
+.md a { color: var(--accent-text); }
+.session-drawer.wide { width: min(760px, 92vw); }
+
+.check { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.check .icon { width: 14px; height: 14px; }
+.check.ok .icon { color: var(--ok); } .check.miss { color: var(--mut); }
+
+/* codeburn's global table rules (right-aligned mono numbers) don't fit text tables. */
+.tbl th, .tbl td, .md th, .md td { text-align: left; font-family: var(--sans); white-space: normal; }
+.tbl td { font-size: var(--fs-body); font-weight: var(--fw-body); }
+.tbl td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.md pre { background: var(--fill); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+.md pre code { background: none; padding: 0; }
+.hint-k { font-family: var(--mono); color: var(--mut); margin-left: 4px; }
+
+/* Pipeline board view (Kanban, @dnd-kit). */
+.pipeline-board { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; }
+.board-column { display: flex; flex-direction: column; width: 240px; min-width: 240px; }
+.board-column.collapsed { width: 40px; min-width: 40px; align-items: center; gap: 6px; padding: 10px 4px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); cursor: pointer; }
+.board-column-head { display: flex; align-items: center; gap: 6px; padding: 4px 6px 8px; cursor: pointer; }
+.board-column-label { font-size: var(--fs-label); color: var(--ink); font-weight: var(--fw-subhead); }
+.board-column.collapsed .board-column-label { writing-mode: vertical-rl; transform: rotate(180deg); }
+.board-column-count { font-variant-numeric: tabular-nums; color: var(--mut2); font-size: var(--fs-meta); margin-left: auto; }
+.board-column.collapsed .board-column-count { margin-left: 0; }
+.board-column-body { flex: 1; min-height: 120px; display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line2); }
+.board-column-body.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+.board-column.collapsed.over { border-color: var(--accent); }
+.board-card { background: var(--card-inner); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: grab; box-shadow: var(--card-shadow); }
+.board-card:active { cursor: grabbing; }
+.board-card.dragging { opacity: .35; }
+.board-card-company { font-weight: var(--fw-subhead); font-size: var(--fs-body); }
+.board-card-role { color: var(--mut); font-size: var(--fs-meta); margin: 2px 0 6px; }
+
+/* Multi-pane workspaces (Resume, Jobs, Agent) use the full body width and height;
+   codeburn's `.body > *` 1180px cap is for reading-width dashboards. */
+.body > .workspace { max-width: none; flex: 1 1 auto; min-height: 0; align-self: stretch; }
+.body:has(> .workspace) { padding: var(--sp-4); }
+
+/* ————— Final polish: one product, not two kits. ————— */
+
+/* Eyebrows are sentence-case small labels, not tracked caps. */
+:is(.grp-label, .about-modal-section-title, .about-sec-h, .plans-section-heading, .ov-hero-kpi > span,
+  .ov-combined-head, .ov-signal-head span, .pr-summary-item span, .pr-card-label, .opt-group,
+  .provider-h, .cmp-vs, .drawer-breakdown-head, .pcmp-range-label, .pcmp-th, .calendar-weekday) {
+  text-transform: none; letter-spacing: 0;
+}
+.grp-label { font-weight: var(--fw-medium); }
+
+/* `.btnp` speaks shadcn Button's language: 32px tall, 8px radius, 13px medium. */
+.btnp {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 12px; border-radius: 8px;
+  font-family: var(--sans); font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap;
+}
+.btnp .icon { width: 14px; height: 14px; }
+.btnp:hover:not(:disabled) { background: var(--hover); border-color: color-mix(in srgb, var(--ink) 18%, transparent); }
+.btnp-primary { color: var(--primary-ink); }
+.btnp-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
+.btnp:disabled { opacity: .5; cursor: not-allowed; }
+.set-text-button { font-size: 13px; }
+.set-text-button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Sidebar: an accent tick marks the page you are on. */
+.ni.on::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: var(--accent); }
+.ni:focus-visible { outline-offset: -2px; }
+.foot .about { width: 100%; border: 0; background: transparent; font: inherit; font-size: var(--fs-body); text-align: left; }
+
+/* Top bar: title left, 32px controls right. */
+.bar { min-height: 56px; box-sizing: border-box; }
+.bar .btnp { background: transparent; }
+.bar .btnp:hover { background: var(--hover); }
+.hint-k { font-size: var(--fs-label); }
+.hint .k { font-size: var(--fs-label); }
+
+/* Panels: one header size everywhere; stat labels are quieter than panel titles. */
+.phead b { font-size: var(--fs-subhead); }
+.stat .phead b { font-size: 13px; font-weight: var(--fw-medium); color: var(--mut); }
+.phead .r.link a { display: inline-flex; align-items: center; gap: 2px; text-decoration: none; font-size: 13px; font-weight: var(--fw-medium); }
+.phead .r.link a:hover { text-decoration: underline; }
+.phead .r.link .icon { width: 14px; height: 14px; }
+
+/* Status line: icon + words, never a glyph. */
+.status-line { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-meta); font-weight: var(--fw-medium); }
+.status-line .icon { width: 14px; height: 14px; }
+.status-line.ok { color: var(--ok); } .status-line.warn { color: var(--warn); } .status-line.muted { color: var(--mut); }
+.about-row .tx small.status-line { display: flex; }
+
+/* Prose stays readable. */
+.empty-note, .set-sub, .drawer-note, .opt-explanation { max-width: 75ch; }
+.drawer-note { font-size: var(--fs-meta); }
+.error-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* Overview: next steps. */
+.next-steps { display: flex; flex-direction: column; }
+.next-step { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line2); }
+.next-step:first-child { border-top: 0; padding-top: 2px; }
+.next-step > .icon { color: var(--accent-text); }
+.next-step .tx { flex: 1; min-width: 0; font-size: var(--fs-body); }
+.next-step .tx small { display: block; color: var(--mut); font-size: var(--fs-meta); margin-top: 2px; }
+.btnp-danger { color: var(--bad); margin-left: auto; }
+.btnp-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--bad) 10%, transparent); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+
+/* Loomi, the brand mark, beside the wordmark. Collapsed sidebar keeps only the mark. */
+.app .brand-mark { flex: 0 0 auto; }
+.sb.collapsed .app .brand-text { display: none; }

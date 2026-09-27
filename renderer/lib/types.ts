@@ -1,0 +1,190 @@
+// ————— Careerloom bridge contract (electron/main.ts handlers ↔ renderer) —————
+
+export type RunnerId = 'claude' | 'codex' | 'antigravity' | 'api'
+
+export type Application = {
+  num: number
+  date: string
+  company: string
+  via: string | null
+  role: string
+  score: number | null
+  status: string
+  pdf: boolean
+  report: string | null
+  notes: string
+}
+export type PipelineItem = { url: string; company: string | null; role: string | null; done: boolean; raw: string }
+export type ReportMeta = { file: string; title: string; date: string | null; score: number | null; url: string | null }
+export type RootCheck = { ok: true; root: string; dataRoot: string } | { ok: false; reason: string }
+
+export type CliRunner = Exclude<RunnerId, 'api'>
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<CliRunner, string>>; hasApiKey: boolean; rootCheck: RootCheck | null }
+export type ModelOption = { id: string; label: string }
+export type RunnerStatus = Record<'claude' | 'codex' | 'antigravity' | 'node' | 'git', string | null>
+export type ProfileStatus = { cv: boolean; profile: boolean; portals: boolean }
+
+export type ModeInput = 'url' | 'report' | 'text' | null
+export type ModeInfo = { label: string; input: ModeInput; apiCommand: string | null }
+export type Modes = Record<string, ModeInfo>
+
+export type RunStatus = 'running' | 'done' | 'failed' | 'cancelled'
+export type Run = {
+  id: string
+  runner: RunnerId | 'setup'
+  mode: string
+  label: string
+  input: string | null
+  startedAt: number
+  endedAt: number | null
+  status: RunStatus
+  usage?: RunUsage | null
+  sessionId?: string | null
+}
+export type RunEvent = { id: string; kind: 'chunk'; text: string } | { id: string; kind: 'exit'; status: RunStatus }
+
+export type CareerloomBridge = {
+  getSettings(): Promise<Settings>
+  setRoot(root: string): Promise<RootCheck>
+  setRunner(runner: RunnerId): Promise<unknown>
+  setApiKey(key: string | null): Promise<boolean>
+  /** Model for one CLI runner; null = that CLI's default. */
+  setModel(runner: CliRunner, model: string | null): Promise<unknown>
+  listModels(runner: CliRunner): Promise<ModelOption[]>
+  chooseDirectory(): Promise<string | null>
+  runnerStatus(): Promise<RunnerStatus>
+  modes(): Promise<Modes>
+  profileStatus(): Promise<ProfileStatus>
+  getTracker(): Promise<Application[]>
+  getPipeline(): Promise<PipelineItem[]>
+  listReports(): Promise<ReportMeta[]>
+  readReport(rel: string): Promise<string>
+  listRuns(): Promise<Run[]>
+  getRunLog(id: string): Promise<string>
+  startRun(req: { mode: string; input?: string }): Promise<Run>
+  /** Evaluate a link/JD; prefetches the page through Firecrawl when it is running. */
+  evaluateJob(input: string): Promise<Run>
+  cancelRun(id: string): Promise<boolean>
+  setupCareerOps(parent: string): Promise<Run>
+  /** First-run: Node/npm/git probes + the default career-ops folder state. */
+  prerequisites(): Promise<Prerequisites>
+  /** Clone career-ops into ~/Documents/career-ops (or adopt it if already valid). */
+  installCareerOpsDefault(): Promise<{ run: Run | null; root: string }>
+  onRun(cb: (event: RunEvent) => void): () => void
+  onSettings(cb: () => void): () => void
+  /** Per-CLI readiness for the chosen folder (install, sign-in, skill, headless setup). */
+  getReadiness(force?: boolean): Promise<Readiness | null>
+  onReadiness(cb: (event: { readiness: Readiness; switchedTo: string | null }) => void): () => void
+  // Resume
+  resumeOverview(): Promise<ResumeOverview>
+  importResume(): Promise<ResumeSource | null>
+  parseResume(): Promise<Run>
+  scoreAts(opts?: { keywords?: string; role?: string }): Promise<AtsResult>
+  rankAgainstJob(jobUrlOrText: string): Promise<Run>
+  setTemplate(name: string): Promise<boolean>
+  importTemplate(): Promise<CvTemplate | null>
+  createTemplate(description: string): Promise<Run>
+  previewTemplate(name: string): Promise<string>
+  exportResume(format: ExportFormat): Promise<Run>
+  revealExport(file: string): Promise<boolean>
+  readCv(): Promise<CvDocument | null>
+  writeCv(markdown: string): Promise<CvDocument>
+  /** Agent extracts documents/cv/<file> into cv.md + data/careerloom-profile.json. */
+  extractResume(file: string): Promise<Run>
+  readProfile(): Promise<ExtractedProfile | null>
+  /** Firecrawl-fetches the profile's links, then the agent writes a research summary. */
+  researchProfile(): Promise<Run>
+  readResearch(): Promise<ProfileResearch>
+  /** The template filled with the current résumé, as PDF bytes (for the in-app viewer). */
+  renderTemplatePdf(name: string): Promise<Uint8Array>
+  /** Save dialog → writes that PDF; resolves to the saved path or null if cancelled. */
+  savePdf(name: string): Promise<string | null>
+  // Jobs
+  listJobs(): Promise<JobListing[]>
+  listPortals(): Promise<Portal[]>
+  scanPortals(ids: string[]): Promise<Run>
+  /** Pre-screen policy, local model runtime + trained head, and the user's relevance labels. */
+  prescreenStatus(): Promise<PrescreenStatus>
+  /** Screen jobs (empty = every unevaluated job) before spending agent tokens on them. */
+  prescreenJobs(ids?: string[]): Promise<PrescreenRun>
+  readPrescreen(): Promise<Record<string, PrescreenEntry & { stale: boolean }>>
+  savePrescreenPolicy(policy: PrescreenPolicy): Promise<PrescreenPolicy>
+  /** Label a job relevant / not relevant (null clears) — trains the model on the next pre-screen. */
+  prescreenFeedback(id: string, relevant: boolean | null): Promise<PrescreenEntry | null>
+  retrainPrescreen(): Promise<PrescreenModel>
+  /** The optional local pre-screen model: Python found, installed, download sizes. */
+  localModelStatus(): Promise<LocalModelStatus>
+  /** Tracked install run (venv → packages → weights → self-test); cancel with cancelRun. */
+  installLocalModel(): Promise<Run>
+  evaluateJobs(ids: string[], force?: boolean): Promise<Run>
+  setPortalGuideline(id: string, text: string): Promise<Portal>
+  improvePortalGuideline(id: string, draft: string): Promise<Run>
+  // Agent chat
+  listThreads(): Promise<ChatThreadSummary[]>
+  getThread(id: string): Promise<ChatThread>
+  sendMessage(threadId: string | null, text: string): Promise<{ thread: ChatThread; run: Run }>
+  deleteThread(id: string): Promise<boolean>
+  /** A finished Claude run → a chat on the same session (answer what the skill asked). */
+  continueRun(runId: string): Promise<ChatThread>
+  // Monitoring
+  getMetrics(range?: DateRange | null): Promise<Metrics>
+  // Integrations
+  listIntegrations(): Promise<Integration[]>
+  getIntegration(id: string): Promise<IntegrationDetail>
+  previewInstall(url: string): Promise<InstallPreview>
+  installIntegration(url: string): Promise<Run>
+  integrationAction(id: string, action: IntegrationAction): Promise<IntegrationDetail | Run | null>
+  setIntegrationConfig(id: string, patch: Record<string, string | boolean | null>): Promise<IntegrationDetail>
+  /** Scrape a board's first page with Firecrawl and try JSON-LD (no agent tokens). */
+  previewWebBoard(urls: string[]): Promise<WebBoardPreview>
+  /** Track any job board (portals.yml `fetch: firecrawl`); instructions become its portal guideline. */
+  addWebBoard(name: string, urls: string[], instructions: string, fetch?: 'firecrawl' | 'browser'): Promise<{ name: string }>
+  /** Picked browser boards' domains still needing the one-time terms acknowledgement. */
+  browserConsentNeeded(ids: string[]): Promise<string[]>
+  acknowledgeBrowser(domains: string[]): Promise<boolean>
+  // Pipeline
+  setStatus(nums: number[], status: CanonicalStatus): Promise<{ updated: number[]; failed: Array<{ num: number; error: string }> }>
+  getUpdateStatus(): Promise<UpdateStatus>
+  onUpdateStatus(cb: (status: UpdateStatus) => void): () => void
+  openExternal(url: string): Promise<void>
+  platform: string
+  arch: string
+}
+
+export type UpdateStatus = { currentVersion: string; latestVersion: string | null; updateAvailable: boolean; tag: string | null; storeManaged?: boolean }
+
+/** Plain error shape that crosses the IPC boundary (kept name from codeburn). */
+export type CliError = { kind: string; message: string; cold?: true }
+
+// ————— Chart inputs kept from codeburn's components —————
+
+export type Period = 'today' | 'week' | '30days' | 'month' | 'all' | 'lifetime'
+
+/** ActivityHeatmap input. Careerloom feeds application counts through `cost`
+ *  (intensity) and `calls` (label); the token fields are unused. */
+export type DailyHistoryEntry = {
+  date: string
+  cost: number
+  savingsUSD: number
+  calls: number
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  topModels?: Array<{ name: string; cost: number; calls: number; inputTokens: number; outputTokens: number }>
+}
+
+/** Sankey input: left column → right column, weighted by count. */
+export type SpendFlowNode = { id: string; label: string; cost: number }
+export type SpendFlowLink = { model: string; project: string; cost: number }
+export type SpendFlow = {
+  period: { label: string; start: string; end: string }
+  models: SpendFlowNode[]
+  projects: SpendFlowNode[]
+  links: SpendFlowLink[]
+}
+
+// Feature contracts live in electron/contract.ts (types only) so the main
+// process can import them without leaving its compile root.
+export * from '../../electron/contract'
+import type { AtsResult, CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview } from '../../electron/contract'

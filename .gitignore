@@ -1,0 +1,23 @@
+# Local secrets
+.env
+.env.local
+.env.*.local
+
+# Codex local configuration
+.codex/
+
+# Careerloom build output
+node_modules/
+dist/
+release/
+graft/
+.DS_Store
+
+# Local AI/agent tooling (not part of the app)
+.claude/
+.claude-flow/
+.agents/
+.swarm/
+ruvector.db
+CLAUDE.md
+AGENTS.md

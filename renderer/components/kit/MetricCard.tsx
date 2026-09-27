@@ -1,0 +1,44 @@
+// From paperclip ui/src/components/MetricCard.tsx (router Link dropped).
+import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
+
+interface MetricCardProps {
+  icon: LucideIcon;
+  value: string | number;
+  label: string;
+  description?: ReactNode;
+  onClick?: () => void;
+}
+
+export function MetricCard({ icon: Icon, value, label, description, onClick }: MetricCardProps) {
+  const isClickable = !!onClick;
+
+  const inner = (
+    <div className={`h-full px-4 py-4 sm:px-5 sm:py-5 rounded-lg transition-colors${isClickable ? " hover:bg-accent/50 cursor-pointer" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-2xl sm:text-3xl font-semibold tracking-tight tabular-nums">
+            {value}
+          </p>
+          <p className="text-xs sm:text-sm font-medium text-muted-foreground mt-1">
+            {label}
+          </p>
+          {description && (
+            <div className="text-xs text-muted-foreground mt-1.5 hidden sm:block">{description}</div>
+          )}
+        </div>
+        <Icon className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-1.5" />
+      </div>
+    </div>
+  );
+
+  if (onClick) {
+    return (
+      <div className="h-full rounded-lg focus-visible:outline-2 focus-visible:outline-ring" role="button" tabIndex={0} onClick={onClick} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}>
+        {inner}
+      </div>
+    );
+  }
+
+  return inner;
+}

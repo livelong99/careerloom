@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Careerloom app icon</title>
+  <defs><clipPath id="ball"><circle cx="512" cy="560" r="330"/></clipPath></defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#10151d" stroke="#243040" stroke-width="8"/>
+  <g transform="translate(512 512) scale(0.84) translate(-512 -498)">
+    <circle cx="512" cy="560" r="330" fill="#2dd4bf"/>
+    <g clip-path="url(#ball)" fill="none" stroke="#0f8f7e" stroke-width="22" stroke-linecap="round">
+      <circle cx="610" cy="560" r="330"/>
+      <circle cx="670" cy="560" r="330"/>
+      <circle cx="330" cy="790" r="470"/>
+      <circle cx="330" cy="790" r="550"/>
+    </g>
+    <path d="M556 266 C546 172 612 110 676 128 C736 145 740 218 690 232 C646 244 628 198 660 174" fill="none" stroke="#fbbf24" stroke-width="48" stroke-linecap="round"/>
+    <circle cx="422" cy="615" r="64" fill="#10151d"/>
+    <circle cx="648" cy="598" r="82" fill="#10151d"/>
+    <circle cx="402" cy="594" r="18" fill="#f7f5f0"/>
+    <circle cx="624" cy="572" r="23" fill="#f7f5f0"/>
+    <path d="M508 722 Q540 750 572 722" fill="none" stroke="#10151d" stroke-width="24" stroke-linecap="round"/>
+  </g>
+</svg>
