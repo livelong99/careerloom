@@ -3,15 +3,17 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { listReports, readPipeline, readTracker } from './careerops'
-import { careerOpsRoot, dataRoot, launch, startAgentPrompt, str, summary, type Handler } from './context'
+import { careerOpsRoot, dataRoot, launch, readRunHistory, runs, startAgentPrompt, str, summary, type Handler } from './context'
 import type { JobListing, Portal } from './contract'
 import { firecrawlReady } from './integrations/firecrawl'
 import { readRegistry } from './integrations/registry'
-import { readTrackedCompanies, withSourceIds, type Source } from './integrations/sources'
+import { deletePortals, getPortalDetail, readHiddenJobs, seedDefaultPortals, seedOnce, setPortalsEnabled, unevaluatedOf, updatePortal } from './integrations/portal-admin'
+import { latestHealth, mergeScanHistory, parseScanRuns } from './scan-history'
+import { readAllSources, subsetScanYaml, type Source } from './integrations/sources'
 import { readBoardIndex, scanWebBoards } from './integrations/web-board'
 import { isWebBoard, portalIdForUrl } from './integrations/web-board-core'
 import { evaluateSelected } from './jobs-batch'
-import { deriveJobs, derivePortals, parseScanHistory, readGuidelines, sanitizeName, subsetPortalsYaml, upsertGuideline } from './jobs-data'
+import { deriveJobs, derivePortals, parseScanHistory, readGuidelines, sanitizeName, upsertGuideline } from './jobs-data'
 import { resolveBin, spawnSpec } from './runner'
 
 // Jobs: portals + discovered jobs (scan-history/pipeline/tracker), scans, batch evaluation, per-portal guidelines.
@@ -33,12 +35,15 @@ function writeAtomic(file: string, text: string): void {
 
 const portalsFile = () => path.join(dataRoot(), 'portals.yml')
 const customFile = () => path.join(dataRoot(), 'modes', '_custom.md')
-const sources = (): Source[] => withSourceIds(readTrackedCompanies(portalsFile()))
+const sources = (): Source[] => readAllSources(portalsFile())
 
 function listJobs(): JobListing[] {
   const root = dataRoot()
   const srcs = sources()
   const webIndex = readBoardIndex()
+  const hidden = readHiddenJobs()
+  // Job boards (aggregators) name many companies: attribute by the scan's provider column instead.
+  const boardByAts = new Map(srcs.filter(s => s.list === 'job_boards' && s.provider).reverse().map(s => [`${s.provider}-api`, s.id]))
   return deriveJobs({
     scan: parseScanHistory(read(path.join(root, 'data', 'scan-history.tsv'))),
     pipeline: readPipeline(root),
@@ -48,12 +53,22 @@ function listJobs(): JobListing[] {
     cvMtime: mtime(path.join(root, 'cv.md')),
     reportMtime: rel => mtime(path.join(root, rel)),
   // Web-board postings carry many companies — file them under the board that found them.
-  }).map(j => (j.portalId ? j : { ...j, portalId: portalIdForUrl(webIndex, j.url, srcs) }))
+  }).filter(j => !hidden.has(j.id))
+    .map(j => (j.portalId ? j : { ...j, portalId: portalIdForUrl(webIndex, j.url, srcs) ?? boardByAts.get(j.ats ?? '') ?? null }))
 }
 
 const listPortals = (): Portal[] => {
+  seedOnce()
   const srcs = sources()
-  return derivePortals(srcs, listJobs(), readGuidelines(read(customFile()))).map((p, i) => ({ ...p, fetch: srcs[i]!.fetch ?? null }))
+  const health = latestHealth(read(path.join(dataRoot(), 'data', 'portal-health.tsv')))
+  return derivePortals(srcs, listJobs(), readGuidelines(read(customFile()))).map((p, i) => {
+    const s = srcs[i]!
+    const h = health.get(s.name)
+    return {
+      ...p, fetch: s.fetch ?? null, kind: s.fetch ? 'web' as const : s.list === 'job_boards' ? 'board' as const : 'company' as const,
+      health: h?.status ?? null, checkedAt: h?.at ?? null,
+    }
+  })
 }
 
 function ids(v: unknown, name: string): string[] {
@@ -94,7 +109,7 @@ export const jobsHandlers: Record<string, Handler> = {
     if (chosen.length) {
       tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'careerloom-scan-'))
       env.CAREER_OPS_PORTALS = path.join(tmpDir, 'portals.yml')
-      fs.writeFileSync(env.CAREER_OPS_PORTALS, subsetPortalsYaml(read(portalsFile()), chosen.map(s => s.name)))
+      fs.writeFileSync(env.CAREER_OPS_PORTALS, subsetScanYaml(read(portalsFile()), chosen))
     }
     // Packaged app without a system node: Electron's own binary runs as Node (same fallback as runScript).
     const spec = resolveBin('node')
@@ -115,6 +130,32 @@ export const jobsHandlers: Record<string, Handler> = {
     const jobs = listJobs().filter(j => wanted.has(j.id) && /^https?:\/\//i.test(j.url) && (force === true || j.reportNum === null))
     if (!jobs.length) throw new Error('Those jobs are already evaluated — use Re-evaluate to run them again')
     return evaluateSelected(jobs, await agentEnv())
+  },
+  /** Unevaluated jobs per portal id — the delete dialog offers to hide them. */
+  countUnevaluated: (raw: unknown) => {
+    const jobs = listJobs()
+    return Object.fromEntries(ids(raw, 'ids').map(id => [id, unevaluatedOf(jobs, id).length]))
+  },
+  deletePortals: (raw: unknown, hideUnevaluated: unknown) => {
+    const picked = new Set(ids(raw, 'ids'))
+    const chosen = sources().filter(s => picked.has(s.id))
+    if (!chosen.length) throw new Error('Those portals are no longer in portals.yml — refresh and try again')
+    const jobs = hideUnevaluated === true ? listJobs() : []
+    return deletePortals(chosen, chosen.flatMap(s => unevaluatedOf(jobs, s.id)))
+  },
+  addDefaultPortals: () => seedDefaultPortals(),
+  getPortal: (id: unknown) => getPortalDetail(id),
+  updatePortal: (id: unknown, patch: unknown) => updatePortal(id, patch),
+  setPortalsEnabled: (raw: unknown, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') throw new Error('enabled must be true or false')
+    return setPortalsEnabled(ids(raw, 'ids'), enabled)
+  },
+  /** Boards → Scans: scan-runs.tsv merged with Careerloom's scan runs, newest first. */
+  listScans: () => {
+    const live = [...runs.values()].map(summary)
+    const liveIds = new Set(live.map(r => r.id))
+    const history = [...readRunHistory().filter(r => !liveIds.has(r.id)), ...live]
+    return mergeScanHistory(parseScanRuns(read(path.join(dataRoot(), 'data', 'scan-runs.tsv'))), history).slice(0, 200)
   },
   setPortalGuideline: (id: unknown, text: unknown) => {
     const portal = portalById(id)

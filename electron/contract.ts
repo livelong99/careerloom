@@ -164,7 +164,25 @@ export type Portal = {
   guideline: string | null
   /** Web board (any listing page, portals.yml `fetch:`), null for provider portals. */
   fetch?: 'firecrawl' | 'browser' | null
+  /** Rail grouping: a tracked company, a job_boards aggregator, or a Careerloom web/browser board. */
+  kind?: 'company' | 'board' | 'web'
+  /** Latest data/portal-health.tsv status (e.g. reachable) and when it was checked. */
+  health?: string | null
+  checkedAt?: string | null
 }
+/** One board's editable fields (Boards → editor sheet). */
+export type PortalDetail = { id: string; list: 'tracked_companies' | 'job_boards'; name: string; urls: string[]; enabled: boolean; fetch: 'firecrawl' | 'browser' | null; provider: string | null; api: string | null; guideline: string | null }
+export type PortalPatch = { name?: string; urls?: string[]; enabled?: boolean; fetch?: 'firecrawl' | 'browser'; provider?: string | null; api?: string | null }
+/** A scan in the Boards → Scans history (Careerloom run and/or a scan-runs.tsv row). */
+export type ScanHistoryRow = {
+  id: string; runId: string | null; source: 'careerloom' | 'career-ops'; label: string; boards: string | null
+  startedAt: number; durationMs: number | null; status: 'done' | 'failed' | 'cancelled' | 'running'
+  found: number | null; added: number | null; dupes: number | null
+  /** Boards that errored inside a scan that otherwise finished (scan-runs.tsv `errors`). */
+  errors: number | null
+}
+/** Browser boards' effective login source (what a scan will use), for the consent dialog's picker. */
+export type BrowserLoginStatus = { source: 'off' | 'chrome' | 'file'; sourceSet: boolean; profile: string; profiles: string[]; cookiesFile: string; label: string; pageWait: number }
 /** Web board "Preview extraction": first page scraped, JSON-LD only (no agent). `provider` = a
  *  URL career-ops already supports (added as a regular portal instead). */
 export type WebBoardJob = { title: string; company: string; url: string; location: string; posted_at: string | null; salary: string | null; employment_type: string | null; remote: boolean | null; description_snippet: string }

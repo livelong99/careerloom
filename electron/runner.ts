@@ -104,7 +104,7 @@ export function argsForPrompt(runner: Exclude<RunnerId, 'api'>, prompt: string, 
     }
     case 'codex':
       // Codex has no slash-skill routing in exec mode; career-ops documents plain text.
-      return { bin: BINS.codex, args: ['exec', '--full-auto', ...(isModelId(opts.model) ? ['--model', opts.model] : []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.`] }
+      return { bin: BINS.codex, args: ['exec', '--sandbox', 'workspace-write', ...(isModelId(opts.model) ? ['--model', opts.model] : []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.`] }
     case 'antigravity':
       // agy's --add-dir is repeatable (one dir per flag); it has no system-prompt flag.
       return {

@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { checkRoot, listReports, readPipeline, readReport, readTracker } from './careerops'
-import { broadcast, dataRoot, launch, setSkillContext, readApiKey, readRunHistory, readSettings, runs, startAgent, str, summary, writeSecret, writeSettings, type Handler } from './context'
+import { broadcast, dataRoot, launch, setSkillContext, readApiKey, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSecret, writeSettings, type Handler } from './context'
 import { chatHandlers } from './chat'
 import { onboardingHandlers } from './onboarding'
 import { prescreenHandlers, stopPrescreen } from './prescreen'
@@ -157,7 +157,7 @@ const handlers: Record<string, Handler> = {
     const ids = new Set(live.map(r => r.id))
     return [...readRunHistory().filter(r => !ids.has(r.id)), ...live].reverse()
   },
-  getRunLog: (id: unknown) => runs.get(str(id, 'id'))?.log ?? '',
+  getRunLog: (id: unknown) => runLog(str(id, 'id')),
   cancelRun: (id: unknown) => {
     const run = runs.get(str(id, 'id'))
     if (!run || run.status !== 'running') return false

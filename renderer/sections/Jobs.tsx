@@ -1,25 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Briefcase, Radar } from 'lucide-react'
+import { LayoutGrid, Radar } from 'lucide-react'
 
 import { EmptyNote } from '../components/EmptyState'
 import { BulkBar, useEvaluateJobs } from '../components/jobs/BulkBar'
-import { applyJobFilters, loadPersistedFilters, NO_PORTAL, persistFilters, toApplication, type JobFilters, type ScreenedJob } from '../components/jobs/filters'
+import { applyJobFilters, loadPersistedFilters, persistFilters, toApplication, type JobFilters, type ScreenedJob } from '../components/jobs/filters'
 import { JobSheet } from '../components/jobs/JobSheet'
 import { JobsTable } from '../components/jobs/JobsTable'
 import { JobsToolbar, type JobsView } from '../components/jobs/JobsToolbar'
-import { AddWebBoardDialog } from '../components/jobs/AddWebBoardDialog'
-import { PortalRail } from '../components/jobs/PortalRail'
 import { PrescreenControls, usePrescreen } from '../components/jobs/prescreen'
 import { EmptyState } from '../components/kit/EmptyState'
 import { Panel } from '../components/Panel'
 import { PipelineBoard } from '../components/pipeline/PipelineBoard'
 import { ReportDrawer } from '../components/ReportDrawer'
-import { openRuns } from '../components/RunsDrawer'
 import { SectionSkeleton } from '../components/Skeleton'
 import { usePolled } from '../hooks/usePolled'
 import { useRuns } from '../hooks/useRuns'
-import { careerloom, normalizeCliError } from '../lib/ipc'
-import { showToast } from '../lib/toast'
+import { careerloom } from '../lib/ipc'
+import { navigate } from '../lib/nav'
 import type { JobState } from '../lib/types'
 
 type Shortcut = { label: string; count: number; active: boolean; apply: JobFilters }
@@ -27,14 +24,13 @@ type Shortcut = { label: string; count: number; active: boolean; apply: JobFilte
 /** Jobs: every posting career-ops found (scan-history), queued (pipeline.md) or evaluated (tracker),
  *  browsable by portal with Jira-style filters; replaces the old Pipeline and Inbox screens. */
 export function Jobs() {
-  const { generation, adopt } = useRuns()
+  const { generation } = useRuns()
   const jobs = usePolled(() => careerloom.listJobs(), [generation], { intervalMs: 20_000 })
   const portals = usePolled(() => careerloom.listPortals(), [generation], { intervalMs: 20_000 })
   const [filters, setFiltersState] = useState<JobFilters>(() => loadPersistedFilters())
   const [view, setView] = useState<JobsView>('table')
   const [selected, setSelected] = useState<string[]>([])
   const [open, setOpen] = useState<ScreenedJob | null>(null)
-  const [addingBoard, setAddingBoard] = useState(false)
   const prescreen = usePrescreen(generation)
   const evaluateJobs = useEvaluateJobs()
   const searchRef = useRef<HTMLInputElement>(null)
@@ -81,15 +77,11 @@ export function Jobs() {
   }
 
   if (all.length === 0) {
-    const scanAll = async () => {
-      try { adopt(await careerloom.scanPortals([])); openRuns() } catch (err) { showToast(normalizeCliError(err).message, 'error', 6000) }
-    }
     return (
       <Panel title="Jobs" className="workspace">
         {portalList.length === 0
-          ? <EmptyState icon={Briefcase} title="No job portals yet" message="Add a job board — a Greenhouse/Ashby/Lever link or any listing page — then scan it here." action="Add a portal" onAction={() => setAddingBoard(true)} hideActionIcon />
-          : <EmptyState icon={Radar} title="No jobs found yet" message={`Scan your ${portalList.length} portal${portalList.length === 1 ? '' : 's'} to list open roles.`} action="Scan portals" onAction={() => void scanAll()} hideActionIcon />}
-        {addingBoard && <AddWebBoardDialog onClose={() => setAddingBoard(false)} onAdded={refresh} />}
+          ? <EmptyState icon={LayoutGrid} title="No boards yet" message="Add a job board — a Greenhouse/Ashby/Lever link, any listing page, or the defaults — then scan it." action="Go to Boards" onAction={() => navigate('boards')} hideActionIcon />
+          : <EmptyState icon={Radar} title="No jobs found yet" message={`Scan your ${portalList.length} board${portalList.length === 1 ? '' : 's'} to list open roles.`} action="Go to Boards" onAction={() => navigate('boards')} hideActionIcon />}
       </Panel>
     )
   }
@@ -98,36 +90,30 @@ export function Jobs() {
   const openApp = open && toApplication(open, portalList)
 
   return (
-    <div className="workspace flex items-start gap-4">
-      <PortalRail
-        portals={portalList} total={all.length}
-        selected={filters.portals.filter(p => p !== NO_PORTAL)}
-        onSelectedChange={ids => setFilters({ ...filters, portals: ids })}
-        onChanged={refresh}
-      />
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Jobs by state">
-          {shortcuts.map(s => (
-            <button
-              key={s.label} type="button" aria-pressed={s.active}
-              onClick={() => setFilters(s.active ? { ...filters, states: [], staleOnly: false } : s.apply)}
-              className={`h-8 cursor-pointer rounded-md border px-3 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent-text) ${s.active ? 'border-(--accent) bg-(--hover)' : 'border-(--line) bg-(--panel) hover:bg-(--hover)'}`}
-            >
-              <span className="text-muted-foreground">{s.label}</span>{' '}
-              <span className="font-semibold tabular-nums">{s.count}</span>
-            </button>
-          ))}
-          {jobs.error && <span className="self-center text-xs text-muted-foreground">Showing the last loaded list — {jobs.error.message}</span>}
-          <PrescreenControls jobs={all} selected={selectedJobs} prescreen={prescreen} onEvaluate={evaluateJobs} />
-        </div>
-        <JobsToolbar jobs={all} portals={portalList} filters={filters} onFiltersChange={setFilters} view={view} onViewChange={setView} searchInputRef={searchRef} />
-        {selectedJobs.length > 0 && <BulkBar jobs={selectedJobs} onClear={() => setSelected([])} onChanged={refresh} />}
-        {view === 'table'
-          ? <JobsTable jobs={shown} portals={portalList} onOpen={setOpen} selected={selected} onSelectedChange={setSelected} onScreened={prescreen.refresh} />
-          : boardApps.length
-            ? <PipelineBoard apps={boardApps} onOpen={a => setOpen(shown.find(j => j.reportNum === a.num) ?? null)} onStatusChanged={refresh} />
-            : <EmptyNote>No evaluated jobs match these filters. The board shows evaluated jobs; switch to Table for the rest.</EmptyNote>}
+    <div className="workspace workspace-fill flex flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap gap-2" role="group" aria-label="Jobs by state">
+        {shortcuts.map(s => (
+          <button
+            key={s.label} type="button" aria-pressed={s.active}
+            onClick={() => setFilters(s.active ? { ...filters, states: [], staleOnly: false } : s.apply)}
+            className={`h-8 cursor-pointer rounded-md border px-3 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent-text) ${s.active ? 'border-(--accent) bg-(--hover)' : 'border-(--line) bg-(--panel) hover:bg-(--hover)'}`}
+          >
+            <span className="text-muted-foreground">{s.label}</span>{' '}
+            <span className="font-semibold tabular-nums">{s.count}</span>
+          </button>
+        ))}
+        {jobs.error && <span className="self-center text-xs text-muted-foreground">Showing the last loaded list — {jobs.error.message}</span>}
+        <PrescreenControls jobs={all} selected={selectedJobs} prescreen={prescreen} onEvaluate={evaluateJobs} />
       </div>
+      <div className="shrink-0">
+        <JobsToolbar jobs={all} portals={portalList} filters={filters} onFiltersChange={setFilters} view={view} onViewChange={setView} searchInputRef={searchRef} />
+      </div>
+      {selectedJobs.length > 0 && <div className="shrink-0"><BulkBar jobs={selectedJobs} onClear={() => setSelected([])} onChanged={refresh} /></div>}
+      {view === 'table'
+        ? <JobsTable jobs={shown} portals={portalList} onOpen={setOpen} selected={selected} onSelectedChange={setSelected} onScreened={prescreen.refresh} />
+        : boardApps.length
+          ? <div className="min-h-0 flex-1 overflow-auto"><PipelineBoard apps={boardApps} onOpen={a => setOpen(shown.find(j => j.reportNum === a.num) ?? null)} onStatusChanged={refresh} /></div>
+          : <EmptyNote>No evaluated jobs match these filters. The board shows evaluated jobs; switch to Table for the rest.</EmptyNote>}
       {open && (openApp
         ? <ReportDrawer app={openApp} onClose={() => setOpen(null)} />
         : <JobSheet job={open} portals={portalList} onClose={() => setOpen(null)} onScreened={prescreen.refresh} />)}

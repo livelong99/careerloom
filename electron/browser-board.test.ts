@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite'
 
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { boardOrigins, browserAgentArgs, browserPrompt, DENIED_TOOLS, playwrightMcp, READ_ONLY_TOOLS } from './integrations/browser-args'
+import { blockedMessage, boardOrigins, browserAgentArgs, browserPrompt, DENIED_TOOLS, navLockScript, playwrightMcp, READ_ONLY_TOOLS } from './integrations/browser-args'
 import {
   APP_BOUND, chromeMacKey, chromeProfiles, decryptCookie, inDomain, looksLikeCookiesTxt, parseCookiesTxt, readChromeCookies, registrableDomain,
   storageState, sweepCookieTemp, UNSCOPABLE, validateCookiesFile,
@@ -146,20 +146,50 @@ describe('Chrome cookie decryption', () => {
 })
 
 describe('browser agent args', () => {
-  const origins = boardOrigins(['https://www.linkedin.com/jobs/search?q=a', 'https://www.linkedin.com/jobs/search?q=b', 'https://in.linkedin.com/jobs'])
-  const mcp = playwrightMcp('/tmp/x/state.json', false, origins)
-  it('runs the pinned Playwright MCP isolated, seeded from the storage state, locked to the board origins', () => {
-    expect(origins).toEqual(['https://www.linkedin.com', 'https://in.linkedin.com'])
+  const mcp = playwrightMcp('/tmp/x/state.json', false, '/tmp/x/nav-lock.cjs')
+  it('runs the pinned Playwright MCP isolated, seeded from the storage state, nav-locked, with long load timeouts', () => {
     expect(mcp).toEqual({
       command: 'npx',
-      args: ['-y', '@playwright/mcp@0.0.82', '--isolated', '--storage-state', '/tmp/x/state.json', '--allowed-origins', 'https://www.linkedin.com;https://in.linkedin.com', '--browser', 'chrome'],
+      args: [
+        '-y', '@playwright/mcp@0.0.82', '--isolated', '--storage-state', '/tmp/x/state.json', '--init-page', '/tmp/x/nav-lock.cjs',
+        '--timeout-navigation', '60000', '--timeout-settle', '3000', '--caps', 'vision', '--snapshot-mode', 'none', '--browser', 'chrome',
+      ],
     })
-    expect(playwrightMcp('/s.json', true, origins).args).toContain('--headless')
-    expect(() => playwrightMcp('/s.json', true, [])).toThrow()
-    expect(() => playwrightMcp('/s.json', true, ['https://a.io;https://evil.io'])).toThrow()
+    expect(playwrightMcp('/s.json', true, '/n.cjs').args).toContain('--headless')
+    expect(boardOrigins(['https://www.linkedin.com/a?q=1', 'https://www.linkedin.com/b', 'https://in.linkedin.com/c'])).toEqual(['https://www.linkedin.com', 'https://in.linkedin.com'])
   })
-  it('the prompt names only the board origins as navigable', () => {
-    expect(browserPrompt('B', ['https://jobs.b.io/x'], undefined, 3)).toContain('Only ever navigate to URLs on https://jobs.b.io;')
+  it('the nav lock aborts only main-frame navigations off the board domain', async () => {
+    const mod: { exports: { allowed?: (u: string) => boolean; default?: (a: { page: unknown }) => Promise<void> } } = { exports: {} }
+    new Function('module', navLockScript('linkedin.com'))(mod)
+    const allowed = mod.exports.allowed!
+    for (const u of ['https://www.linkedin.com/jobs', 'https://linkedin.com/', 'https://in.linkedin.com/x', 'about:blank']) expect(allowed(u), u).toBe(true)
+    for (const u of ['https://attacker.com/?d=x', 'https://linkedin.com.evil.io/', 'https://notlinkedin.com/', 'javascript:alert(1)', 'file:///etc/passwd', 'data:text/html,x']) expect(allowed(u), u).toBe(false)
+    const mainFrame = {}
+    let handler: ((r: unknown) => unknown) | null = null
+    const moves: number[][] = []
+    await mod.exports.default!({ page: {
+      mainFrame: () => mainFrame, route: async (_: string, h: (r: unknown) => unknown) => { handler = h },
+      evaluate: async () => [1200, 800], mouse: { move: async (x: number, y: number) => { moves.push([x, y]) } },
+    } })
+    expect(moves).toEqual([[300, 480]])
+    const route = (url: string, nav: boolean, frame: unknown) => ({ request: () => ({ url: () => url, isNavigationRequest: () => nav, frame: () => frame }), abort: () => 'abort', continue: () => 'continue' })
+    expect(handler!(route('https://attacker.com/', true, mainFrame))).toBe('abort')
+    expect(handler!(route('https://static.licdn.com/app.js', false, mainFrame))).toBe('continue') // CDN subresource
+    expect(handler!(route('https://ads.example/frame', true, {}))).toBe('continue') // iframe
+    expect(handler!(route('https://www.linkedin.com/jobs', true, mainFrame))).toBe('continue')
+    expect(() => navLockScript('evil.io"; process.exit(1); "')).toThrow()
+  })
+  it('the prompt waits after each navigation and names only the board origins', () => {
+    const prompt = browserPrompt('B', ['https://jobs.b.io/x'], undefined, 3, 12)
+    expect(prompt).toContain('Only ever navigate to URLs on https://jobs.b.io;')
+    expect(prompt).toContain('browser_navigate, then browser_wait_for time 12')
+    expect(prompt).toContain('at most 2 browser_snapshot calls per page')
+    expect(prompt).toContain('Do NOT snapshot yet: call browser_mouse_wheel with deltaY 1500 and browser_wait_for time 6 — 5 times in a row')
+    expect(prompt).toContain('(3) ONE browser_snapshot')
+    expect(prompt).toContain('browser_snapshot {"target": "<css>"}')
+    expect(prompt).toContain('Never pass a filename')
+    expect(prompt).toContain('Never a third on the same page')
+    expect(prompt).not.toContain('re-snapshot')
   })
   it('claude: no built-in tools, strict MCP config, read-only allowlist last', () => {
     const args = browserAgentArgs('claude', 'Go', mcp)!
@@ -169,7 +199,8 @@ describe('browser agent args', () => {
     expect(JSON.parse(args[args.indexOf('--mcp-config') + 1]!)).toEqual({ mcpServers: { clbrowser: { type: 'stdio', ...mcp } } })
     const allowed = args.slice(args.indexOf('--allowedTools') + 1)
     expect(allowed).toEqual(READ_ONLY_TOOLS.map(t => `mcp__clbrowser__${t}`))
-    expect(allowed.some(t => /click|type|fill|select|upload|evaluate|run_code|Write|Edit|Bash/.test(t))).toBe(false)
+    expect(allowed.some(t => /click|type|fill|select|upload|evaluate|run_code|press|drag|move|down|up$|hover|screenshot|Write|Edit|Bash/.test(t))).toBe(false)
+    expect(allowed).toContain('mcp__clbrowser__browser_mouse_wheel') // scroll only
     expect(args).not.toContain('acceptEdits')
   })
   it('codex: read-only sandbox, no shell, MCP limited to the read-only tools', () => {
@@ -197,5 +228,13 @@ describe('sweepCookieTemp', () => {
     expect(sweepCookieTemp(dir)).toBe(3)
     expect(fs.readdirSync(dir)).toEqual(['other-keep'])
     fs.rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('blockedMessage', () => {
+  it('names the cookie count and source, never values', () => {
+    expect(blockedMessage('linkedin.com', 'Sign in page', 33, 'Chrome (Default)'))
+      .toBe('Linkedin asked you to sign in (Sign in page) — Careerloom loaded 33 cookies from Chrome (Default). Check you\'re signed in to that Chrome profile, or pick another in Integrations → Browser login.')
+    expect(blockedMessage('naukri.com', 'login', 0, 'no login')).toContain('Careerloom used no login')
   })
 })

@@ -22,14 +22,15 @@ import { Integrations } from './sections/Integrations'
 import { Monitoring } from './sections/Monitoring'
 import { Resume } from './sections/Resume'
 import { Overview } from './sections/Overview'
+import { Boards } from './sections/Boards'
 import { Jobs } from './sections/Jobs'
 import { Onboarding, needsOnboarding } from './sections/Onboarding'
 import { Settings } from './sections/Settings'
 import { applyTheme, readTheme } from './lib/theme'
 import type { Application } from './lib/types'
 
-export const TITLES: Record<Section, string> = { overview: 'Overview', jobs: 'Jobs', resume: 'Resume', agent: 'Agent', monitoring: 'Monitoring', integrations: 'Integrations', settings: 'Settings' }
-const KEYS: Record<string, Section> = { '1': 'overview', '2': 'jobs', '3': 'resume', '4': 'agent', '5': 'monitoring', '6': 'integrations', ',': 'settings' }
+export const TITLES: Record<Section, string> = { overview: 'Overview', jobs: 'Jobs', boards: 'Boards', resume: 'Resume', agent: 'Agent', monitoring: 'Monitoring', integrations: 'Integrations', settings: 'Settings' }
+const KEYS: Record<string, Section> = { '1': 'overview', '2': 'jobs', '3': 'boards', '4': 'resume', '5': 'agent', '6': 'monitoring', '7': 'integrations', ',': 'settings' }
 const SECTION_KEY = 'careerloom.section'
 
 function initialSection(): Section {
@@ -44,12 +45,22 @@ export function App() {
   const [section, setSection] = useState<Section>(initialSection)
   const [openApp, setOpenApp] = useState<Application | null>(null)
   const [runsOpen, setRunsOpen] = useState(false)
+  const [runsFocus, setRunsFocus] = useState<string | null>(null)
+  const [boardFocus, setBoardFocus] = useState<string | null>(null)
   useEffect(() => {
-    const open = () => setRunsOpen(true)
-    // Screens without an onNavigate prop jump via `careerloom:navigate` (detail = Section id).
+    const open = (e: Event) => {
+      const id = (e as CustomEvent<unknown>).detail
+      setRunsFocus(typeof id === 'string' ? id : null)
+      setRunsOpen(true)
+    }
+    // Screens without an onNavigate prop jump via `careerloom:navigate` (detail = Section id, or {section, id} to deep-link).
     const navigate = (e: Event) => {
-      const target = (e as CustomEvent<unknown>).detail
-      if (typeof target === 'string' && Object.hasOwn(TITLES, target)) setSection(target as Section)
+      const d = (e as CustomEvent<unknown>).detail
+      const target = typeof d === 'string' ? d : (d as { section?: unknown } | null)?.section
+      if (typeof target !== 'string' || !Object.hasOwn(TITLES, target)) return
+      setSection(target as Section)
+      const id = typeof d === 'object' && d ? (d as { id?: unknown }).id : undefined
+      if (target === 'boards') setBoardFocus(typeof id === 'string' ? id : null)
     }
     window.addEventListener(OPEN_RUNS_EVENT, open)
     window.addEventListener('careerloom:navigate', navigate)
@@ -92,6 +103,7 @@ export function App() {
   else if (shown === 'settings') body = <Settings settings={settings.data} onChanged={settings.refresh} />
   else if (shown === 'overview') body = <Overview onNavigate={setSection} />
   else if (shown === 'jobs') body = <Jobs />
+  else if (shown === 'boards') body = <Boards focusId={boardFocus} onFocusHandled={() => setBoardFocus(null)} />
   else if (shown === 'resume') body = <Resume />
   else if (shown === 'monitoring') body = <Monitoring onNavigate={setSection} />
   else if (shown === 'integrations') body = <Integrations />
@@ -122,10 +134,10 @@ export function App() {
           <ErrorBoundary key={shown}>
             <div className={motionClass('body', 'section-fade')}>{body}</div>
           </ErrorBoundary>
-          {!onboarding && <Hint items={[{ k: shortcutLabel('K'), label: 'Command palette' }, { k: shortcutLabel('1-6'), label: 'Navigate' }, { k: shortcutLabel(','), label: 'Settings' }]} />}
+          {!onboarding && <Hint items={[{ k: shortcutLabel('K'), label: 'Command palette' }, { k: shortcutLabel('1-7'), label: 'Navigate' }, { k: shortcutLabel(','), label: 'Settings' }]} />}
           {ready && !onboarding && <CommandPalette onNavigate={setSection} onOpenApplication={setOpenApp} />}
           {openApp && <ReportDrawer app={openApp} onClose={() => setOpenApp(null)} />}
-          <RunsDrawer open={runsOpen} onOpenChange={setRunsOpen} />
+          <RunsDrawer open={runsOpen} onOpenChange={setRunsOpen} focusId={runsFocus} />
         </div>
       </Window>
     </RunsContext.Provider>

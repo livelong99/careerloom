@@ -10,9 +10,10 @@ import {
 } from './integrations/firecrawl'
 import { previewSkillInstall, installSkill, listSkills, getSkillDetail, removeSkill, repairCareerOps, updateSkill, updateCareerOps, setSkillEnabled } from './integrations/skills'
 import { parseGithubUrl } from './integrations/github'
+import { validateScrapeTarget } from './integrations/firecrawl-client'
 import { addWebBoard, previewWebBoard } from './integrations/web-board'
 import { boardDomain } from './integrations/browser-fetch'
-import { acknowledge, browserLoginDetail, isAcknowledged, setBrowserLoginConfig, testBrowserLogin, warmPlaywrightMcp } from './integrations/browser-login'
+import { acknowledge, browserLoginDetail, browserLoginStatus, effectiveLogin, isAcknowledged, setBrowserLoginConfig, testBrowserLogin, warmPlaywrightMcp } from './integrations/browser-login'
 import {
   addTrackedCompany, parseJobBoardUrl, readTrackedCompanies, removeTrackedCompany, setTrackedCompanyEnabled, withSourceIds, type Source,
 } from './integrations/sources'
@@ -184,7 +185,12 @@ export const integrationsHandlers: Record<string, Handler> = {
   /** Domains of the picked browser boards the user hasn't acknowledged the terms warning for yet. */
   browserConsentNeeded: (ids: unknown) => {
     const picked = new Set(Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : [])
-    return [...new Set(sources().filter(s => picked.has(s.id) && s.fetch === 'browser').map(boardDomain))].filter(d => !isAcknowledged(d))
+    const login = effectiveLogin()
+    const unchosenOff = login.source === 'off' && !login.sourceSet // never run a browser board without cookies silently
+    return [...new Set(sources().filter(s => picked.has(s.id) && s.fetch === 'browser').map(boardDomain))].filter(d => unchosenOff || !isAcknowledged(d))
   },
+  browserLoginStatus: () => browserLoginStatus(),
+  /** The Boards editor's validate-on-blur: the same SSRF guard the scan uses (null = fine). */
+  checkBoardUrl: (url: unknown) => { try { validateScrapeTarget(str(url, 'url').trim()); return null } catch (err) { return err instanceof Error ? err.message : String(err) } },
   acknowledgeBrowser: (domains: unknown) => { acknowledge(Array.isArray(domains) ? domains.filter((x): x is string => typeof x === 'string').slice(0, 20) : []); return true },
 }

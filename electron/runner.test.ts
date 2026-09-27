@@ -51,7 +51,7 @@ describe('model selection', () => {
   it('passes a valid model to each CLI and drops unsafe ids', async () => {
     const { argsForPrompt } = await import('./runner')
     expect(argsForPrompt('claude', '/career-ops x', { model: 'opus' }).args).toEqual(expect.arrayContaining(['--model', 'opus']))
-    expect(argsForPrompt('codex', '/career-ops x', { model: 'gpt-5-codex' }).args.slice(0, 4)).toEqual(['exec', '--full-auto', '--model', 'gpt-5-codex'])
+    expect(argsForPrompt('codex', '/career-ops x', { model: 'gpt-5-codex' }).args.slice(0, 5)).toEqual(['exec', '--sandbox', 'workspace-write', '--model', 'gpt-5-codex'])
     expect(argsForPrompt('antigravity', '/career-ops x', { model: 'gemini-3.1-pro-high' }).args).toEqual(['-p', '/career-ops x', '--output-format', 'stream-json', '--model', 'gemini-3.1-pro-high'])
     // without Careerloom's project (no workspace), agy never gets skip-permissions
     expect(argsForPrompt('antigravity', '/career-ops x').args).not.toContain('--dangerously-skip-permissions')

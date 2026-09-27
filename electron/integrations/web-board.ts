@@ -203,6 +203,7 @@ export async function scanWebBoards(boards: Source[]): Promise<RunSummary> {
       const res = await runScript(['scan.mjs'], { env: { CAREER_OPS_PORTALS: portals }, timeoutMs: SCAN_TIMEOUT_MS })
       log(`${res.stdout.trim().split('\n').slice(-20).join('\n')}\n`)
       if (res.code !== 0) throw new Error(`scan.mjs exited ${res.code}: ${res.stderr.trim().split('\n')[0] ?? ''}`)
+      if (failed) log(`✓ Done with ${failed} board error${failed === 1 ? '' : 's'} (${done.length} of ${boards.length} boards added jobs) — see ✗ lines above\n`)
     } finally {
       for (const d of done) fs.rmSync(path.join(root, d.jobsFile), { force: true })
       if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true })

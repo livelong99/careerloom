@@ -9,7 +9,8 @@ export type BoardMatch = { provider: string; slug: string; careersUrl: string }
  *  no `provider`, so scan.mjs skips it as "no provider matched". `listing_urls` when >1 page. */
 export type WebFetch = 'firecrawl' | 'browser'
 export type TrackedCompany = { name: string; careers_url?: string; api?: string; provider?: string; enabled?: boolean; fetch?: WebFetch; listing_urls?: string[] }
-export type Source = TrackedCompany & { id: string }
+/** `list: 'job_boards'` = an entry of portals.yml's job_boards (aggregators), else tracked_companies. */
+export type Source = TrackedCompany & { id: string; list?: 'job_boards' }
 
 // Vendor host → {provider id, careers_url builder}, matching career-ops'
 // discover-ats.mjs VENDORS table (providers/<id>.mjs). One match wins; first
@@ -66,6 +67,74 @@ export function withSourceIds(companies: TrackedCompany[]): Source[] {
   })
 }
 
+/** job_boards entries, ids `board:<slug>`. */
+export function withBoardIds(boards: TrackedCompany[]): Source[] {
+  return withSourceIds(boards).map(b => ({ ...b, id: b.id.replace(/^source:/, 'board:'), list: 'job_boards' as const }))
+}
+
+export function readJobBoards(portalsPath: string): TrackedCompany[] {
+  if (!fs.existsSync(portalsPath)) return []
+  const value = (readPortalsFile(portalsPath).toJS() as { job_boards?: unknown } | null)?.job_boards
+  return Array.isArray(value) ? (value as TrackedCompany[]).filter(b => b && typeof b.name === 'string') : []
+}
+
+/** Every portal the Jobs rail shows: tracked companies, then job boards. */
+export function readAllSources(portalsPath: string): Source[] {
+  return [...withSourceIds(readTrackedCompanies(portalsPath)), ...withBoardIds(readJobBoards(portalsPath))]
+}
+
+/** Removes these portals (matched by list + name) in one write, keeping the file's comments. */
+export function removeSources(portalsPath: string, remove: Source[]): void {
+  const doc = readPortalsFile(portalsPath)
+  for (const key of ['tracked_companies', 'job_boards'] as const) {
+    const names = new Set(remove.filter(s => (s.list ?? 'tracked_companies') === key).map(s => s.name))
+    const seq = doc.get(key, true) as YAMLSeq | undefined
+    if (!names.size || !seq) continue
+    seq.items = seq.items.filter(item => !names.has(String((item as { get?: (k: string) => unknown }).get?.('name'))))
+  }
+  writeDoc(portalsPath, doc)
+}
+
+/** portals.yml cut to the chosen companies and job boards (forced enabled); search_queries dropped. */
+export function subsetScanYaml(text: string, chosen: Source[]): string {
+  const doc = parseDocument(text)
+  const js = (doc.toJS() ?? {}) as { tracked_companies?: Array<Record<string, unknown>>; job_boards?: Array<Record<string, unknown>> }
+  const pick = (list: Array<Record<string, unknown>> | undefined, key: 'tracked_companies' | 'job_boards') => {
+    const names = new Set(chosen.filter(s => (s.list ?? 'tracked_companies') === key).map(s => s.name))
+    return (list ?? []).filter(c => names.has(String(c.name))).map(c => ({ ...c, enabled: true }))
+  }
+  doc.delete('search_queries')
+  doc.set('tracked_companies', pick(js.tracked_companies, 'tracked_companies'))
+  doc.set('job_boards', pick(js.job_boards, 'job_boards'))
+  return String(doc)
+}
+
+/** An edit from the Boards editor; `null` removes an optional key. */
+export type SourcePatch = { name?: string; urls?: string[]; enabled?: boolean; fetch?: WebFetch; provider?: string | null; api?: string | null }
+
+/** Applies edits to portals.yml entries in place (other keys and comments kept), one write. */
+export function updateSources(portalsPath: string, edits: Array<[Source, SourcePatch]>): void {
+  const doc = readPortalsFile(portalsPath)
+  for (const [source, patch] of edits) {
+    const seq = doc.get(source.list ?? 'tracked_companies', true) as YAMLSeq | undefined
+    const item = seq?.items.find(i => isMap(i) && i.get('name') === source.name)
+    if (!isMap(item)) throw new Error(`"${source.name}" is no longer in portals.yml — refresh and try again`)
+    if (patch.name !== undefined) item.set('name', patch.name)
+    if (patch.urls) {
+      item.set('careers_url', patch.urls[0])
+      if (patch.urls.length > 1) item.set('listing_urls', patch.urls)
+      else item.delete('listing_urls')
+    }
+    if (patch.enabled !== undefined) item.set('enabled', patch.enabled)
+    if (patch.fetch !== undefined) item.set('fetch', patch.fetch)
+    for (const key of ['provider', 'api'] as const) {
+      if (patch[key] === null) item.delete(key)
+      else if (patch[key] !== undefined) item.set(key, patch[key])
+    }
+  }
+  writeDoc(portalsPath, doc)
+}
+
 export function readPortalsFile(portalsPath: string): Document.Parsed {
   const raw = fs.existsSync(portalsPath) ? fs.readFileSync(portalsPath, 'utf8') : 'tracked_companies: []\n'
   return parseDocument(raw)
@@ -89,7 +158,7 @@ export function readTrackedCompanies(portalsPath: string): TrackedCompany[] {
   return Array.isArray(value) ? (value as TrackedCompany[]) : []
 }
 
-function writeDoc(portalsPath: string, doc: Document.Parsed): void {
+export function writeDoc(portalsPath: string, doc: Document.Parsed): void {
   fs.mkdirSync(path.dirname(portalsPath), { recursive: true })
   fs.writeFileSync(portalsPath, String(doc))
 }

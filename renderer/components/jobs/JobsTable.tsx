@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { Portal } from '../../lib/types'
 import { ScoreBadge } from '../Badges'
 import { EmptyNote } from '../EmptyState'
+import { HitCheckbox } from '../kit/HitCheckbox'
 import { postedOf, stateLabel, type ScreenedJob } from './filters'
 import { QuickFeedback, ScreenBadge } from './prescreen'
 
@@ -53,12 +54,12 @@ function makeColumns(portals: Portal[], onScreened: () => void): ColumnDef<Scree
     {
       id: 'select', enableSorting: false, enableHiding: false,
       header: ({ table }) => (
-        <Checkbox
+        <HitCheckbox
           checked={table.getIsAllRowsSelected() ? true : table.getIsSomeRowsSelected() ? 'indeterminate' : false}
           onCheckedChange={v => table.toggleAllRowsSelected(Boolean(v))} aria-label="Select all shown jobs"
         />
       ),
-      cell: ({ row }) => <Checkbox checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(Boolean(v))} aria-label={`Select ${row.original.title}`} />,
+      cell: ({ row }) => <HitCheckbox checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(Boolean(v))} aria-label={`Select ${row.original.title}`} />,
     },
     {
       id: 'title', header: 'Title', accessorFn: j => j.title, enableHiding: false,
@@ -115,8 +116,8 @@ export function JobsTable({ jobs, portals, onOpen, selected, onSelectedChange, o
   const rows = table.getRowModel().rows
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex shrink-0 items-center justify-between">
         <span className="text-xs text-muted-foreground tabular-nums">{jobs.length} job{jobs.length === 1 ? '' : 's'}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -132,6 +133,7 @@ export function JobsTable({ jobs, portals, onOpen, selected, onSelectedChange, o
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <div className="fill-scroll">
       <Table className="tbl">
         <TableHeader>
           {table.getHeaderGroups().map(group => (
@@ -164,10 +166,11 @@ export function JobsTable({ jobs, portals, onOpen, selected, onSelectedChange, o
         </TableBody>
       </Table>
       {rows.length > limit && (
-        <div className="flex justify-center">
+        <div className="flex justify-center p-2">
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setLimit(l => l + PAGE)}>Show {Math.min(PAGE, rows.length - limit)} more of {rows.length - limit}</Button>
         </div>
       )}
+      </div>
     </div>
   )
 }

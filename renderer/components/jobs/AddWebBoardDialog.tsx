@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
 import { showToast } from '../../lib/toast'
 import type { WebBoardPreview } from '../../lib/types'
-import { goToIntegrations } from './PortalRail'
+import { goToIntegrations } from '../../lib/nav'
 
 const MAX_GUIDELINE = 4000
 

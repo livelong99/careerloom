@@ -13,7 +13,7 @@ import type { CliCheck, CliRunner, ModelOption, RunnerId, Settings as SettingsDa
 
 const RUNNERS: Array<{ id: RunnerId; label: string; bin: 'claude' | 'codex' | 'antigravity' | null; note: string }> = [
   { id: 'claude', label: 'Claude Code', bin: 'claude', note: 'Uses your Claude subscription. Can edit files and run career-ops scripts; nothing else without asking.' },
-  { id: 'codex', label: 'Codex', bin: 'codex', note: 'Uses your ChatGPT/Codex plan (codex exec --full-auto, sandboxed to the folder).' },
+  { id: 'codex', label: 'Codex', bin: 'codex', note: 'Uses your ChatGPT/Codex plan (codex exec, sandboxed to the folder).' },
   { id: 'antigravity', label: 'Antigravity', bin: 'antigravity', note: 'Google Antigravity CLI (agy -p). Runs in agy’s sandbox: any command, but it can only write inside your career-ops folder.' },
   { id: 'api', label: 'API key', bin: null, note: 'Any model via OpenRouter — free models work. Covers evaluate, scan, pipeline and apply.' },
 ]

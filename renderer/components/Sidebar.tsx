@@ -7,7 +7,7 @@ import { isModifierChord, shortcutLabel } from '../lib/platform'
 import loomi from '../assets/loomi.svg'
 import { Icon } from './icons'
 
-export type Section = 'overview' | 'jobs' | 'resume' | 'agent' | 'monitoring' | 'integrations' | 'settings'
+export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'integrations' | 'settings'
 
 type NavItem = { id: Section; label: string; key: string; icon: ReactNode }
 
@@ -21,15 +21,16 @@ export function navGroups(): Array<{ label?: string; items: NavItem[] }> {
       label: 'Job search',
       items: [
         { id: 'jobs', label: 'Jobs', key: '2', icon: <Icon name="list" /> },
-        { id: 'resume', label: 'Resume', key: '3', icon: <Icon name="tag" /> },
+        { id: 'boards', label: 'Boards', key: '3', icon: <Icon name="layout-grid" /> },
+        { id: 'resume', label: 'Resume', key: '4', icon: <Icon name="tag" /> },
       ],
     },
     {
       label: 'Agents',
       items: [
-        { id: 'agent', label: 'Agent', key: '4', icon: <Icon name="sparkles" /> },
-        { id: 'monitoring', label: 'Monitoring', key: '5', icon: <Icon name="chart-column" /> },
-        { id: 'integrations', label: 'Integrations', key: '6', icon: <Icon name="puzzle" /> },
+        { id: 'agent', label: 'Agent', key: '5', icon: <Icon name="sparkles" /> },
+        { id: 'monitoring', label: 'Monitoring', key: '6', icon: <Icon name="chart-column" /> },
+        { id: 'integrations', label: 'Integrations', key: '7', icon: <Icon name="puzzle" /> },
       ],
     },
     { items: [{ id: 'settings', label: t('shell.nav.settings'), key: ',', icon: <Icon name="settings" /> }] },
