@@ -1,0 +1,85 @@
+/* Tailwind v4 for components pulled from paperclip / VoiceStudio (shadcn-style).
+   No preflight: codeburn's plain.css stays the base. shadcn's color/radius tokens
+   are mapped onto Careerloom's theme variables, so light/dark flip for free. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+@source "../";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme inline {
+  --color-background: var(--page);
+  --color-foreground: var(--ink);
+  --color-card: var(--card-inner);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--card-inner);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--primary-ink);
+  /* Accent as text: --accent is too light for 4.5:1 on paper, --accent-text passes. */
+  --color-brand-text: var(--accent-text);
+  --color-secondary: var(--fill);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--fill);
+  --color-muted-foreground: var(--mut);
+  --color-accent: var(--hover);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--bad);
+  --color-destructive-foreground: var(--primary-ink);
+  --color-info: var(--s-premium);
+  --color-success: var(--ok);
+  --color-warning: var(--warn);
+  --color-thread: var(--thread);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--accent-text);
+  --color-sidebar: var(--side);
+  --color-chart-1: var(--s-flagship);
+  --color-chart-2: var(--s-premium);
+  --color-chart-3: var(--thread);
+  --color-chart-4: var(--s-balanced);
+  --color-chart-5: var(--s-other);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+}
+
+/* Design-system variables the pulled components reference by name (paperclip's
+   generated --sz/--pct/--rad set, VoiceStudio's --chrome-*), mapped to our theme. */
+:root {
+  --sz-calc-25: calc(100% - 2rem);
+  --sz-calc-26: max(1rem, env(safe-area-inset-top));
+  --pct-50: 50%;
+  --pct-neg-50: -50%;
+  --rad-3: 3px;
+  --rad-4: 4px;
+  --e-cubic-bezier-0_16-1-0_3-1: cubic-bezier(0.16, 1, 0.3, 1);
+  --tp-color-box-shadow: color, box-shadow;
+  --text-micro: 11px;
+  --text-nano: 10px;
+  --radius-pill: 999px;
+  --chrome-radius-pill: 3px;
+  --chrome-hover-bg: var(--hover);
+  --chrome-label-track: 0.06em;
+  --status-task-done: var(--ok);
+}
+
+/* The slice of preflight shadcn components rely on, scoped to them (they carry
+   data-slot) and layered below utilities so utilities still win. */
+@layer base {
+  [data-slot], [data-slot] *, [data-slot]::before, [data-slot]::after {
+    box-sizing: border-box; border-width: 0; border-style: solid; border-color: var(--color-border);
+  }
+  button[data-slot], [data-slot] button, [data-slot] input, [data-slot] textarea, [data-slot] select {
+    font: inherit; color: inherit; background: transparent; margin: 0; padding: 0;
+  }
+  [data-slot] :where(h1, h2, h3, h4, p) { margin: 0; }
+  /* Tailwind-styled buttons without data-slot (pulled components) must not keep
+     the UA's grey face; codeburn's class-styled buttons are unlayered and still win. */
+  button { background-color: transparent; border-width: 0; border-style: solid; color: inherit; font: inherit; }
+}
