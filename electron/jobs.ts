@@ -7,7 +7,7 @@ import { careerOpsRoot, dataRoot, launch, readRunHistory, runs, startAgentPrompt
 import type { JobListing, Portal } from './contract'
 import { firecrawlReady } from './integrations/firecrawl'
 import { readRegistry } from './integrations/registry'
-import { deletePortals, getPortalDetail, readHiddenJobs, seedDefaultPortals, seedOnce, setPortalsEnabled, unevaluatedOf, updatePortal } from './integrations/portal-admin'
+import { deletePortals, getPortalDetail, readHiddenJobs, seedDefaultPortals, seedOnce, setPortalsEnabled, switchToStarterPack, unevaluatedOf, updatePortal } from './integrations/portal-admin'
 import { latestHealth, mergeScanHistory, parseScanRuns } from './scan-history'
 import { readAllSources, subsetScanYaml, type Source } from './integrations/sources'
 import { readBoardIndex, scanWebBoards } from './integrations/web-board'
@@ -144,6 +144,10 @@ export const jobsHandlers: Record<string, Handler> = {
     return deletePortals(chosen, chosen.flatMap(s => unevaluatedOf(jobs, s.id)))
   },
   addDefaultPortals: () => seedDefaultPortals(),
+  switchToStarterPack: () => {
+    const jobs = listJobs()
+    return switchToStarterPack(removed => removed.flatMap(s => unevaluatedOf(jobs, s.id)))
+  },
   getPortal: (id: unknown) => getPortalDetail(id),
   updatePortal: (id: unknown, patch: unknown) => updatePortal(id, patch),
   setPortalsEnabled: (raw: unknown, enabled: unknown) => {

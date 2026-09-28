@@ -15,7 +15,7 @@ Repo: github.com/livelong99/careerloom (private). Latest release **v0.1.1** (202
 - Runners `runner.ts` (claude / codex `exec --sandbox workspace-write` / agy sandboxed project / opencode `run --format json` / OpenRouter); `zen` = in-process agent loop on OpenCode Zen (`zen-agent.ts`, `zen-tools.ts`, `mcp-client.ts`, `opencode.ts`); `context.ts` launch/launchTask, run history + `run-logs/`.
 - Jobs: `jobs.ts`, `jobs-data.ts` (pipeline+tracker merge), `jobs-batch.ts` (per-job career-ops batch worker, ensureTracker).
 - Pre-screen: `prescreen*.ts` (rules: location→function→seniority), `fit-sidecar.ts` (verdict-small base + gated personal layer), `prescreen-model.ts` (install to ~/.careerloom/model).
-- Boards: `integrations/sources.ts`, `portal-*.ts`, `web-board*.ts` (Firecrawl→JSON-LD→agent), `browser-*.ts` (Chrome cookies via tldts + @playwright/mcp@0.0.82, read-only tools, nav lock), `scan-history.ts`.
+- Boards: default = India starter pack (24 boards, `category:` Common/Tech/Finance/Consulting, disabled) in `portal-defaults.ts` `presetBoards`; career-ops' portals.example.yml no longer seeded. `integrations/sources.ts`, `portal-*.ts`, `web-board*.ts` (Firecrawl→JSON-LD→agent), `browser-*.ts` (Chrome cookies via tldts + @playwright/mcp@0.0.82, read-only tools, nav lock), `scan-history.ts`.
 
 **Run / test / ship:**
 - `npm run dev` · `npm run typecheck` (both tsconfigs) · `npm test` (vitest, 376 tests at v0.1.1) · `npm run build`.
@@ -29,6 +29,7 @@ Repo: github.com/livelong99/careerloom (private). Latest release **v0.1.1** (202
 - Browser boards: cost ~$0.47/LinkedIn page; next options B (Careerloom scrolls + targeted snapshot + Haiku) and C (no-LLM extractors for LinkedIn/Naukri/Indeed/Glassdoor) — user hasn't chosen.
 - "Pre-screen new jobs after scan" hook (scans end in main; needs prescreen call on exit).
 - Windows untested (DPAPI cookies, npx.cmd, torch CPU install); live Codex browser run untested.
-- Code signing / notarization; user's pipeline has ~5.2k queued jobs from the seeded default boards.
+- Code signing / notarization; user's pipeline has ~5.2k queued jobs from the old seeded default boards — Boards → Add board → "Switch to India starter pack…" removes those boards (hides their unevaluated jobs).
+- India starter pack URLs/fetch modes are from web research that couldn't open the pages (sandbox) — verify each board scans on the Mac.
 
 Related: [[careerloom-user-root]], [[careerloom-working-preferences]], [[agy-headless-permissions]].

@@ -1,8 +1,8 @@
-// Default portals: career-ops' templates/portals.example.yml (tracked_companies +
-// job_boards, each keeping its own `enabled`) merged into the user's portals.yml,
-// plus Careerloom's browser-board presets (LinkedIn, Naukri, Indeed, Glassdoor),
-// disabled. Never overwrites or duplicates the user's entries; comments kept
-// (yaml Document API). No `electron` import — testable directly.
+// Default portals: Careerloom's India starter pack (24 popular Indian job boards, categorised
+// Tech / Finance / Consulting / Common), merged into the user's portals.yml, disabled until the user
+// picks them. career-ops' own example list (~170 mostly US/EU company boards) is no longer seeded.
+// Never overwrites or duplicates the user's entries; comments kept (yaml Document API).
+// No `electron` import — testable directly.
 import { isMap, isSeq, parseDocument, type Document, type YAMLSeq } from 'yaml'
 
 import type { TrackedCompany } from './sources'
@@ -25,18 +25,43 @@ export function searchProfile(profileYaml: string): SearchProfile {
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
-/** Browser-board presets (disabled): search URLs from the profile, else each site's generic search page. */
+export const BOARD_CATEGORIES = ['Common', 'Tech', 'Finance', 'Consulting'] as const
+export type BoardCategory = (typeof BOARD_CATEGORIES)[number]
+
+/** India starter pack. Search URLs use the profile's role/city where the board supports it.
+ *  `browser` = script-rendered or bot-protected (read in Chrome); `firecrawl` = server-rendered HTML.
+ *  Sources: Similarweb India jobs ranking and each board's own listings, checked 2026-09. */
 export function presetBoards({ role, city, country }: SearchProfile): TrackedCompany[] {
   const where = [city, country].filter(Boolean).join(', ')
   const q = (params: Record<string, string | null>) =>
     new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => Boolean(e[1]))).toString()
-  const india = country?.toLowerCase() === 'india'
-  const board = (name: string, url: string): TrackedCompany => ({ name, careers_url: url, enabled: false, fetch: 'browser' })
+  const board = (category: BoardCategory, name: string, url: string, fetch: 'browser' | 'firecrawl' = 'browser'): TrackedCompany =>
+    ({ name, careers_url: url, enabled: false, fetch, category })
   return [
-    board('LinkedIn Jobs', `https://www.linkedin.com/jobs/search/?${q({ keywords: role, location: where || null })}`),
-    board('Naukri', role ? `https://www.naukri.com/${slug(role)}-jobs${city ? `-in-${slug(city)}` : ''}` : 'https://www.naukri.com/jobs-in-india'),
-    board('Indeed', `https://${india ? 'in' : 'www'}.indeed.com/jobs?${q({ q: role, l: city ?? country })}`),
-    board('Glassdoor', `https://www.glassdoor.com/Job/jobs.htm?${q({ 'sc.keyword': role })}`),
+    board('Common', 'Naukri', role ? `https://www.naukri.com/${slug(role)}-jobs${city ? `-in-${slug(city)}` : ''}` : 'https://www.naukri.com/jobs-in-india'),
+    board('Common', 'LinkedIn Jobs', `https://www.linkedin.com/jobs/search/?${q({ keywords: role, location: where || 'India' })}`),
+    board('Common', 'Indeed India', `https://in.indeed.com/jobs?${q({ q: role, l: city ?? 'India' })}`),
+    board('Common', 'foundit', role ? `https://www.foundit.in/search/${slug(role)}-jobs` : 'https://www.foundit.in/search/jobs-in-india'),
+    board('Common', 'Shine', 'https://www.shine.com/job-search/jobs-in-india'),
+    board('Common', 'Glassdoor India', 'https://www.glassdoor.co.in/Job/india-jobs-SRCH_IL.0,5_IN115.htm'),
+    board('Common', 'TimesJobs', 'https://www.timesjobs.com/candidate/job-search.html?txtLocation=India', 'firecrawl'),
+    board('Common', 'apna', 'https://apna.co/jobs', 'firecrawl'),
+    board('Common', 'Internshala', 'https://internshala.com/fresher-jobs/', 'firecrawl'),
+    board('Tech', 'Naukri · IT', 'https://www.naukri.com/software-developer-jobs'),
+    board('Tech', 'Instahyre', 'https://www.instahyre.com/software-engineering-jobs/'),
+    board('Tech', 'hirist.tech', 'https://www.hirist.tech/', 'firecrawl'),
+    board('Tech', 'Cutshort', 'https://cutshort.io/jobs/backend-developer-jobs', 'firecrawl'),
+    board('Tech', 'Wellfound India', 'https://wellfound.com/location/india'),
+    board('Tech', 'Freshersworld', 'https://www.freshersworld.com/jobs/category/it-software-job-vacancies', 'firecrawl'),
+    board('Finance', 'iimjobs · Finance', 'https://www.iimjobs.com/c/banking-finance-jobs', 'firecrawl'),
+    board('Finance', 'Naukri · Finance', 'https://www.naukri.com/finance-jobs'),
+    board('Finance', 'foundit · Finance', 'https://www.foundit.in/search/finance-jobs'),
+    board('Finance', 'eFinancialCareers India', 'https://www.efinancialcareers.com/jobs/finance/in-india'),
+    board('Finance', 'CAclubindia Jobs', 'https://www.caclubindia.com/jobs/jobs_list.asp', 'firecrawl'),
+    board('Consulting', 'iimjobs · Consulting', 'https://www.iimjobs.com/c/consulting-general-mgmt-jobs', 'firecrawl'),
+    board('Consulting', 'Naukri · Consulting', 'https://www.naukri.com/management-consulting-jobs'),
+    board('Consulting', 'LinkedIn · Consulting', 'https://in.linkedin.com/jobs/strategy-consultant-jobs'),
+    board('Consulting', 'foundit · Consulting', 'https://www.foundit.in/search/management-consultant-jobs'),
   ]
 }
 
@@ -53,36 +78,37 @@ function listSeq(doc: Document.Parsed, key: Lists): YAMLSeq {
   return s
 }
 
-/** Merge the example's entries (and presets) the user doesn't have yet. Returns how many were added. */
-export function seedDefaults(doc: Document.Parsed, exampleText: string, presets: TrackedCompany[]): number {
-  const example = parseDocument(exampleText)
+/** Merge the presets the user doesn't have yet (by URL or name). Returns how many were added. */
+export function seedDefaults(doc: Document.Parsed, presets: TrackedCompany[]): number {
   const have = new Set<string>()
   for (const key of ['tracked_companies', 'job_boards'] as const) {
     for (const e of ((doc.toJS() ?? {}) as Record<string, unknown>)[key] as Array<Record<string, unknown>> ?? []) {
       for (const k of [urlKey(e?.careers_url), nameKey(e?.name)]) if (k) have.add(k)
     }
   }
-  const fresh = (e: Record<string, unknown>) => {
-    const keys = [urlKey(e.careers_url), nameKey(e.name)].filter((k): k is string => k !== null)
-    if (!keys.length || keys.some(k => have.has(k))) return false
-    keys.forEach(k => have.add(k))
-    return true
-  }
-  let added = 0
-  for (const key of ['tracked_companies', 'job_boards'] as const) {
-    const source = example.get(key, true)
-    if (!isSeq(source)) continue
-    const target = listSeq(doc, key)
-    source.items.forEach((item, i) => {
-      if (!isMap(item) || !fresh(item.toJSON() as Record<string, unknown>)) return
-      const copy = item.clone()
-      // The first entry's section header comment belongs to the list node, not the entry.
-      if (i === 0 && source.commentBefore && !copy.commentBefore) copy.commentBefore = source.commentBefore
-      target.add(copy)
-      added++
-    })
-  }
   const tracked = listSeq(doc, 'tracked_companies')
-  for (const p of presets) if (fresh(p as Record<string, unknown>)) { tracked.add(doc.createNode(p)); added++ }
+  let added = 0
+  for (const p of presets) {
+    const keys = [urlKey(p.careers_url), nameKey(p.name)].filter((k): k is string => k !== null)
+    if (!keys.length || keys.some(k => have.has(k))) continue
+    keys.forEach(k => have.add(k))
+    tracked.add(doc.createNode(p))
+    added++
+  }
   return added
 }
+
+/** Entries that came from Careerloom's old defaults (career-ops' example list, the old Indeed/Glassdoor
+ *  presets) — what "Switch to the India starter pack" removes. The user's own boards never match. */
+export function oldDefaultKeys(exampleText: string): Set<string> {
+  const keys = new Set(['n:indeed', 'n:glassdoor'])
+  const example = (parseDocument(exampleText).toJS() ?? {}) as Record<string, unknown>
+  for (const key of ['tracked_companies', 'job_boards'] as const) {
+    for (const e of (example[key] as Array<Record<string, unknown>> | undefined) ?? []) {
+      for (const k of [urlKey(e?.careers_url), nameKey(e?.name)]) if (k) keys.add(k)
+    }
+  }
+  return keys
+}
+export const isOldDefault = (keys: Set<string>, e: { name?: unknown; careers_url?: unknown }) =>
+  [urlKey(e.careers_url), nameKey(e.name)].some(k => k !== null && keys.has(k))

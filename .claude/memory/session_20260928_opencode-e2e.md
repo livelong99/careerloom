@@ -26,7 +26,11 @@ metadata:
 
 - Then evaluate found its files but the JD file was empty (no Firecrawl) and the worker's WebFetch got nothing from Naukri (script-rendered page; markdown converters drop JSON-LD). Fix: `prefetchJd` falls back to `directJd` — plain fetch (public DNS check each redirect, browser UA), JobPosting JSON-LD → text via `jsonLdPostings`/`postingText` (web-board-core), else page text if > 400 chars. Not live-tested: Naukri may still 403 non-browser requests (Akamai) — next option is its jobapi or the browser-board path.
 
-**State:** PWD fix and JD prefetch fallback committed; JD fallback not live-tested on Naukri
+- Naukri still empty with and without Firecrawl → it bot-blocks non-browser clients. Added a third step: `browserPageText` (browser-fetch.ts) renders the page in the user's Chrome via Playwright MCP + Careerloom's MCP client (headless, empty cookie jar, nav lock, no agent/tokens): navigate → wait 3s → snapshot (refs stripped). Private hosts refused before rendering. Verified live here with Playwright MCP 0.0.82 + Chromium on a JS-rendered page; not on Naukri itself.
+
+- Boards: user asked for India-only, categorised, 20-25 starter boards instead of ~170 (career-ops' portals.example.yml, mostly US/EU). Research (Similarweb India jobs ranking etc.; sandbox couldn't open pages, render/JSON-LD guesses unverified) → 24 boards: Common 9 (Naukri, LinkedIn, Indeed India, foundit, Shine, Glassdoor India, TimesJobs, apna, Internshala), Tech 6 (Naukri IT, Instahyre, hirist.tech, Cutshort, Wellfound India, Freshersworld), Finance 5 (iimjobs, Naukri, foundit, eFinancialCareers India, CAclubindia), Consulting 4 (iimjobs, Naukri, LinkedIn, foundit). ICAI CA Jobs dropped (login). All `enabled: false`; bot-protected → `fetch: browser`, server-rendered → `firecrawl`. New `category` on boards (Category column + filter). "Switch to India starter pack…" removes boards matching career-ops' example (name or URL) + old Indeed/Glassdoor presets, keeps user-added boards, hides unevaluated jobs, adds the pack.
+
+**State:** Chrome JD fallback and India starter pack committed; both need a live check on the Mac
 
 **Next steps:**
 - User: restart `npm run dev` (main-process changes) and retest; paid Zen model needs credits — untested live.
