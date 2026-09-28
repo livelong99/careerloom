@@ -1,7 +1,7 @@
 import { dialog, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { basename, extname, join } from 'node:path'
+import { basename, extname, join, posix } from 'node:path'
 import { parseDocument } from 'yaml'
 
 import { broadcast, careerOpsRoot, dataRoot, Handler, inside, runs, runScript, startAgent, startAgentPrompt, str, summary, userFile, type RunRecord, type RunSummary } from './context'
@@ -81,11 +81,12 @@ function listDocumentSources(root: string): ResumeSource[] {
       if (!DOC_EXTENSIONS.has(kind)) continue
       const full = join(dir, name)
       const st = statSync(full)
-      if (st.isFile()) out.push({ file: join(rel, name), kind, size: st.size, updatedAt: st.mtimeMs })
+      // `file` is shown and matched in the renderer: always `/`-separated, whatever the OS.
+      if (st.isFile()) out.push({ file: posix.join(rel, name), kind, size: st.size, updatedAt: st.mtimeMs })
     }
   }
   scan(docsDir, 'documents')
-  for (const folder of DOC_FOLDERS) scan(join(docsDir, folder), join('documents', folder))
+  for (const folder of DOC_FOLDERS) scan(join(docsDir, folder), posix.join('documents', folder))
   return out
 }
 
@@ -183,7 +184,7 @@ async function importResume(): Promise<ResumeSource | null> {
   const dest = join(destDir, safeName)
   copyFileSync(res.filePaths[0], dest)
   const st = statSync(dest)
-  return { file: join('documents', 'cv', safeName), kind: extname(safeName).slice(1) || 'file', size: st.size, updatedAt: st.mtimeMs }
+  return { file: posix.join('documents', 'cv', safeName), kind: extname(safeName).slice(1) || 'file', size: st.size, updatedAt: st.mtimeMs }
 }
 
 function parseResume(): RunSummary {
