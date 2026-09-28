@@ -11,6 +11,7 @@ import { parse as parseYaml } from 'yaml'
 import { careerOpsRoot, dataRoot, runScript, startAgentPrompt, type RunRecord, type RunSummary } from './context'
 import type { JobListing } from './contract'
 import { assertPublicResolution, firecrawlReady, firecrawlScrape } from './integrations/firecrawl'
+import { browserPageText } from './integrations/browser-fetch'
 import { jsonLdPostings, postingText } from './integrations/web-board-core'
 import { BROWSER_UA, htmlToText, publicUrl } from './zen-tools'
 
@@ -91,16 +92,26 @@ function appendBatchState(root: string, row: { id: string; url: string; status: 
   fs.appendFileSync(file, cells.map(tsvCell).join('\t') + '\n')
 }
 
-/** The JD for the worker: Firecrawl when it's up, else the page's own JobPosting JSON-LD. An empty
- *  file makes the worker try WebFetch, which fails on script-rendered boards (Naukri, LinkedIn…). */
-async function prefetchJd(url: string): Promise<string> {
+/** The JD for the worker: Firecrawl when it's up, else the page's own JobPosting JSON-LD, else the page
+ *  rendered in Chrome. An empty file makes the worker try WebFetch, which fails on script-rendered,
+ *  bot-protected boards (Naukri, LinkedIn…). */
+export async function prefetchJd(url: string): Promise<string> {
   if (await firecrawlReady()) {
     try {
       const page = await firecrawlScrape(url)
       if (page.markdown.trim().length > MIN_JD) return `Source: ${page.url}\n\n${page.markdown}`.slice(0, JD_CAP)
     } catch (err) { console.error('Firecrawl JD prefetch failed, trying the page directly:', err) }
   }
-  try { return await directJd(url) } catch (err) { console.error('JD prefetch failed, worker will fetch it:', err); return '' }
+  try {
+    const direct = await directJd(url)
+    if (direct) return direct
+  } catch (err) { console.error('Direct JD fetch failed, rendering it in Chrome:', err) }
+  try {
+    const target = publicUrl(url)
+    await assertPublicResolution(target.hostname)
+    const snapshot = await browserPageText(target.href)
+    return snapshot.trim().length > MIN_JD ? `Source: ${url} (page rendered in Chrome)\n\n${snapshot}`.slice(0, JD_CAP) : ''
+  } catch (err) { console.error('JD prefetch failed, worker will fetch it:', err); return '' }
 }
 
 const MIN_JD = 400
