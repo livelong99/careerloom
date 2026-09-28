@@ -8,6 +8,7 @@ import path from 'node:path'
 
 import { careerOpsRoot, launch, readOpencodeKey, readSettings, startZen, streamFormat, type RunRecord } from '../context'
 import { opencodeBrowserConfig, opencodeEnv } from '../opencode'
+import { connectMcp, type McpClient } from '../mcp-client'
 import { spawnSpec, type RunnerId } from '../runner'
 import { blockedMessage, browserAgentArgs, browserPrompt, MCP_NAME, navLockScript, playwrightMcp, READ_ONLY_TOOLS } from './browser-args'
 import { registrableDomain, storageState } from './browser-cookies'
@@ -39,6 +40,28 @@ function runToEnd(record: Pick<RunRecord, 'mode' | 'label' | 'input'> & { runner
       reject(err)
     }
   })
+}
+
+/** One public page rendered in the user's Chrome (headless, fresh profile, no cookies, navigation
+ *  locked to its domain) as Playwright's page snapshot — for script-rendered pages that block plain
+ *  HTTP clients (Naukri). Careerloom drives the tools itself: no agent, no tokens. */
+export async function browserPageText(url: string): Promise<string> {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-jd-')) // mkdtemp is 0700
+  let mcp: McpClient | null = null
+  try {
+    const stateFile = path.join(dir, 'state.json')
+    const navLock = path.join(dir, 'nav-lock.cjs')
+    fs.writeFileSync(stateFile, JSON.stringify(storageState([])), { mode: 0o600, flag: 'wx' })
+    fs.writeFileSync(navLock, navLockScript(registrableDomain(new URL(url).hostname), 3), { mode: 0o600, flag: 'wx' })
+    mcp = await connectMcp(playwrightMcp(stateFile, true, navLock), dir)
+    await mcp.call('browser_navigate', { url })
+    await mcp.call('browser_wait_for', { time: 3 })
+    // Element refs are for clicking; a JD reader doesn't need them.
+    return (await mcp.call('browser_snapshot', {})).replace(/ \[ref=[^\]]*\]/g, '')
+  } finally {
+    mcp?.close()
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 }
 
 export async function browserExtract(board: Source, guideline: string | undefined, log: (t: string) => void): Promise<WebJob[]> {

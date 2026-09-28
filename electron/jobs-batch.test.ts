@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ app: { getPath: () => os.tmpdir() }, BrowserWindow: { getAllWindows: () => [] }, safeStorage: {} }))
 vi.mock('node:dns/promises', () => ({ lookup: async (host: string) => [{ address: host === 'intranet.example' ? '10.0.0.5' : '93.184.216.34' }] }))
-const { directJd, ensureTracker, parseWorkerResult, profileProblems, workerPrompt } = await import('./jobs-batch')
+const browserPageText = vi.fn(async (_url: string) => `- heading "Senior Software Engineer"\n- paragraph: ${'Build distributed Java services. '.repeat(30)}`)
+vi.mock('./integrations/browser-fetch', () => ({ browserPageText }))
+vi.mock('./integrations/firecrawl', async importOriginal => ({ ...(await importOriginal<object>()), firecrawlReady: async () => false }))
+const { directJd, ensureTracker, parseWorkerResult, prefetchJd, profileProblems, workerPrompt } = await import('./jobs-batch')
 
 function tree(files: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-batch-'))
@@ -91,5 +94,26 @@ describe('directJd', () => {
     try { expect(await directJd('https://jobs.example.com/1')).toBe('') } finally { vi.unstubAllGlobals() }
     vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 302, headers: { location: 'http://intranet.example/admin' } })))
     try { await expect(directJd('https://jobs.example.com/1')).rejects.toThrow(/private/) } finally { vi.unstubAllGlobals() }
+  })
+})
+
+describe('prefetchJd', () => {
+  it('renders the page in Chrome when plain HTTP is blocked (Naukri-style 403)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('Access Denied', { status: 403 })))
+    try {
+      const jd = await prefetchJd('https://www.naukri.com/job-listings-x-060526013409')
+      expect(browserPageText).toHaveBeenCalledWith('https://www.naukri.com/job-listings-x-060526013409')
+      expect(jd).toMatch(/^Source: .*rendered in Chrome/)
+      expect(jd).toContain('Build distributed Java services.')
+    } finally { vi.unstubAllGlobals() }
+  })
+
+  it('never renders a private address', async () => {
+    browserPageText.mockClear()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 403 })))
+    try {
+      expect(await prefetchJd('https://intranet.example/job/1')).toBe('')
+      expect(browserPageText).not.toHaveBeenCalled()
+    } finally { vi.unstubAllGlobals() }
   })
 })
