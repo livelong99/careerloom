@@ -24,7 +24,9 @@ metadata:
 
 - Evaluate on OpenCode CLI: worker couldn't find `batch/careerloom/<id>.worker.md` — `opencode run` resolves its directory from `process.env.PWD` before `cwd` (opencode `cli/cmd/run.ts`), and spawned children inherited Electron's PWD (the Careerloom checkout). Fix: `startRun` (and mcp-client, zen-tools commands) set `PWD` = spawn cwd; regression test in `zen.test.ts`.
 
-**State:** done (PWD fix committed)
+- Then evaluate found its files but the JD file was empty (no Firecrawl) and the worker's WebFetch got nothing from Naukri (script-rendered page; markdown converters drop JSON-LD). Fix: `prefetchJd` falls back to `directJd` — plain fetch (public DNS check each redirect, browser UA), JobPosting JSON-LD → text via `jsonLdPostings`/`postingText` (web-board-core), else page text if > 400 chars. Not live-tested: Naukri may still 403 non-browser requests (Akamai) — next option is its jobapi or the browser-board path.
+
+**State:** PWD fix and JD prefetch fallback committed; JD fallback not live-tested on Naukri
 
 **Next steps:**
 - User: restart `npm run dev` (main-process changes) and retest; paid Zen model needs credits — untested live.

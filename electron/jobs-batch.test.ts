@@ -4,7 +4,8 @@ import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ app: { getPath: () => os.tmpdir() }, BrowserWindow: { getAllWindows: () => [] }, safeStorage: {} }))
-const { ensureTracker, parseWorkerResult, profileProblems, workerPrompt } = await import('./jobs-batch')
+vi.mock('node:dns/promises', () => ({ lookup: async (host: string) => [{ address: host === 'intranet.example' ? '10.0.0.5' : '93.184.216.34' }] }))
+const { directJd, ensureTracker, parseWorkerResult, profileProblems, workerPrompt } = await import('./jobs-batch')
 
 function tree(files: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-batch-'))
@@ -63,5 +64,32 @@ describe('ensureTracker', () => {
     const dir = tree({ 'applications.md': 'mine' })
     ensureTracker(dir)
     expect(fs.existsSync(path.join(dir, 'data', 'applications.md'))).toBe(false)
+  })
+})
+
+describe('directJd', () => {
+  // A script-rendered board (Naukri-like): empty app shell, full posting only in JSON-LD.
+  const posting = { '@context': 'https://schema.org', '@type': 'JobPosting', title: 'Senior Software Engineer', hiringOrganization: { name: 'Tata Consultancy Services' },
+    jobLocation: { address: { addressLocality: 'Bengaluru', addressCountry: 'IN' } }, employmentType: 'FULL_TIME', datePosted: '2026-09-20',
+    description: `<p>Build distributed Java services.</p><ul><li>5-7 years</li><li>Spring Boot, Kafka</li></ul>${'<p>Details.</p>'.repeat(80)}` }
+  const shell = `<html><head><script type="application/ld+json">${JSON.stringify(posting)}</script></head><body><div id="root"></div><script>app()</script></body></html>`
+
+  it('reads the JobPosting JSON-LD a script-rendered page ships', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(shell, { status: 200, headers: { 'content-type': 'text/html' } })))
+    try {
+      const jd = await directJd('https://www.naukri.com/job-listings-senior-software-engineer-060526013409')
+      expect(jd).toContain('# Senior Software Engineer')
+      expect(jd).toContain('Company: Tata Consultancy Services')
+      expect(jd).toContain('Location: Bengaluru, IN')
+      expect(jd).toContain('Spring Boot, Kafka')
+      expect(jd).not.toContain('<li>')
+    } finally { vi.unstubAllGlobals() }
+  })
+
+  it('returns empty for a bare app shell, and refuses private redirects', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html><body><div id="root"></div></body></html>', { status: 200, headers: { 'content-type': 'text/html' } })))
+    try { expect(await directJd('https://jobs.example.com/1')).toBe('') } finally { vi.unstubAllGlobals() }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 302, headers: { location: 'http://intranet.example/admin' } })))
+    try { await expect(directJd('https://jobs.example.com/1')).rejects.toThrow(/private/) } finally { vi.unstubAllGlobals() }
   })
 })
