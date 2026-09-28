@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { RunRecord } from './context'
 import { isFreeModel, opencodeBrowserConfig, opencodeConfig, paidCheapestFirst, skillAllowlist, zenModelsFrom } from './opencode'
-import { argsForPrompt, formatOpencodeLine, opencodeResultOk, opencodeSessionId, opencodeUsage } from './runner'
+import { argsForPrompt, startRun, formatOpencodeLine, opencodeResultOk, opencodeSessionId, opencodeUsage } from './runner'
 import { runZen, zenError, zenPrompt } from './zen-agent'
 import { commandSpec, confine, htmlToText, publicUrl, runTool, splitCommand } from './zen-tools'
 
@@ -199,5 +199,17 @@ describe('zen agent loop', () => {
     const toolOut = bodies[1]!.messages.filter(m => m.role === 'tool').map(m => m.content)
     expect(toolOut).toEqual(['Error: browser_click is not allowed', 'snapshot of browser_snapshot'])
     expect(fs.existsSync(sessionDir)).toBe(false)
+  })
+})
+
+describe('agent spawns', () => {
+  it('give the child a PWD matching its cwd (opencode run trusts PWD over the real cwd)', async () => {
+    const dir = fs.realpathSync(tmp())
+    let out = ''
+    await new Promise<void>(resolve => startRun('pwd-test', { bin: process.execPath, args: ['-e', 'console.log(process.env.PWD)'], env: { ...process.env, PWD: '/somewhere/else' } }, dir, {
+      onChunk: (_, t) => { out += t },
+      onExit: () => resolve(),
+    }))
+    expect(out.trim()).toBe(dir)
   })
 })

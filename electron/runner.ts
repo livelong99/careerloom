@@ -220,7 +220,8 @@ export type RunEvents = { onChunk: (stream: 'out' | 'err', text: string) => void
 export function startRun(id: string, spec: SpawnSpec, cwd: string, events: RunEvents): void {
   const child = spawn(spec.bin, spec.args, {
     cwd,
-    env: spec.env,
+    // spawn doesn't update the inherited PWD, and some CLIs (opencode run) trust PWD over the real cwd.
+    env: { ...spec.env, PWD: cwd },
     detached: ownsGroup,
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: false,

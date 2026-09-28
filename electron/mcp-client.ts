@@ -10,7 +10,7 @@ export type McpClient = { tools: McpTool[]; call: (name: string, args: unknown) 
 
 export async function connectMcp(server: McpServer, cwd: string, timeoutMs = 120_000): Promise<McpClient> {
   const spec = spawnSpec(server.command, server.args)
-  const child = spawn(spec.bin, spec.args, { cwd, env: spec.env, stdio: ['pipe', 'pipe', 'ignore'], shell: false, windowsHide: true, ...(spec.verbatim ? { windowsVerbatimArguments: true } : {}) })
+  const child = spawn(spec.bin, spec.args, { cwd, env: { ...spec.env, PWD: cwd }, stdio: ['pipe', 'pipe', 'ignore'], shell: false, windowsHide: true, ...(spec.verbatim ? { windowsVerbatimArguments: true } : {}) })
   const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
   let nextId = 1
   let buf = ''
