@@ -102,10 +102,13 @@ describe('zen models', () => {
     expect(zenModelsFrom(null)).toEqual([])
   })
 
-  it('turns Zen errors into the fix the user can make', () => {
-    expect(zenError(400, '{"error":{"message":"Error from provider (Console): Upstream request failed: Model is unavailable."}}', 'big-pickle')).toMatch(/"big-pickle" is unavailable.*pick another/)
-    expect(zenError(401, 'bad key', 'm')).toMatch(/rejected the API key/)
-    expect(zenError(402, 'insufficient balance', 'm')).toMatch(/credits/)
+  it('turns Zen errors into the fix the user can make, keeping the server message', () => {
+    const body = (message: string) => JSON.stringify({ type: 'error', error: { type: 'X', message } })
+    expect(zenError(400, '{"error":{"message":"Error from provider (Console): Upstream request failed: Model is unavailable."}}', 'big-pickle')).toMatch(/Model is unavailable.*pick another model/)
+    expect(zenError(403, body("OpenCode's free tier can only be used from within OpenCode"), 'big-pickle')).toMatch(/free tier.*use the OpenCode CLI runner/)
+    expect(zenError(403, body('This model is not available in your country.'), 'm')).toBe('OpenCode Zen (HTTP 403, m): This model is not available in your country.')
+    expect(zenError(401, body('Invalid API key.'), 'm')).toMatch(/Invalid API key.*check the OpenCode Zen key/)
+    expect(zenError(402, 'insufficient balance', 'm')).toMatch(/add credits/)
   })
 })
 

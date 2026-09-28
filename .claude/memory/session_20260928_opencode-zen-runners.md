@@ -32,6 +32,8 @@ metadata:
 
 - OpenCode CLI scan failed: "OpenCode's free tier can only be used from within OpenCode" — a server-side Zen rule (not in the open-source repo) on **anonymous** free-tier use; Careerloom sends the CLI's own headers (`x-opencode-client: cli`). Fix: with a saved Zen key Careerloom passes `OPENCODE_API_KEY` (confirmed env name), so runs are authenticated; the error line now carries that hint; UI/README say both OpenCode runners want a Zen key for headless use.
 
-**State:** committed (734f827 + key/catalogue/free-tier fix); not re-tested live
+- With a key, Zen API returned HTTP 403 and Careerloom showed a generic "rejected the API key". In Zen's server source 403 = RegionError/DataPolicyError (auth is 401); likely the newer free-tier-only-in-OpenCode rule. `zenError` now always shows Zen's own message + a hint (free tier → use the CLI runner or a paid model). Decision: don't impersonate OpenCode's client headers to get around it. Waiting on the exact server message.
+
+**State:** committed (734f827, 4ea6080, zenError message fix); not re-tested live
 
 **Next steps:** live test on the Mac (free model evaluate, chat resume, browser board on both runners); confirm `OPENCODE_API_KEY` is the env the CLI reads; confirm opencode MCP permission keys (`clbrowser_<tool>`); consider abort of in-flight Zen requests on cancel; free-model data-retention note for résumés.
