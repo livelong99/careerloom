@@ -9,12 +9,14 @@ import { usePolled } from '../hooks/usePolled'
 import { useRuns } from '../hooks/useRuns'
 import { careerloom, normalizeCliError } from '../lib/ipc'
 import { showToast } from '../lib/toast'
-import type { CliCheck, CliRunner, ModelOption, RunnerId, Settings as SettingsData } from '../lib/types'
+import type { CliCheck, ModelOption, ModelRunner, RunnerId, Settings as SettingsData } from '../lib/types'
 
-const RUNNERS: Array<{ id: RunnerId; label: string; bin: 'claude' | 'codex' | 'antigravity' | null; note: string }> = [
+const RUNNERS: Array<{ id: RunnerId; label: string; bin: 'claude' | 'codex' | 'antigravity' | 'opencode' | null; note: string }> = [
   { id: 'claude', label: 'Claude Code', bin: 'claude', note: 'Uses your Claude subscription. Can edit files and run career-ops scripts; nothing else without asking.' },
   { id: 'codex', label: 'Codex', bin: 'codex', note: 'Uses your ChatGPT/Codex plan (codex exec, sandboxed to the folder).' },
   { id: 'antigravity', label: 'Antigravity', bin: 'antigravity', note: 'Google Antigravity CLI (agy -p). Runs in agy’s sandbox: any command, but it can only write inside your career-ops folder.' },
+  { id: 'opencode', label: 'OpenCode', bin: 'opencode', note: 'OpenCode CLI (opencode run). Edits files and runs career-ops scripts only. Free models work with no key; add an OpenCode Zen key (below) for paid ones.' },
+  { id: 'zen', label: 'OpenCode Zen (API)', bin: null, note: 'Nothing to install: Careerloom runs the agent itself on the OpenCode Zen API. Needs an OpenCode Zen key (below) and a paid model — Zen serves free models only inside OpenCode, so use the OpenCode runner for those.' },
   { id: 'api', label: 'API key', bin: null, note: 'Any model via OpenRouter — free models work. Covers evaluate, scan, pipeline and apply.' },
 ]
 
@@ -29,6 +31,7 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
   const ready = usePolled(() => careerloom.getReadiness(recheck > 0), [recheck, settings.root], { intervalMs: null, enabled: settings.rootCheck?.ok === true })
   useEffect(() => careerloom.onReadiness(() => ready.refresh()), [ready.refresh])
   const [key, setKey] = useState('')
+  const [zenKey, setZenKey] = useState('')
   const [theme, setTheme] = useState<Theme>(readTheme)
   const check = settings.rootCheck
 
@@ -77,7 +80,8 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
         )}
         <div className="set-rows">
           {RUNNERS.map(r => {
-            const found = r.bin ? bins.data?.[r.bin] : settings.hasApiKey ? 'key saved' : null
+            const found = r.bin ? bins.data?.[r.bin] : r.id === 'zen' ? (settings.hasOpencodeKey ? 'Zen key saved' : null) : settings.hasApiKey ? 'key saved' : null
+            const modelRunner: ModelRunner | null = r.bin ?? (r.id === 'zen' ? 'zen' : null)
             return (
               <div className="about-row" key={r.id}>
                 <div className="tx">
@@ -89,7 +93,7 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
                   {r.bin && (check?.ok
                     ? <CliStatus check={ready.data?.clis.find(c => c.id === r.bin)} checking={ready.loading && !ready.data} />
                     : <small className="status-line muted">Choose or install a career-ops folder to check sign-in and skills</small>)}
-                  {r.bin && <ModelPicker runner={r.bin} value={settings.models[r.bin] ?? ''} onSaved={onChanged} />}
+                  {modelRunner && <ModelPicker runner={modelRunner} value={settings.models[modelRunner] ?? ''} onSaved={onChanged} />}
                 </div>
                 <div className="r">
                   <button type="button" className="btnp" disabled={settings.runner === r.id} onClick={() => void act(async () => { await careerloom.setRunner(r.id); onChanged() })}>{settings.runner === r.id ? 'In use' : 'Use'}</button>
@@ -100,14 +104,22 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
         </div>
       </Panel>
 
-      <Panel title="API key">
-        <p className="set-sub" style={{ marginTop: 0, marginBottom: 12 }}>Only needed for the API key runner. Stored in your OS keychain, never in the career-ops folder.</p>
+      <Panel title="API keys">
+        <p className="set-sub" style={{ marginTop: 0, marginBottom: 12 }}>OpenRouter: only for the API key runner. OpenCode Zen: needed for the OpenCode Zen runner; optional for the OpenCode CLI (unlocks paid models). Stored in your OS keychain, never in the career-ops folder.</p>
         <div className="field">
           <input type="password" aria-label="OpenRouter API key" placeholder={settings.hasApiKey ? 'OpenRouter key saved — paste to replace' : 'OpenRouter API key (sk-or-…)'} value={key} onChange={e => setKey(e.target.value)} autoComplete="off" />
           <div className="row-actions">
             <button type="button" className="btnp" disabled={!key.trim()} onClick={() => void act(async () => { await careerloom.setApiKey(key); setKey(''); onChanged() }, 'Key saved to your OS keychain')}>Save key</button>
             <button type="button" className="set-text-button" onClick={() => void careerloom.openExternal('https://openrouter.ai/keys')}>Get a key</button>
             {settings.hasApiKey && <button type="button" className="btnp btnp-danger" onClick={() => void act(async () => { await careerloom.setApiKey(null); onChanged() }, 'Key removed')}>Remove key</button>}
+          </div>
+        </div>
+        <div className="field" style={{ marginTop: 12 }}>
+          <input type="password" aria-label="OpenCode Zen API key" placeholder={settings.hasOpencodeKey ? 'OpenCode Zen key saved — paste to replace' : 'OpenCode Zen API key'} value={zenKey} onChange={e => setZenKey(e.target.value)} autoComplete="off" />
+          <div className="row-actions">
+            <button type="button" className="btnp" disabled={!zenKey.trim()} onClick={() => void act(async () => { await careerloom.setApiKey(zenKey, 'opencode'); setZenKey(''); onChanged() }, 'Key saved to your OS keychain')}>Save key</button>
+            <button type="button" className="set-text-button" onClick={() => void careerloom.openExternal('https://opencode.ai/auth')}>Get a key</button>
+            {settings.hasOpencodeKey && <button type="button" className="btnp btnp-danger" onClick={() => void act(async () => { await careerloom.setApiKey(null, 'opencode'); onChanged() }, 'Key removed')}>Remove key</button>}
           </div>
         </div>
       </Panel>
@@ -129,7 +141,7 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
 
 /** Model for one CLI: suggestions from the CLI (Antigravity lists its own), any id allowed.
  *  Empty = the CLI's default model. Saves on Enter or when the field loses focus. */
-function ModelPicker({ runner, value, onSaved }: { runner: CliRunner; value: string; onSaved: () => void }) {
+function ModelPicker({ runner, value, onSaved }: { runner: ModelRunner; value: string; onSaved: () => void }) {
   const [draft, setDraft] = useState(value)
   const [options, setOptions] = useState<ModelOption[] | null>(null)
   useEffect(() => setDraft(value), [value])

@@ -5,7 +5,7 @@ import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { parse as parseYaml, parseDocument } from 'yaml'
 
-import { presetBoards, searchProfile, seedDefaults } from './integrations/portal-defaults'
+import { BOARD_CATEGORIES, isOldDefault, oldDefaultKeys, presetBoards, searchProfile, seedDefaults } from './integrations/portal-defaults'
 import { readAllSources, removeSources, subsetScanYaml } from './integrations/sources'
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-portals-'))
@@ -50,43 +50,52 @@ location:
 `
 
 describe('default portals', () => {
-  it('reads the search profile and builds disabled browser presets', () => {
+  it('reads the search profile and builds the India starter pack: 20-25 disabled, categorised boards', () => {
     const p = searchProfile(PROFILE)
     expect(p).toEqual({ role: 'Senior Software Engineer', city: 'Bengaluru', country: 'India' })
-    const presets = presetBoards(p)
-    expect(presets.map(b => b.name)).toEqual(['LinkedIn Jobs', 'Naukri', 'Indeed', 'Glassdoor'])
-    expect(presets.every(b => b.enabled === false && b.fetch === 'browser')).toBe(true)
-    expect(presets[0]!.careers_url).toBe('https://www.linkedin.com/jobs/search/?keywords=Senior+Software+Engineer&location=Bengaluru%2C+India')
-    expect(presets[1]!.careers_url).toBe('https://www.naukri.com/senior-software-engineer-jobs-in-bengaluru')
-    expect(presets[2]!.careers_url).toBe('https://in.indeed.com/jobs?q=Senior+Software+Engineer&l=Bengaluru')
-    expect(presetBoards(searchProfile('')).map(b => b.careers_url)).toEqual([
-      'https://www.linkedin.com/jobs/search/?', 'https://www.naukri.com/jobs-in-india', 'https://www.indeed.com/jobs?', 'https://www.glassdoor.com/Job/jobs.htm?',
-    ])
+    const pack = presetBoards(p)
+    expect(pack.length).toBeGreaterThanOrEqual(20)
+    expect(pack.length).toBeLessThanOrEqual(25)
+    expect(new Set(pack.map(b => b.name)).size).toBe(pack.length)
+    expect(pack.every(b => b.enabled === false && (b.fetch === 'browser' || b.fetch === 'firecrawl'))).toBe(true)
+    for (const c of BOARD_CATEGORIES) expect(pack.some(b => b.category === c)).toBe(true)
+    expect(pack.every(b => (BOARD_CATEGORIES as readonly string[]).includes(b.category!))).toBe(true)
+    // Every URL is an Indian board or an India-scoped search.
+    expect(pack.every(b => /naukri\.com|\.in\b|india|in\.indeed|apna\.co|internshala|hirist\.tech|cutshort\.io|caclubindia|instahyre|freshersworld|iimjobs|in\.linkedin|linkedin\.com\/jobs\/search\/\?.*(India|Bengaluru)/i.test(b.careers_url!))).toBe(true)
+    const byName = Object.fromEntries(pack.map(b => [b.name, b.careers_url]))
+    expect(byName['Naukri']).toBe('https://www.naukri.com/senior-software-engineer-jobs-in-bengaluru')
+    expect(byName['LinkedIn Jobs']).toBe('https://www.linkedin.com/jobs/search/?keywords=Senior+Software+Engineer&location=Bengaluru%2C+India')
+    expect(byName['Indeed India']).toBe('https://in.indeed.com/jobs?q=Senior+Software+Engineer&l=Bengaluru')
+    const generic = Object.fromEntries(presetBoards(searchProfile('')).map(b => [b.name, b.careers_url]))
+    expect(generic['Naukri']).toBe('https://www.naukri.com/jobs-in-india')
+    expect(generic['LinkedIn Jobs']).toBe('https://www.linkedin.com/jobs/search/?location=India')
   })
 
-  it('merges what the user lacks, keeps enabled flags and comments, never duplicates, is idempotent', () => {
+  it('adds only the pack boards the user lacks, keeps their entries and comments, is idempotent', () => {
     const doc = parseDocument(USER)
-    const added = seedDefaults(doc, EXAMPLE, presetBoards(searchProfile(PROFILE)))
-    // Acme, Old Co, SolidJobs IT, Telegram, + Naukri/Indeed/Glassdoor (GitLab by URL and LinkedIn Jobs by name exist)
-    expect(added).toBe(7)
+    const pack = presetBoards(searchProfile(PROFILE))
+    const added = seedDefaults(doc, pack)
+    expect(added).toBe(pack.length - 1) // the user's own "LinkedIn Jobs" is kept, not duplicated
     const text = String(doc)
     expect(text).toContain('# my portals')
-    expect(text).toContain('# ── AI labs ──')
-    expect(text).toContain('# ── SolidJobs ──')
     const js = parseYaml(text)
-    expect(js.tracked_companies.map((c: { name: string }) => c.name)).toEqual(['gitlab', 'LinkedIn Jobs', 'Acme', 'Old Co', 'Naukri', 'Indeed', 'Glassdoor'])
-    expect(js.tracked_companies.find((c: { name: string }) => c.name === 'Old Co').enabled).toBe(false)
-    expect(js.tracked_companies.find((c: { name: string }) => c.name === 'LinkedIn Jobs').enabled).toBe(true) // the user's own entry untouched
-    expect(js.job_boards.map((b: { name: string; enabled: boolean }) => [b.name, b.enabled])).toEqual([['SolidJobs IT', true], ['Telegram @jobs', false]])
-    expect(js.title_filter).toBeUndefined() // only the two lists are merged
-    expect(seedDefaults(doc, EXAMPLE, presetBoards(searchProfile(PROFILE)))).toBe(0)
+    expect(js.tracked_companies[1]).toMatchObject({ name: 'LinkedIn Jobs', enabled: true, careers_url: 'https://www.linkedin.com/jobs/search/?keywords=x' })
+    expect(js.tracked_companies.find((c: { name: string }) => c.name === 'iimjobs · Finance')).toMatchObject({ category: 'Finance', enabled: false })
+    expect(seedDefaults(doc, pack)).toBe(0)
+  })
+
+  it('switching to the pack removes only boards from the old defaults', () => {
+    const keys = oldDefaultKeys(EXAMPLE)
+    expect(isOldDefault(keys, { name: 'Acme' })).toBe(true)
+    expect(isOldDefault(keys, { name: 'gitlab', careers_url: 'https://job-boards.greenhouse.io/gitlab' })).toBe(true) // same URL as the example's GitLab
+    expect(isOldDefault(keys, { name: 'SolidJobs IT' })).toBe(true)
+    expect(isOldDefault(keys, { name: 'Indeed' })).toBe(true) // old preset
+    expect(isOldDefault(keys, { name: 'My startup', careers_url: 'https://jobs.lever.co/mystartup' })).toBe(false)
   })
 
   it('lists boards with their own ids, deletes from either list, and subsets both for a scan', () => {
     const file = path.join(dir, 'portals.yml')
-    const doc = parseDocument(USER)
-    seedDefaults(doc, EXAMPLE, [])
-    fs.writeFileSync(file, `title_filter:\n  positive: [engineer]\nsearch_queries: [x]\n${String(doc)}`)
+    fs.writeFileSync(file, `# my portals\nsearch_queries: [x]\n${EXAMPLE}`)
     const all = readAllSources(file)
     const solid = all.find(s => s.name === 'SolidJobs IT')!
     expect(solid).toMatchObject({ id: 'board:solidjobs-it', list: 'job_boards' })

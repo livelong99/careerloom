@@ -3,12 +3,12 @@ import { useState } from 'react'
 import { usePolled } from '../../hooks/usePolled'
 import { careerloom } from '../../lib/ipc'
 import type { ToolCheck } from '../../lib/types'
-import { ApiKeyField, BTN, Command, Download, ENGINES, ErrorLine, Footer, OPENROUTER_KEYS, PRIMARY, Requirement, StepHeader, errorText } from './parts'
+import { ApiKeyField, BTN, Command, Download, ENGINES, ErrorLine, Footer, OPENCODE_KEYS, OPENROUTER_KEYS, PRIMARY, Requirement, StepHeader, errorText } from './parts'
 
 const found = (t: ToolCheck | undefined, name: string) => (t?.ok ? `${name} ${t.version}` : 'Not found')
 
 /** Node + Git + one engine (an agent CLI or an OpenRouter key). Sign-in is checked after setup. */
-export function PrereqStep({ hasApiKey, onKeySaved, onNext }: { hasApiKey: boolean; onKeySaved: () => void; onNext: () => void }) {
+export function PrereqStep({ hasApiKey, hasOpencodeKey, onKeySaved, onNext }: { hasApiKey: boolean; hasOpencodeKey: boolean; onKeySaved: () => void; onNext: () => void }) {
   const [tick, setTick] = useState(0)
   const pre = usePolled(() => careerloom.prerequisites(), [tick], { intervalMs: null })
   const bins = usePolled(() => careerloom.runnerStatus(), [tick], { intervalMs: null })
@@ -16,7 +16,7 @@ export function PrereqStep({ hasApiKey, onKeySaved, onNext }: { hasApiKey: boole
   const checking = pre.loading || bins.loading
   const nodeOld = Boolean(p?.node.version && !p.node.ok)
   const engines = ENGINES.filter(e => bins.data?.[e.id])
-  const hasEngine = engines.length > 0 || hasApiKey
+  const hasEngine = engines.length > 0 || hasApiKey || hasOpencodeKey
   const ok = Boolean(p?.node.ok && p.npm.ok && p.git.ok && hasEngine)
   const recheck = () => setTick(n => n + 1)
 
@@ -34,8 +34,8 @@ export function PrereqStep({ hasApiKey, onKeySaved, onNext }: { hasApiKey: boole
           {p?.platform === 'darwin' && <><span>On a Mac, this installs it:</span><Command cmd="xcode-select --install" /></>}
           <Download label="Download Git" url="https://git-scm.com/downloads" />
         </Requirement>
-        <Requirement ok={hasEngine} title="An AI agent" status={!bins.data ? 'Checking…' : hasEngine ? [...engines.map(e => e.label), ...(hasApiKey ? ['API key'] : [])].join(', ') : 'None found'}>
-          <span>Install one of these agent tools. You’ll sign in to it after setup.</span>
+        <Requirement ok={hasEngine} title="An AI agent" status={!bins.data ? 'Checking…' : hasEngine ? [...engines.map(e => e.label), ...(hasOpencodeKey ? ['OpenCode Zen key'] : []), ...(hasApiKey ? ['API key'] : [])].join(', ') : 'None found'}>
+          <span>Install one of these agent tools, or add an OpenCode Zen key below (it also runs OpenCode's free models headlessly). You’ll sign in to a CLI after setup.</span>
           {ENGINES.map(e => (
             <div key={e.id} className="flex flex-col gap-2 rounded-md border border-border p-3">
               <span><b className="text-foreground">{e.label}</b> — {e.what}</span>
@@ -43,6 +43,9 @@ export function PrereqStep({ hasApiKey, onKeySaved, onNext }: { hasApiKey: boole
               <Download label={`Get ${e.label}`} url={e.url} />
             </div>
           ))}
+          <span>Or skip installing: an OpenCode Zen API key lets Careerloom run the agent itself on paid models. Free models need the OpenCode CLI.</span>
+          <ApiKeyField provider="opencode" hasKey={hasOpencodeKey} onSaved={onKeySaved} />
+          <Download label="Get an OpenCode Zen key" url={OPENCODE_KEYS} />
           <span>Or use any model through an OpenRouter API key (free models work, fewer features).</span>
           <ApiKeyField hasKey={hasApiKey} onSaved={onKeySaved} />
           <Download label="Get an OpenRouter key" url={OPENROUTER_KEYS} />

@@ -6,15 +6,18 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { careerOpsRoot, launch, readSettings, streamFormat, type RunRecord } from '../context'
+import { careerOpsRoot, launch, readOpencodeKey, readSettings, startZen, streamFormat, type RunRecord } from '../context'
+import { opencodeBrowserConfig, opencodeEnv } from '../opencode'
+import { connectMcp, type McpClient } from '../mcp-client'
 import { spawnSpec, type RunnerId } from '../runner'
-import { blockedMessage, browserAgentArgs, browserPrompt, navLockScript, playwrightMcp } from './browser-args'
+import { blockedMessage, browserAgentArgs, browserPrompt, MCP_NAME, navLockScript, playwrightMcp, READ_ONLY_TOOLS } from './browser-args'
 import { registrableDomain, storageState } from './browser-cookies'
 import { domainCookies, effectiveLogin, isAcknowledged, loginLabel, pageWaitSeconds } from './browser-login'
 import type { Source } from './sources'
 import { boardUrls, extractJobsJson, MAX_PAGES, validateJobs, type WebJob } from './web-board-core'
 
-export const BROWSER_RUNNER = 'Browser boards need Claude Code or Codex for now — switch runner in Settings'
+export const BROWSER_RUNNER = 'Browser boards need Claude Code, Codex, OpenCode or OpenCode Zen — switch runner in Settings'
+const BROWSER_RUNNERS = new Set<RunnerId>(['claude', 'codex', 'opencode', 'zen'])
 export const consentMessage = (domain: string) => `Browser scan of ${domain} needs your acknowledgement first`
 
 export const boardDomain = (board: Source): string => registrableDomain(new URL(boardUrls(board)[0]!).hostname)
@@ -22,21 +25,43 @@ export const boardDomain = (board: Source): string => registrableDomain(new URL(
 /** Checks that fail before anything runs (runner, per-domain acknowledgement). */
 export function assertBrowserReady(board: Source): void {
   const { runner } = readSettings()
-  if (runner !== 'claude' && runner !== 'codex') throw new Error(BROWSER_RUNNER)
+  if (!BROWSER_RUNNERS.has(runner)) throw new Error(BROWSER_RUNNER)
   if (!isAcknowledged(boardDomain(board))) throw new Error(consentMessage(boardDomain(board)))
 }
 
 /** Runs in `cwd` = the run's private temp dir: that becomes Playwright MCP's workspace root, so a
  *  snapshot `filename` or file:// access can never reach the career-ops folder. */
-function runToEnd(record: Pick<RunRecord, 'mode' | 'label' | 'input'> & { runner: RunnerId }, bin: string, args: string[], cwd: string): Promise<RunRecord> {
+function runToEnd(record: Pick<RunRecord, 'mode' | 'label' | 'input'> & { runner: RunnerId }, bin: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}, secret?: string): Promise<RunRecord> {
   const root = careerOpsRoot()
   return new Promise((resolve, reject) => {
     try {
-      launch(record, [{ spec: spawnSpec(bin, args), cwd }], { format: streamFormat(record.runner, root), onExit: resolve })
+      launch(record, [{ spec: spawnSpec(bin, args, env), cwd }], { format: streamFormat(record.runner, root), onExit: resolve, secret })
     } catch (err) {
       reject(err)
     }
   })
+}
+
+/** One public page rendered in the user's Chrome (headless, fresh profile, no cookies, navigation
+ *  locked to its domain) as Playwright's page snapshot — for script-rendered pages that block plain
+ *  HTTP clients (Naukri). Careerloom drives the tools itself: no agent, no tokens. */
+export async function browserPageText(url: string): Promise<string> {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-jd-')) // mkdtemp is 0700
+  let mcp: McpClient | null = null
+  try {
+    const stateFile = path.join(dir, 'state.json')
+    const navLock = path.join(dir, 'nav-lock.cjs')
+    fs.writeFileSync(stateFile, JSON.stringify(storageState([])), { mode: 0o600, flag: 'wx' })
+    fs.writeFileSync(navLock, navLockScript(registrableDomain(new URL(url).hostname), 3), { mode: 0o600, flag: 'wx' })
+    mcp = await connectMcp(playwrightMcp(stateFile, true, navLock), dir)
+    await mcp.call('browser_navigate', { url })
+    await mcp.call('browser_wait_for', { time: 3 })
+    // Element refs are for clicking; a JD reader doesn't need them.
+    return (await mcp.call('browser_snapshot', {})).replace(/ \[ref=[^\]]*\]/g, '')
+  } finally {
+    mcp?.close()
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 }
 
 export async function browserExtract(board: Source, guideline: string | undefined, log: (t: string) => void): Promise<WebJob[]> {
@@ -54,13 +79,23 @@ export async function browserExtract(board: Source, guideline: string | undefine
     const stateFile = path.join(dir, 'state.json')
     const navLock = path.join(dir, 'nav-lock.cjs')
     fs.writeFileSync(stateFile, JSON.stringify(storageState(cookies)), { mode: 0o600, flag: 'wx' })
-    fs.writeFileSync(navLock, navLockScript(domain), { mode: 0o600, flag: 'wx' })
-    const model = runner === 'claude' || runner === 'codex' ? models[runner] : undefined
+    fs.writeFileSync(navLock, navLockScript(domain, pageWaitSeconds(cfg)), { mode: 0o600, flag: 'wx' })
+    const model = runner === 'api' ? undefined : models[runner]
     const prompt = browserPrompt(board.name, urls, guideline, MAX_PAGES, pageWaitSeconds(cfg))
-    const args = browserAgentArgs(runner, prompt, playwrightMcp(stateFile, cfg.headless, navLock), model)
-    if (!args) throw new Error(BROWSER_RUNNER)
-    log(`  browser agent running ("Browse jobs: ${board.name}" in Runs)\n`)
-    const run = await runToEnd({ runner, mode: 'web-board', label: `Browse jobs: ${board.name}`, input: urls[0]! }, runner, args, dir)
+    const mcp = playwrightMcp(stateFile, cfg.headless, navLock)
+    const record = { runner, mode: 'web-board', label: `Browse jobs: ${board.name}`, input: urls[0]! }
+    log(`  browser agent running ("${record.label}" in Runs)\n`)
+    let run: RunRecord
+    if (runner === 'zen') {
+      // In-process: Careerloom's MCP client holds only the read-only tools.
+      run = await new Promise<RunRecord>(resolve => startZen(record, prompt, { browser: { mcp, cwd: dir, allow: READ_ONLY_TOOLS }, onExit: resolve }))
+    } else {
+      const args = browserAgentArgs(runner, prompt, mcp, model)
+      if (!args) throw new Error(BROWSER_RUNNER)
+      const key = runner === 'opencode' ? readOpencodeKey() : null
+      const env = runner === 'opencode' ? opencodeEnv(opencodeBrowserConfig(MCP_NAME, mcp, READ_ONLY_TOOLS), key) : {}
+      run = await runToEnd(record, runner, args, dir, env, key ?? undefined)
+    }
     const raw = extractJobsJson(run.log) as { jobs?: unknown[]; blocked?: unknown } | null
     if (raw === null) throw new Error(`the browser run ${run.status === 'done' ? 'returned no {"jobs":[…]} JSON' : run.status}`)
     if (typeof raw.blocked === 'string' && raw.blocked && !raw.jobs?.length) throw new Error(blockedMessage(domain, raw.blocked, cookies.length, source))

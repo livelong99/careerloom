@@ -11,7 +11,9 @@ export const ENGINES: Array<{ id: CliRunner; label: string; what: string; url: s
   { id: 'claude', label: 'Claude Code', what: 'Anthropic’s agent. Uses your Claude subscription.', url: 'https://docs.anthropic.com/en/docs/claude-code/setup', install: 'npm install -g @anthropic-ai/claude-code', signIn: 'claude' },
   { id: 'codex', label: 'Codex', what: 'OpenAI’s agent. Uses your ChatGPT plan.', url: 'https://developers.openai.com/codex/cli', install: 'npm install -g @openai/codex', signIn: 'codex login' },
   { id: 'antigravity', label: 'Antigravity', what: 'Google’s agent CLI (agy). Uses your Google account.', url: 'https://antigravity.google', install: null, signIn: 'agy' },
+  { id: 'opencode', label: 'OpenCode', what: 'Open-source agent CLI. Free models with an OpenCode Zen key.', url: 'https://opencode.ai/docs/', install: 'npm install -g opencode-ai', signIn: 'opencode' },
 ]
+export const OPENCODE_KEYS = 'https://opencode.ai/auth'
 export const OPENROUTER_KEYS = 'https://openrouter.ai/keys'
 
 const RING = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]'
@@ -64,12 +66,12 @@ export function ErrorLine({ message }: { message: string | null }) {
 }
 
 /** OpenRouter key: saved to the OS keychain; never read back. */
-export function ApiKeyField({ hasKey, onSaved }: { hasKey: boolean; onSaved: () => void }) {
+export function ApiKeyField({ hasKey, onSaved, provider = 'openrouter' }: { hasKey: boolean; onSaved: () => void; provider?: 'openrouter' | 'opencode' }) {
   const [key, setKey] = useState('')
   const [error, setError] = useState<string | null>(null)
   const save = async () => {
     setError(null)
-    try { await careerloom.setApiKey(key.trim()); setKey(''); onSaved() } catch (err) { setError(errorText(err)) }
+    try { await careerloom.setApiKey(key.trim(), provider); setKey(''); onSaved() } catch (err) { setError(errorText(err)) }
   }
   return (
     <form className="flex flex-col gap-2" onSubmit={e => { e.preventDefault(); void save() }}>
@@ -77,8 +79,8 @@ export function ApiKeyField({ hasKey, onSaved }: { hasKey: boolean; onSaved: () 
         <input
           type="password"
           className="set-input flex-1"
-          placeholder={hasKey ? 'Key saved. Paste a new one to replace it' : 'OpenRouter API key (sk-or-…)'}
-          aria-label="OpenRouter API key"
+          placeholder={hasKey ? 'Key saved. Paste a new one to replace it' : provider === 'opencode' ? 'OpenCode Zen API key' : 'OpenRouter API key (sk-or-…)'}
+          aria-label={provider === 'opencode' ? 'OpenCode Zen API key' : 'OpenRouter API key'}
           value={key}
           onChange={e => setKey(e.target.value)}
           autoComplete="off"

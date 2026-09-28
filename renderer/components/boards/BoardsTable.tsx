@@ -1,6 +1,9 @@
 import { Fragment, useMemo, useState } from 'react'
 import { PencilLine, Plus, Search, Trash2 } from 'lucide-react'
 
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -20,6 +23,8 @@ import { ago, boardType, hostOf, TYPE_LABEL, TYPE_ORDER, type BoardType } from '
 
 type Props = { portals: Portal[]; onEdit: (id: string) => void; onChanged: () => void; onScan: (ids: string[]) => void; scanning: boolean }
 type StatusFilter = 'all' | 'enabled' | 'disabled'
+/** Starter-pack groups (portals.yml `category:`), in display order. */
+const CATEGORIES = ['Common', 'Tech', 'Finance', 'Consulting']
 
 const HEALTH_TONE: Record<string, 'success' | 'warn' | 'danger' | 'neutral'> = { reachable: 'success', empty: 'warn', unreachable: 'danger', error: 'danger' }
 
@@ -31,11 +36,15 @@ export function BoardsTable({ portals, onEdit, onChanged, onScan, scanning }: Pr
   const [selected, setSelected] = useState<string[]>([])
   const [deleting, setDeleting] = useState<Portal[] | null>(null)
   const [adding, setAdding] = useState(false)
+  const [category, setCategory] = useState('all')
+  const [switching, setSwitching] = useState(false)
 
   const counts = useMemo(() => Object.fromEntries(TYPE_ORDER.map(t => [t, portals.filter(p => boardType(p) === t).length])) as Record<BoardType, number>, [portals])
   const q = query.trim().toLowerCase()
+  const catCounts = CATEGORIES.map(c => [c, portals.filter(p => p.category === c).length] as const).filter(([, n]) => n > 0)
   const shown = portals.filter(p =>
     (type === 'all' || boardType(p) === type)
+    && (category === 'all' || p.category === category)
     && (status === 'all' || (status === 'enabled') === p.enabled)
     && (!q || `${p.name} ${p.ats ?? ''} ${p.careersUrl ?? ''}`.toLowerCase().includes(q)))
   const groups = TYPE_ORDER.map(t => ({ t, rows: shown.filter(p => boardType(p) === t) })).filter(g => g.rows.length)
@@ -48,8 +57,12 @@ export function BoardsTable({ portals, onEdit, onChanged, onScan, scanning }: Pr
   const setEnabled = (ids: string[], enabled: boolean) => act(() => careerloom.setPortalsEnabled(ids, enabled), `${enabled ? 'Enabled' : 'Disabled'} ${ids.length === 1 ? portals.find(p => p.id === ids[0])?.name ?? '1 board' : `${ids.length} boards`}`)
   const addDefaults = () => act(async () => {
     const n = await careerloom.addDefaultPortals()
-    if (!n) throw new Error('You already have all the default boards')
-  }, 'Added the default boards (each keeps career-ops’ enabled flag; browser presets start disabled)')
+    if (!n) throw new Error('You already have every board in the India starter pack')
+  }, 'Added the India starter pack — boards start disabled; enable the ones you want')
+  const switchPack = () => act(async () => {
+    const r = await careerloom.switchToStarterPack()
+    showToast(`Removed ${r.removed} old default board${r.removed === 1 ? '' : 's'}${r.hidden ? ` (hid ${r.hidden} unevaluated jobs)` : ''}, added ${r.added}`)
+  }, 'Switched to the India starter pack').finally(() => setSwitching(false))
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -62,6 +75,9 @@ export function BoardsTable({ portals, onEdit, onChanged, onScan, scanning }: Pr
           value={type} onChange={v => setType(v as BoardType | 'all')}
           options={[{ value: 'all', label: `All ${portals.length}` }, ...TYPE_ORDER.filter(t => counts[t]).map(t => ({ value: t, label: `${TYPE_LABEL[t]} ${counts[t]}` }))]}
         />
+        {catCounts.length > 0 && (
+          <SegTabs value={category} onChange={setCategory} options={[{ value: 'all', label: 'All categories' }, ...catCounts.map(([c, n]) => ({ value: c, label: `${c} ${n}` }))]} />
+        )}
         <SegTabs value={status} onChange={v => setStatus(v as StatusFilter)} options={[{ value: 'all', label: 'Any status' }, { value: 'enabled', label: 'Enabled' }, { value: 'disabled', label: 'Disabled' }]} />
         <div className="flex-1" />
         <DropdownMenu>
@@ -70,7 +86,8 @@ export function BoardsTable({ portals, onEdit, onChanged, onScan, scanning }: Pr
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => setAdding(true)}>ATS link or any job board…</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void addDefaults()}>Add default boards</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void addDefaults()}>Add India starter pack</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setSwitching(true)}>Switch to India starter pack…</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -100,6 +117,7 @@ export function BoardsTable({ portals, onEdit, onChanged, onScan, scanning }: Pr
                     <HitCheckbox checked={allShown ? true : selected.length ? 'indeterminate' : false} aria-label="Select all shown boards" onCheckedChange={v => setSelected(v ? shown.map(p => p.id) : [])} />
                   </TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>URL</TableHead>
                   <TableHead>Enabled</TableHead>
@@ -115,7 +133,7 @@ export function BoardsTable({ portals, onEdit, onChanged, onScan, scanning }: Pr
                   <Fragment key={g.t}>
                     {type === 'all' && (
                       <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={10} className="bg-(--hover) py-1 text-xs font-medium text-muted-foreground">{TYPE_LABEL[g.t]} · <span className="tabular-nums">{g.rows.length}</span></TableCell>
+                        <TableCell colSpan={11} className="bg-(--hover) py-1 text-xs font-medium text-muted-foreground">{TYPE_LABEL[g.t]} · <span className="tabular-nums">{g.rows.length}</span></TableCell>
                       </TableRow>
                     )}
                     {g.rows.map(p => (
@@ -132,6 +150,7 @@ export function BoardsTable({ portals, onEdit, onChanged, onScan, scanning }: Pr
                           <div className={`truncate font-medium${p.enabled ? '' : ' text-muted-foreground'}`} title={p.name}>{p.name}</div>
                           {p.ats && <div className="truncate text-xs text-muted-foreground">{p.ats}</div>}
                         </TableCell>
+                        <TableCell className="text-muted-foreground">{p.category ?? '—'}</TableCell>
                         <TableCell><Badge variant={g.t === 'browser' ? 'warn' : g.t === 'web' ? 'info' : 'neutral'}>{TYPE_LABEL[g.t]}</Badge></TableCell>
                         <TableCell className="max-w-56"><span className="block truncate text-muted-foreground" title={p.careersUrl ?? undefined}>{hostOf(p.careersUrl) || '—'}</span></TableCell>
                         <TableCell onClick={e => e.stopPropagation()}>
@@ -155,6 +174,22 @@ export function BoardsTable({ portals, onEdit, onChanged, onScan, scanning }: Pr
             </Table>
           </div>
         )}
+      {switching && (
+        <AlertDialog open onOpenChange={open => { if (!open) setSwitching(false) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Switch to the India starter pack?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Removes the boards Careerloom added from career-ops’ default list (mostly US and European company pages) and adds 24 popular Indian job boards in Common, Tech, Finance and Consulting — all disabled until you enable them. Boards you added yourself stay. Evaluated jobs and reports stay; unevaluated jobs from removed boards are hidden.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={e => { e.preventDefault(); void switchPack() }}>Switch</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
       {adding && <AddWebBoardDialog onClose={() => setAdding(false)} onAdded={onChanged} />}
       {deleting && (
         <DeletePortalsDialog

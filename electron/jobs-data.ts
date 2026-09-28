@@ -140,6 +140,7 @@ export function derivePortals(sources: Source[], jobs: JobListing[], guidelines:
     const lastSeen = mine.reduce<string | null>((max, j) => (j.firstSeen && (!max || j.firstSeen > max) ? j.firstSeen : max), null)
     return {
       id: s.id, name: s.name, ats: portalAts(s), careersUrl: s.careers_url ?? null, enabled: s.enabled !== false,
+      category: typeof s.category === 'string' ? s.category : null,
       jobCount: mine.length,
       newCount: mine.filter(j => j.state === 'new' && j.firstSeen === lastSeen).length,
       lastSeen, guideline: guidelines.get(s.name) ?? null,
