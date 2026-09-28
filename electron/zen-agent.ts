@@ -81,12 +81,17 @@ async function complete(job: ZenJob, messages: Msg[], tools: ToolDef[], cancelle
   }
 }
 
-/** Zen's errors, with the fix the user can make. */
+/** Zen's errors: always its own message, plus the fix the user can make. */
 export function zenError(status: number, detail: string, model: string): string {
-  if (status === 401 || status === 403) return `OpenCode Zen rejected the API key (HTTP ${status}) — check it in Settings`
-  if (/unavailable|not.?found|unknown model|not supported/i.test(detail)) return `OpenCode Zen model "${model}" is unavailable right now (free models rotate) — pick another in Settings → OpenCode Zen`
-  if (status === 402 || /credit|balance|billing/i.test(detail)) return `OpenCode Zen: this model needs credits on your account — add billing at opencode.ai or pick a free model (HTTP ${status})`
-  return `OpenCode Zen: HTTP ${status} ${detail}`
+  let msg = detail.trim()
+  try { msg = (JSON.parse(detail) as { error?: { message?: string } }).error?.message ?? msg } catch { /* not JSON */ }
+  const say = `OpenCode Zen (HTTP ${status}, ${model}): ${msg || 'no details'}`
+  // Zen serves its free tier only to the OpenCode app itself — a provider rule, not a key problem.
+  if (/free tier|within opencode/i.test(msg)) return `${say} — use the OpenCode CLI runner for free models, or pick a paid model for OpenCode Zen in Settings`
+  if (status === 401) return `${say} — check the OpenCode Zen key in Settings → API keys`
+  if (/unavailable|not.?found|unknown model|not supported/i.test(msg)) return `${say} — pick another model in Settings → OpenCode Zen (free models rotate)`
+  if (status === 402 || /credit|balance|billing/i.test(msg)) return `${say} — add credits at opencode.ai or pick a free model`
+  return say
 }
 
 const sessionFile = (dir: string, id: string) => path.join(dir, `${id}.json`)
