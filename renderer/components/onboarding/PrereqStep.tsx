@@ -43,7 +43,7 @@ export function PrereqStep({ hasApiKey, hasOpencodeKey, onKeySaved, onNext }: { 
               <Download label={`Get ${e.label}`} url={e.url} />
             </div>
           ))}
-          <span>Or skip installing: an OpenCode Zen API key lets Careerloom run the agent itself (free models stay free).</span>
+          <span>Or skip installing: an OpenCode Zen API key lets Careerloom run the agent itself on paid models. Free models need the OpenCode CLI.</span>
           <ApiKeyField provider="opencode" hasKey={hasOpencodeKey} onSaved={onKeySaved} />
           <Download label="Get an OpenCode Zen key" url={OPENCODE_KEYS} />
           <span>Or use any model through an OpenRouter API key (free models work, fewer features).</span>

@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { RunRecord } from './context'
-import { opencodeBrowserConfig, opencodeConfig, zenModelsFrom } from './opencode'
+import { isFreeModel, opencodeBrowserConfig, opencodeConfig, paidCheapestFirst, skillAllowlist, zenModelsFrom } from './opencode'
 import { argsForPrompt, formatOpencodeLine, opencodeResultOk, opencodeSessionId, opencodeUsage } from './runner'
 import { runZen, zenError, zenPrompt } from './zen-agent'
 import { commandSpec, confine, htmlToText, publicUrl, runTool, splitCommand } from './zen-tools'
@@ -27,7 +27,7 @@ describe('opencode CLI runner', () => {
     expect(formatOpencodeLine(JSON.stringify({ type: 'tool_use', part: { tool: 'bash', state: { status: 'completed', input: { command: 'node merge.mjs' } } } }))).toBe('▸ bash node merge.mjs\n')
     expect(formatOpencodeLine(JSON.stringify({ type: 'text', part: { text: '{"jobs":[]}' } }))).toBe('{"jobs":[]}\n')
     expect(opencodeResultOk(JSON.stringify({ type: 'error', error: { name: 'APIError' } }))).toBe(false)
-    expect(formatOpencodeLine(JSON.stringify({ type: 'error', error: { data: { message: "OpenCode's free tier can only be used from within OpenCode" } } }))).toMatch(/add an OpenCode Zen API key/)
+    expect(formatOpencodeLine(JSON.stringify({ type: 'error', error: { data: { message: "OpenCode's free tier can only be used from within OpenCode" } } }))).toMatch(/standard tools/)
     expect(opencodeResultOk(step(0))).toBeNull()
   })
 
@@ -37,7 +37,24 @@ describe('opencode CLI runner', () => {
     expect(cfg.permission.external_directory).toEqual({ '/skills/a/**': 'allow' })
     const browser = JSON.parse(opencodeBrowserConfig('clbrowser', { command: 'npx', args: ['-y', 'pw'] }, ['browser_snapshot'])) as { mcp: Record<string, { command: string[] }>; permission: Record<string, string> }
     expect(browser.mcp.clbrowser!.command).toEqual(['npx', '-y', 'pw'])
-    expect(browser.permission).toEqual({ '*': 'deny', clbrowser_browser_snapshot: 'allow' })
+    // "ask" keeps opencode's standard tools in the request (Zen's free tier needs them) while headless
+    // auto-rejects every call; only the read-only browser tools are allowed.
+    expect(browser.permission).toEqual({ '*': 'ask', skill: 'deny', clbrowser_browser_snapshot: 'allow' })
+  })
+
+  it('allows only career-ops and Careerloom-installed skills (the global skill list costs ~130k tokens)', () => {
+    expect(skillAllowlist(['/x/ai-job-search/', '/y/bad name'])).toEqual({ '*': 'deny', 'career-ops*': 'allow', 'ai-job-search*': 'allow' })
+    const cfg = JSON.parse(opencodeConfig([])) as { permission: { skill: Record<string, string> } }
+    expect(cfg.permission.skill).toEqual({ '*': 'deny', 'career-ops*': 'allow' })
+  })
+
+  it('the zen (API) runner lists paid models only, cheapest first', () => {
+    const m = (id: string, price: number) => ({ id, label: id, free: price === 0, price })
+    expect(paidCheapestFirst([m('free-a', 0), m('pricey', 5), m('cheap', 0.2)]).map(x => x.id)).toEqual(['cheap', 'pricey'])
+    // A saved free model fails before any request (Zen: FreeTierError over the API, whatever the key).
+    expect(isFreeModel('free-a', [m('free-a', 0)])).toBe(true)
+    expect(isFreeModel('nemotron-3-ultra-free', [])).toBe(true) // catalogue unreachable: fall back to the -free suffix
+    expect(isFreeModel('cheap', [m('cheap', 0.2)])).toBe(false)
   })
 })
 
