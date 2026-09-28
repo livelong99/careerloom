@@ -15,8 +15,8 @@ const RUNNERS: Array<{ id: RunnerId; label: string; bin: 'claude' | 'codex' | 'a
   { id: 'claude', label: 'Claude Code', bin: 'claude', note: 'Uses your Claude subscription. Can edit files and run career-ops scripts; nothing else without asking.' },
   { id: 'codex', label: 'Codex', bin: 'codex', note: 'Uses your ChatGPT/Codex plan (codex exec, sandboxed to the folder).' },
   { id: 'antigravity', label: 'Antigravity', bin: 'antigravity', note: 'Google Antigravity CLI (agy -p). Runs in agy’s sandbox: any command, but it can only write inside your career-ops folder.' },
-  { id: 'opencode', label: 'OpenCode', bin: 'opencode', note: 'OpenCode CLI (opencode run). Free models, no account needed. Edits files and runs career-ops scripts only.' },
-  { id: 'zen', label: 'OpenCode Zen (API)', bin: null, note: 'Nothing to install: Careerloom runs the agent itself on the OpenCode Zen API. Free models need no key. Some free models may use prompts (your CV included) for training — pick a zero-retention one if that matters.' },
+  { id: 'opencode', label: 'OpenCode', bin: 'opencode', note: 'OpenCode CLI (opencode run). Edits files and runs career-ops scripts only. Scans and batch runs need an OpenCode Zen key (below) — OpenCode only serves its keyless free tier inside its own app; free models stay free with a key.' },
+  { id: 'zen', label: 'OpenCode Zen (API)', bin: null, note: 'Nothing to install: Careerloom runs the agent itself on the OpenCode Zen API. Needs an OpenCode Zen key (below); free models stay free. Some free models may use prompts (your CV included) for training — pick a zero-retention one if that matters.' },
   { id: 'api', label: 'API key', bin: null, note: 'Any model via OpenRouter — free models work. Covers evaluate, scan, pipeline and apply.' },
 ]
 
@@ -80,7 +80,7 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
         )}
         <div className="set-rows">
           {RUNNERS.map(r => {
-            const found = r.bin ? bins.data?.[r.bin] : r.id === 'zen' ? (settings.hasOpencodeKey ? 'Zen key saved' : 'Free models — no key needed') : settings.hasApiKey ? 'key saved' : null
+            const found = r.bin ? bins.data?.[r.bin] : r.id === 'zen' ? (settings.hasOpencodeKey ? 'Zen key saved' : null) : settings.hasApiKey ? 'key saved' : null
             const modelRunner: ModelRunner | null = r.bin ?? (r.id === 'zen' ? 'zen' : null)
             return (
               <div className="about-row" key={r.id}>
@@ -105,7 +105,7 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
       </Panel>
 
       <Panel title="API keys">
-        <p className="set-sub" style={{ marginTop: 0, marginBottom: 12 }}>OpenRouter: only for the API key runner. OpenCode Zen: optional, unlocks paid models for OpenCode and OpenCode Zen. Stored in your OS keychain, never in the career-ops folder.</p>
+        <p className="set-sub" style={{ marginTop: 0, marginBottom: 12 }}>OpenRouter: only for the API key runner. OpenCode Zen: needed for the OpenCode Zen runner; optional for the OpenCode CLI (unlocks paid models). Stored in your OS keychain, never in the career-ops folder.</p>
         <div className="field">
           <input type="password" aria-label="OpenRouter API key" placeholder={settings.hasApiKey ? 'OpenRouter key saved — paste to replace' : 'OpenRouter API key (sk-or-…)'} value={key} onChange={e => setKey(e.target.value)} autoComplete="off" />
           <div className="row-actions">
@@ -115,7 +115,7 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
           </div>
         </div>
         <div className="field" style={{ marginTop: 12 }}>
-          <input type="password" aria-label="OpenCode Zen API key" placeholder={settings.hasOpencodeKey ? 'OpenCode Zen key saved — paste to replace' : 'OpenCode Zen API key (optional)'} value={zenKey} onChange={e => setZenKey(e.target.value)} autoComplete="off" />
+          <input type="password" aria-label="OpenCode Zen API key" placeholder={settings.hasOpencodeKey ? 'OpenCode Zen key saved — paste to replace' : 'OpenCode Zen API key'} value={zenKey} onChange={e => setZenKey(e.target.value)} autoComplete="off" />
           <div className="row-actions">
             <button type="button" className="btnp" disabled={!zenKey.trim()} onClick={() => void act(async () => { await careerloom.setApiKey(zenKey, 'opencode'); setZenKey(''); onChanged() }, 'Key saved to your OS keychain')}>Save key</button>
             <button type="button" className="set-text-button" onClick={() => void careerloom.openExternal('https://opencode.ai/auth')}>Get a key</button>

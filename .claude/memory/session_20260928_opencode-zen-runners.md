@@ -28,6 +28,10 @@ metadata:
 **Blockers & resolutions:**
 - opencode.ai is blocked by this cloud environment's network policy → no live run; behavior verified from opencode source (2026-09-28) + mocked tests.
 
-**State:** implemented, typecheck/tests/build green; not live-tested; not committed
+**Follow-up (live test on the Mac):** OpenCode CLI works. Zen API failed `HTTP 400 … Model is unavailable` — keyless `Bearer public` + hardcoded `big-pickle` (undocumented path; Zen `/models` lists ids without price/status). Fix: Zen runner **requires an OpenCode Zen key** (free models stay $0); models + default come from the CLI's catalogue `https://models.opencode.ai/api.json` (tool_call, npm `@ai-sdk/openai-compatible`, not alpha/deprecated, free first; 1 h cache); `zenError` maps 401/402/unavailable to fixes; onboarding/Settings gate Zen on a saved key.
+
+- OpenCode CLI scan failed: "OpenCode's free tier can only be used from within OpenCode" — a server-side Zen rule (not in the open-source repo) on **anonymous** free-tier use; Careerloom sends the CLI's own headers (`x-opencode-client: cli`). Fix: with a saved Zen key Careerloom passes `OPENCODE_API_KEY` (confirmed env name), so runs are authenticated; the error line now carries that hint; UI/README say both OpenCode runners want a Zen key for headless use.
+
+**State:** committed (734f827 + key/catalogue/free-tier fix); not re-tested live
 
 **Next steps:** live test on the Mac (free model evaluate, chat resume, browser board on both runners); confirm `OPENCODE_API_KEY` is the env the CLI reads; confirm opencode MCP permission keys (`clbrowser_<tool>`); consider abort of in-flight Zen requests on cancel; free-model data-retention note for résumés.

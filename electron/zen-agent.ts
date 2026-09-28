@@ -8,7 +8,7 @@ import path from 'node:path'
 import type { RunRecord } from './context'
 import type { McpServer } from './integrations/browser-args'
 import { connectMcp, type McpClient } from './mcp-client'
-import { ZEN_URL, zenAuth } from './opencode'
+import { ZEN_URL } from './opencode'
 import { FILE_TOOLS, runTool, type ToolContext, type ToolDef } from './zen-tools'
 
 type ToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } }
@@ -22,7 +22,7 @@ export type BrowserTools = { mcp: McpServer; cwd: string; allow: readonly string
 export type ZenJob = {
   prompt: string
   model: string
-  key: string | null
+  key: string
   /** File/script/web tools in the career-ops folder, or only an MCP server's allowed tools. */
   tools: ToolContext | BrowserTools
   system: string
@@ -70,15 +70,23 @@ async function complete(job: ZenJob, messages: Msg[], tools: ToolDef[], cancelle
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`${ZEN_URL}/chat/completions`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: zenAuth(job.key), 'user-agent': 'Careerloom' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${job.key}`, 'user-agent': 'Careerloom' },
       body: JSON.stringify({ model: job.model, messages, ...(tools.length ? { tools } : {}) }),
       signal: AbortSignal.timeout(300_000),
     })
     if (res.ok) return (await res.json()) as Completion
     const detail = (await res.text()).slice(0, 300)
     if ((res.status === 429 || res.status >= 500) && attempt < 3 && !cancelled()) { await sleep(2000 * 2 ** attempt); continue }
-    throw new Error(`OpenCode Zen: HTTP ${res.status}${res.status === 401 ? ' — this model needs an OpenCode Zen API key (Settings)' : ''} ${detail}`)
+    throw new Error(zenError(res.status, detail, job.model))
   }
+}
+
+/** Zen's errors, with the fix the user can make. */
+export function zenError(status: number, detail: string, model: string): string {
+  if (status === 401 || status === 403) return `OpenCode Zen rejected the API key (HTTP ${status}) — check it in Settings`
+  if (/unavailable|not.?found|unknown model|not supported/i.test(detail)) return `OpenCode Zen model "${model}" is unavailable right now (free models rotate) — pick another in Settings → OpenCode Zen`
+  if (status === 402 || /credit|balance|billing/i.test(detail)) return `OpenCode Zen: this model needs credits on your account — add billing at opencode.ai or pick a free model (HTTP ${status})`
+  return `OpenCode Zen: HTTP ${status} ${detail}`
 }
 
 const sessionFile = (dir: string, id: string) => path.join(dir, `${id}.json`)

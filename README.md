@@ -21,8 +21,8 @@
 ## What it does
 
 Careerloom is a desktop interface for [career-ops](https://github.com/career-ops-hq/career-ops), the open-source
-job-search agent toolkit. It drives an agent CLI you already have, OpenCode's free models with nothing to install, or any model through
-an API key, and turns
+job-search agent toolkit. It drives an agent CLI you already have, or its own built-in agent on an API key (OpenCode Zen's free models
+cost nothing), and turns
 career-ops' files and scripts into a visual workflow.
 
 - **Jobs** — scan company boards (Greenhouse, Ashby, Lever, Workday and more), browse every listing across portals
@@ -53,11 +53,11 @@ career-ops' files and scripts into a visual workflow.
 | Claude Code | `claude` CLI, headless, streamed |
 | Codex | `codex exec` |
 | Antigravity | `agy`, sandboxed project with scoped permissions |
-| OpenCode | `opencode run`, headless, streamed; free models need no account |
-| OpenCode Zen | Careerloom's built-in agent on the [OpenCode Zen](https://opencode.ai/docs/zen/) API — nothing to install, free models need no key |
+| OpenCode | `opencode run`, headless, streamed; add an OpenCode Zen key for headless runs (free models stay free) |
+| OpenCode Zen | Careerloom's built-in agent on the [OpenCode Zen](https://opencode.ai/docs/zen/) API — nothing to install; needs a Zen API key, free models stay free |
 | API key | Any model through [OpenRouter](https://openrouter.ai) |
 
-Pick a runner and a model per runner in **Settings**. An OpenCode Zen API key is optional and unlocks paid models. Careerloom checks each CLI's install and sign-in status
+Pick a runner and a model per runner in **Settings**. Both OpenCode runners use an OpenCode Zen key; free models stay free, and the key unlocks paid ones. Careerloom checks each CLI's install and sign-in status
 when you choose your career-ops folder.
 
 ## Install
@@ -73,7 +73,7 @@ choose **More info → Run anyway** in SmartScreen.
 ### Requirements
 
 - [Node.js](https://nodejs.org) 18 or newer and [Git](https://git-scm.com)
-- Nothing else for OpenCode Zen; optionally one agent CLI from the table above, or an OpenRouter API key
+- One agent CLI from the table above, an OpenCode Zen API key, or an OpenRouter API key
 - Optional: [Docker](https://www.docker.com) for self-hosted Firecrawl
 - Optional: Python 3.10 or newer for the local pre-screen model (installed from onboarding, about 1.4 GB)
 

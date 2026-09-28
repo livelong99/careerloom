@@ -10,7 +10,7 @@ import path from 'node:path'
 import { agyDenied, ensureAgyProject } from './agy-project'
 import { checkRoot } from './careerops'
 import { logTail } from './scan-history'
-import { opencodeConfig, opencodeEnv, ZEN_DEFAULT_MODEL } from './opencode'
+import { NEEDS_ZEN_KEY, opencodeConfig, opencodeEnv, zenModel } from './opencode'
 import { agyFormatter, agyResultOk, agySessionId, agyUsage, argsFor, argsForPrompt, claudeSessionId, formatOpencodeLine, isModelId, claudeUsage, formatClaudeLine, isRunner, MODES, opencodeResultOk, opencodeSessionId, opencodeUsage, promptFor, resolveBin, RUNNERS, spawnSpec, startRun, type CliRunner, type ModeId, type PromptOptions, type RunnerId, type RunUsage, type SpawnSpec } from './runner'
 import { BROWSER_SYSTEM, runZen, zenPrompt, zenSystem, type BrowserTools } from './zen-agent'
 
@@ -339,18 +339,20 @@ function cliEnv(runner: CliRunner): { env: NodeJS.ProcessEnv; secret?: string } 
 
 /** A zen (in-process OpenCode Zen) run: career-ops file tools by default, or `browser` tools only. */
 export function startZen(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'input'>, prompt: string, opts: AgentPromptOptions & { browser?: BrowserTools } = {}): RunSummary {
+  const key = readOpencodeKey()
+  if (!key) throw new Error(NEEDS_ZEN_KEY)
   const root = careerOpsRoot()
   const skills = skillContext()
+  const chosen = readSettings().models.zen
   const job = {
-    model: readSettings().models.zen ?? ZEN_DEFAULT_MODEL,
-    key: readOpencodeKey(),
+    key,
     resume: opts.resume,
     sessionDir: userFile('zen-sessions'),
     ...(opts.browser
       ? { tools: opts.browser, system: BROWSER_SYSTEM, prompt }
       : { tools: { root, readDirs: skills.dirs, env: opts.env ?? {} }, system: zenSystem(root, skills.note), prompt: zenPrompt(root, prompt) }),
   }
-  return summary(launchTask(record, (log, run) => runZen(job, log, run), opts.onExit))
+  return summary(launchTask(record, async (log, run) => runZen({ ...job, model: await zenModel(chosen) }, log, run), opts.onExit))
 }
 
 /** Launch a server-built prompt (must start with a fixed literal, e.g. "/career-ops …").

@@ -144,7 +144,7 @@ const handlers: Record<string, Handler> = {
   listModels: (runner: unknown) => {
     if (runner === 'antigravity') return antigravityModels()
     if (runner === 'opencode') return listOpencodeModels()
-    if (runner === 'zen') return zenModels(readOpencodeKey())
+    if (runner === 'zen') return zenModels()
     if (runner === 'claude' || runner === 'codex') return MODEL_SUGGESTIONS[runner]
     throw new Error('Unknown runner')
   },

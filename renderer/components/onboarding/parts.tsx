@@ -11,7 +11,7 @@ export const ENGINES: Array<{ id: CliRunner; label: string; what: string; url: s
   { id: 'claude', label: 'Claude Code', what: 'Anthropic’s agent. Uses your Claude subscription.', url: 'https://docs.anthropic.com/en/docs/claude-code/setup', install: 'npm install -g @anthropic-ai/claude-code', signIn: 'claude' },
   { id: 'codex', label: 'Codex', what: 'OpenAI’s agent. Uses your ChatGPT plan.', url: 'https://developers.openai.com/codex/cli', install: 'npm install -g @openai/codex', signIn: 'codex login' },
   { id: 'antigravity', label: 'Antigravity', what: 'Google’s agent CLI (agy). Uses your Google account.', url: 'https://antigravity.google', install: null, signIn: 'agy' },
-  { id: 'opencode', label: 'OpenCode', what: 'Open-source agent CLI. Free models, no account needed.', url: 'https://opencode.ai/docs/', install: 'npm install -g opencode-ai', signIn: 'opencode' },
+  { id: 'opencode', label: 'OpenCode', what: 'Open-source agent CLI. Free models with an OpenCode Zen key.', url: 'https://opencode.ai/docs/', install: 'npm install -g opencode-ai', signIn: 'opencode' },
 ]
 export const OPENCODE_KEYS = 'https://opencode.ai/auth'
 export const OPENROUTER_KEYS = 'https://openrouter.ai/keys'
@@ -79,7 +79,7 @@ export function ApiKeyField({ hasKey, onSaved, provider = 'openrouter' }: { hasK
         <input
           type="password"
           className="set-input flex-1"
-          placeholder={hasKey ? 'Key saved. Paste a new one to replace it' : provider === 'opencode' ? 'OpenCode Zen API key (optional)' : 'OpenRouter API key (sk-or-…)'}
+          placeholder={hasKey ? 'Key saved. Paste a new one to replace it' : provider === 'opencode' ? 'OpenCode Zen API key' : 'OpenRouter API key (sk-or-…)'}
           aria-label={provider === 'opencode' ? 'OpenCode Zen API key' : 'OpenRouter API key'}
           value={key}
           onChange={e => setKey(e.target.value)}
