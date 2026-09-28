@@ -90,7 +90,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 <Footer><button type="button" className={PRIMARY} onClick={next}>Get started</button></Footer>
               </>
             )
-              : current === 'tools' ? <PrereqStep hasApiKey={s.hasApiKey} onKeySaved={settings.refresh} onNext={next} />
+              : current === 'tools' ? <PrereqStep hasApiKey={s.hasApiKey} hasOpencodeKey={s.hasOpencodeKey} onKeySaved={settings.refresh} onNext={next} />
                 : current === 'workspace' ? <WorkspaceStep settings={s} onChanged={settings.refresh} onNext={next} />
                   : current === 'agent' ? <AgentStep settings={s} onChanged={settings.refresh} onNext={next} />
                     : current === 'model' ? <ModelStep onNext={next} />

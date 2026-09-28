@@ -4,9 +4,9 @@ import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { RunRecord } from './context'
-import { opencodeBrowserConfig, opencodeConfig } from './opencode'
+import { opencodeBrowserConfig, opencodeConfig, zenModelsFrom } from './opencode'
 import { argsForPrompt, formatOpencodeLine, opencodeResultOk, opencodeSessionId, opencodeUsage } from './runner'
-import { runZen, zenPrompt } from './zen-agent'
+import { runZen, zenError, zenPrompt } from './zen-agent'
 import { commandSpec, confine, htmlToText, publicUrl, runTool, splitCommand } from './zen-tools'
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'cl-zen-'))
@@ -27,6 +27,7 @@ describe('opencode CLI runner', () => {
     expect(formatOpencodeLine(JSON.stringify({ type: 'tool_use', part: { tool: 'bash', state: { status: 'completed', input: { command: 'node merge.mjs' } } } }))).toBe('▸ bash node merge.mjs\n')
     expect(formatOpencodeLine(JSON.stringify({ type: 'text', part: { text: '{"jobs":[]}' } }))).toBe('{"jobs":[]}\n')
     expect(opencodeResultOk(JSON.stringify({ type: 'error', error: { name: 'APIError' } }))).toBe(false)
+    expect(formatOpencodeLine(JSON.stringify({ type: 'error', error: { data: { message: "OpenCode's free tier can only be used from within OpenCode" } } }))).toMatch(/add an OpenCode Zen API key/)
     expect(opencodeResultOk(step(0))).toBeNull()
   })
 
@@ -87,6 +88,27 @@ describe('zen tools', () => {
   })
 })
 
+describe('zen models', () => {
+  it('keeps tool-calling chat/completions models from the catalogue, free and preferred first', () => {
+    const catalogue = { opencode: { npm: '@ai-sdk/openai-compatible', models: {
+      'kimi-k3': { id: 'kimi-k3', name: 'Kimi K3', tool_call: true, cost: { input: 0.6 } },
+      'space-bunny-free': { id: 'space-bunny-free', name: 'Space Bunny', tool_call: true, cost: { input: 0 } },
+      'big-pickle': { id: 'big-pickle', name: 'Big Pickle', tool_call: true, cost: { input: 0 } },
+      'gpt-6': { id: 'gpt-6', tool_call: true, cost: { input: 1 }, provider: { npm: '@ai-sdk/openai' } },
+      'old-free': { id: 'old-free', tool_call: true, cost: { input: 0 }, status: 'deprecated' },
+      'embed-free': { id: 'embed-free', tool_call: false, cost: { input: 0 } },
+    } } }
+    expect(zenModelsFrom(catalogue).map(m => m.label)).toEqual(['Big Pickle (free)', 'Space Bunny (free)', 'Kimi K3'])
+    expect(zenModelsFrom(null)).toEqual([])
+  })
+
+  it('turns Zen errors into the fix the user can make', () => {
+    expect(zenError(400, '{"error":{"message":"Error from provider (Console): Upstream request failed: Model is unavailable."}}', 'big-pickle')).toMatch(/"big-pickle" is unavailable.*pick another/)
+    expect(zenError(401, 'bad key', 'm')).toMatch(/rejected the API key/)
+    expect(zenError(402, 'insufficient balance', 'm')).toMatch(/credits/)
+  })
+})
+
 describe('zen agent loop', () => {
   afterEach(() => vi.unstubAllGlobals())
 
@@ -108,13 +130,13 @@ describe('zen agent loop', () => {
     ]
     const bodies: Array<{ model: string; messages: Array<{ role: string }> }> = []
     vi.stubGlobal('fetch', vi.fn(async (_url: string, init: { body: string; headers: Record<string, string> }) => {
-      expect(init.headers.authorization).toBe('Bearer public')
+      expect(init.headers.authorization).toBe('Bearer zk-test')
       bodies.push(JSON.parse(init.body))
       return new Response(JSON.stringify(replies.shift()), { status: 200 })
     }))
     const run = { id: 'r', status: 'running', startedAt: Date.now(), usage: null, log: '' } as unknown as RunRecord
     let log = ''
-    await runZen({ prompt: 'Evaluate', model: 'big-pickle', key: null, tools: { root, readDirs: [], env: {} }, system: 'sys', sessionDir }, t => { log += t }, run)
+    await runZen({ prompt: 'Evaluate', model: 'big-pickle', key: 'zk-test', tools: { root, readDirs: [], env: {} }, system: 'sys', sessionDir }, t => { log += t }, run)
 
     expect(fs.readFileSync(path.join(root, 'reports/001.md'), 'utf8')).toBe('# Report')
     expect(log).toContain('▸ write reports/001.md')

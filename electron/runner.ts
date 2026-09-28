@@ -383,17 +383,20 @@ const parseOpencode = (line: string): OpencodeEvent | null => {
   try { return JSON.parse(line) as OpencodeEvent } catch { return null }
 }
 
+/** Zen refuses anonymous free-tier use from headless runs; a key (free models stay $0) fixes it. */
+const opencodeHint = (msg: string) => (/free tier/i.test(msg) ? `${msg} — add an OpenCode Zen API key in Settings → API keys (free models stay free with a key)` : msg)
+
 export function formatOpencodeLine(line: string): string | null {
   if (!line.trim()) return null
   const ev = parseOpencode(line)
-  if (!ev) return `${line}\n`
+  if (!ev) return `${opencodeHint(line)}\n`
   if (ev.type === 'text' && ev.part?.text) return `${ev.part.text}\n`
   if (ev.type === 'tool_use' && ev.part?.tool) {
     const p = ev.part.state?.input ?? {}
     const hint = p.command ?? p.filePath ?? p.url ?? p.pattern ?? p.path ?? ''
     return `▸ ${ev.part.tool}${hint ? ` ${String(hint).slice(0, 160)}` : ''}${ev.part.state?.status === 'error' ? ' (failed)' : ''}\n`
   }
-  if (ev.type === 'error') return `✗ ${ev.error?.data?.message ?? ev.error?.name ?? 'error'}\n`
+  if (ev.type === 'error') return `✗ ${opencodeHint(ev.error?.data?.message ?? ev.error?.name ?? 'error')}\n`
   return null
 }
 
