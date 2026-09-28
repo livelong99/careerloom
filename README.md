@@ -21,12 +21,14 @@
 ## What it does
 
 Careerloom is a desktop interface for [career-ops](https://github.com/career-ops-hq/career-ops), the open-source
-job-search agent toolkit. It drives an agent CLI you already have, or its own built-in agent on an API key (OpenCode Zen's free models
-cost nothing), and turns
+job-search agent toolkit. It drives an agent CLI you already have (OpenCode's runs free models with no account), or its own built-in agent
+on an API key, and turns
 career-ops' files and scripts into a visual workflow.
 
 - **Jobs** — scan company boards (Greenhouse, Ashby, Lever, Workday and more), browse every listing across portals
   with multi-select filters, saved views, a table or board, and bulk actions.
+- **Boards** — start from an India starter pack of 24 popular job boards grouped into Common, Tech, Finance and
+  Consulting (each off until you enable it), then add your own.
 - **Any job board** — add any listing URL. Careerloom extracts jobs with a self-hosted
   [Firecrawl](https://github.com/firecrawl/firecrawl), structured data where the page provides it, or the agent
   as a fallback. Login-walled boards can be read in a browser with your own session (opt-in, read-only).
@@ -53,11 +55,11 @@ career-ops' files and scripts into a visual workflow.
 | Claude Code | `claude` CLI, headless, streamed |
 | Codex | `codex exec` |
 | Antigravity | `agy`, sandboxed project with scoped permissions |
-| OpenCode | `opencode run`, headless, streamed; add an OpenCode Zen key for headless runs (free models stay free) |
-| OpenCode Zen | Careerloom's built-in agent on the [OpenCode Zen](https://opencode.ai/docs/zen/) API — nothing to install; needs a Zen API key, free models stay free |
+| OpenCode | `opencode run`, headless, streamed; free models with no key, paid ones with an OpenCode Zen key |
+| OpenCode Zen | Careerloom's built-in agent on the [OpenCode Zen](https://opencode.ai/docs/zen/) API — nothing to install; paid models with a Zen API key (free models run through the OpenCode CLI) |
 | API key | Any model through [OpenRouter](https://openrouter.ai) |
 
-Pick a runner and a model per runner in **Settings**. Both OpenCode runners use an OpenCode Zen key; free models stay free, and the key unlocks paid ones. Careerloom checks each CLI's install and sign-in status
+Pick a runner and a model per runner in **Settings**. Careerloom checks each CLI's install and sign-in status
 when you choose your career-ops folder.
 
 ## Install
