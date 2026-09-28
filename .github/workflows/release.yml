@@ -29,7 +29,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run ${{ matrix.script }}
+      # electron-builder only builds; the release step below publishes (it would otherwise want GH_TOKEN on a tag).
+      - run: npm run ${{ matrix.script }} -- --publish never
         env:
           # Unsigned builds; set CSC_LINK/CSC_KEY_PASSWORD (+ APPLE_ID for notarizing) to sign.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
