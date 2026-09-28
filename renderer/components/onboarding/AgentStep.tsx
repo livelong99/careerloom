@@ -59,7 +59,7 @@ export function AgentStep({ settings, onChanged, onNext }: { settings: Settings;
             <b className="flex-1">OpenCode Zen API key</b>
             <span className={settings.hasOpencodeKey ? 'text-success' : 'text-muted-foreground'}>{settings.hasOpencodeKey ? 'Key saved' : 'No key'}</span>
           </span>
-          <span className="pl-7 text-[length:var(--fs-meta)] text-muted-foreground">Nothing to install: Careerloom runs the agent itself on OpenCode Zen. Free models stay free with a key.</span>
+          <span className="pl-7 text-[length:var(--fs-meta)] text-muted-foreground">Nothing to install: Careerloom runs the agent itself on OpenCode Zen (paid models, needs a key). For free models, use OpenCode.</span>
         </label>
         {!settings.hasOpencodeKey && (
           <div className="flex flex-col gap-2 pl-7">

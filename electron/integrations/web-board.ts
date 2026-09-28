@@ -120,7 +120,7 @@ function agentExtract(board: Source, pages: ScrapedPage[], log: (t: string) => v
   fs.writeFileSync(pagesFile, pages.map((p, i) => `## Page ${i + 1}: ${p.url}\n\n${p.markdown.slice(0, PAGE_CAP)}`).join('\n\n'))
   const known = new Set(pages.flatMap(p => [...pageLinks(p)]))
   const guideline = readGuidelines(read(customFile())).get(board.name)
-  const prompt = agentPrompt(board.name, path.relative(root, pagesFile), path.relative(root, outFile), guideline)
+  const prompt = agentPrompt(board.name, pagesFile, outFile, guideline) // absolute: a CLI started elsewhere (e.g. resumed in chat) must still write here
   return new Promise((resolve, reject) => {
     const run = startAgentPrompt(`Extract jobs: ${board.name}`, 'web-board', prompt, board.careers_url ?? null, {
       onExit: (r: RunRecord) => {

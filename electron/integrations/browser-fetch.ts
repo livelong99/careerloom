@@ -56,7 +56,7 @@ export async function browserExtract(board: Source, guideline: string | undefine
     const stateFile = path.join(dir, 'state.json')
     const navLock = path.join(dir, 'nav-lock.cjs')
     fs.writeFileSync(stateFile, JSON.stringify(storageState(cookies)), { mode: 0o600, flag: 'wx' })
-    fs.writeFileSync(navLock, navLockScript(domain), { mode: 0o600, flag: 'wx' })
+    fs.writeFileSync(navLock, navLockScript(domain, pageWaitSeconds(cfg)), { mode: 0o600, flag: 'wx' })
     const model = runner === 'api' ? undefined : models[runner]
     const prompt = browserPrompt(board.name, urls, guideline, MAX_PAGES, pageWaitSeconds(cfg))
     const mcp = playwrightMcp(stateFile, cfg.headless, navLock)

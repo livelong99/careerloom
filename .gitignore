@@ -27,3 +27,7 @@ AGENTS.md
 
 # Launch video workspace
 brag-output*/
+
+# Local tool output (never commit: may hold signed-in page logs)
+.playwright-mcp/
+.ignore

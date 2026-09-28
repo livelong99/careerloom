@@ -384,7 +384,7 @@ const parseOpencode = (line: string): OpencodeEvent | null => {
 }
 
 /** Zen refuses anonymous free-tier use from headless runs; a key (free models stay $0) fixes it. */
-const opencodeHint = (msg: string) => (/free tier/i.test(msg) ? `${msg} — add an OpenCode Zen API key in Settings → API keys (free models stay free with a key)` : msg)
+const opencodeHint = (msg: string) => (/free tier/i.test(msg) ? `${msg} — Zen serves free models only to requests carrying OpenCode's standard tools; update Careerloom, or pick a paid model with an OpenCode Zen key` : msg)
 
 export function formatOpencodeLine(line: string): string | null {
   if (!line.trim()) return null

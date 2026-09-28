@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20260928 OpenCode e2e](session_20260928_opencode-e2e.md) — FreeTierError root cause, skill allowlist −86% tokens, scripted scroll −87% browser tokens, Zen API paid-only
 - [20260928 OpenCode + Zen runners](session_20260928_opencode-zen-runners.md) — opencode CLI runner + in-process OpenCode Zen agent loop (free, no install); Paperclip/dsh rejected as base
 - [20260928 Boards, 0.1.1, cloud](session_20260928_boards-release-cloud.md) — Jobs/Boards split, browser login/scroll fixes, codex sandbox flag, v0.1.1, /cloud-setup
 - [20260928 Pre-screen model + web boards](session_20260928_prescreen-model-webboards.md) — verdict-small base+gated personal layer, evaluate-state fix, Firecrawl any-board, Chrome-cookie browser boards
