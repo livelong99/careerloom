@@ -72,6 +72,7 @@ const bridge = {
   countUnevaluated: (ids: string[]) => invoke('countUnevaluated', ids),
   deletePortals: (ids: string[], hideUnevaluated: boolean) => invoke('deletePortals', ids, hideUnevaluated),
   addDefaultPortals: () => invoke('addDefaultPortals'),
+  switchToStarterPack: () => invoke('switchToStarterPack'),
   getPortal: (id: string) => invoke('getPortal', id),
   updatePortal: (id: string, patch: Record<string, unknown>) => invoke('updatePortal', id, patch),
   setPortalsEnabled: (ids: string[], enabled: boolean) => invoke('setPortalsEnabled', ids, enabled),

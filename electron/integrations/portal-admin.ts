@@ -7,7 +7,7 @@ import { careerOpsRoot, dataRoot } from '../context'
 import type { JobListing, PortalDetail } from '../contract'
 import { readGuidelines, upsertGuideline } from '../jobs-data'
 import { portalDetail, validatePortalPatch } from './portal-edit'
-import { presetBoards, searchProfile, seedDefaults } from './portal-defaults'
+import { isOldDefault, oldDefaultKeys, presetBoards, searchProfile, seedDefaults } from './portal-defaults'
 import { readAllSources, readPortalsFile, removeSources, updateSources, writeDoc, type Source } from './sources'
 import { readBoardIndex } from './web-board'
 
@@ -20,12 +20,12 @@ const writeJson = (file: string, value: unknown) => {
   fs.writeFileSync(file, JSON.stringify(value))
 }
 
-/** Merge the example portals + presets the user lacks. Returns how many were added. */
+const starterPack = () => presetBoards(searchProfile(read(path.join(dataRoot(), 'config', 'profile.yml'))))
+
+/** Merge the India starter pack boards the user lacks. Returns how many were added. */
 export function seedDefaultPortals(): number {
-  const example = read(path.join(careerOpsRoot(), 'templates', 'portals.example.yml'))
-  if (!example) throw new Error('career-ops has no templates/portals.example.yml — update it in Integrations')
   const doc = readPortalsFile(portalsFile())
-  const added = seedDefaults(doc, example, presetBoards(searchProfile(read(path.join(dataRoot(), 'config', 'profile.yml')))))
+  const added = seedDefaults(doc, starterPack())
   if (added) writeDoc(portalsFile(), doc)
   writeJson(dataFile('careerloom-defaults-seeded.json'), { at: new Date().toISOString(), added })
   return added
@@ -97,6 +97,17 @@ export function updatePortal(id: unknown, raw: unknown): PortalDetail {
   }
   const next = readAllSources(portalsFile()).find(s => s.list === source.list && s.name === (renamed ?? source.name))!
   return portalDetail(next, readGuidelines(read(customFile())).get(next.name) ?? null)
+}
+
+/** Replace Careerloom's old defaults (career-ops' example list, old Indeed/Glassdoor presets) with the
+ *  India starter pack. Boards the user added themselves stay; unevaluated jobs of removed boards are
+ *  hidden like a normal delete. */
+export function switchToStarterPack(hideJobs: (removed: Source[]) => JobListing[]): { removed: number; hidden: number; added: number } {
+  const keys = oldDefaultKeys(read(path.join(careerOpsRoot(), 'templates', 'portals.example.yml')))
+  const pack = new Set(starterPack().map(b => b.name.toLowerCase()))
+  const old = readAllSources(portalsFile()).filter(s => isOldDefault(keys, s) && !pack.has(s.name.toLowerCase()))
+  const { removed, hidden } = old.length ? deletePortals(old, hideJobs(old)) : { removed: 0, hidden: 0 }
+  return { removed, hidden, added: seedDefaultPortals() }
 }
 
 export function setPortalsEnabled(ids: string[], enabled: boolean): number {

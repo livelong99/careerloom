@@ -63,7 +63,7 @@ export function Boards({ focusId, onFocusHandled }: { focusId: string | null; on
       </div>
       {scan.ui}
       {list.length === 0
-        ? <EmptyState icon={LayoutGrid} title="No boards yet" message="Add career-ops’ default boards (companies, job boards and disabled browser presets), or add any job board by URL." action="Add default boards" onAction={() => void addDefaults()} hideActionIcon />
+        ? <EmptyState icon={LayoutGrid} title="No boards yet" message="Start with the India starter pack — 24 popular Indian job boards in Common, Tech, Finance and Consulting, disabled until you enable them — or add any job board by URL." action="Add India starter pack" onAction={() => void addDefaults()} hideActionIcon />
         : tab === 'boards'
           ? <BoardsTable portals={list} onEdit={setEditing} onChanged={refresh} onScan={ids => void start(ids)} scanning={scan.busy} />
           : scans.data

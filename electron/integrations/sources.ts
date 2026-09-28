@@ -8,7 +8,7 @@ export type BoardMatch = { provider: string; slug: string; careersUrl: string }
 /** `fetch` marks a Careerloom web board (any listing page, extracted via Firecrawl + agent) —
  *  no `provider`, so scan.mjs skips it as "no provider matched". `listing_urls` when >1 page. */
 export type WebFetch = 'firecrawl' | 'browser'
-export type TrackedCompany = { name: string; careers_url?: string; api?: string; provider?: string; enabled?: boolean; fetch?: WebFetch; listing_urls?: string[] }
+export type TrackedCompany = { name: string; careers_url?: string; api?: string; provider?: string; enabled?: boolean; fetch?: WebFetch; listing_urls?: string[]; category?: string }
 /** `list: 'job_boards'` = an entry of portals.yml's job_boards (aggregators), else tracked_companies. */
 export type Source = TrackedCompany & { id: string; list?: 'job_boards' }
 

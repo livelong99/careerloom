@@ -111,6 +111,7 @@ export type CareerloomBridge = {
   deletePortals(ids: string[], hideUnevaluated: boolean): Promise<{ removed: number; hidden: number }>
   /** Merge career-ops' default portals + browser presets (disabled); returns how many were added. */
   addDefaultPortals(): Promise<number>
+  switchToStarterPack(): Promise<{ removed: number; hidden: number; added: number }>
   getPortal(id: string): Promise<PortalDetail>
   /** Validated in main (names, SSRF-checked URLs, provider id); a rename carries the guideline along. */
   updatePortal(id: string, patch: PortalPatch): Promise<PortalDetail>
