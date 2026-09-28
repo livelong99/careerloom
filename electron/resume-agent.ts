@@ -63,7 +63,8 @@ const PROFILE_SHAPE = `{
 }`
 
 export async function extractResume(file: unknown): Promise<RunSummary> {
-  const name = str(file, 'file')
+  // A bare name or the source's own `documents/cv/<name>` path (either separator).
+  const name = str(file, 'file').replace(/^documents[\\/]cv[\\/]/, '')
   if (basename(name) !== name || name.startsWith('.')) throw new Error('Pick a file from documents/cv/')
   const root = dataRoot()
   const src = inside(join(root, 'documents', 'cv'), name)
