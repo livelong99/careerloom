@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { usePolled } from '../../hooks/usePolled'
 import { careerloom } from '../../lib/ipc'
 import type { CliCheck, RunnerId, Settings } from '../../lib/types'
-import { ApiKeyField, BTN, Command, Download, ENGINES, ErrorLine, Footer, LINK, OPENROUTER_KEYS, PRIMARY, StepHeader, errorText } from './parts'
+import { ApiKeyField, BTN, Command, Download, ENGINES, ErrorLine, Footer, LINK, OPENCODE_KEYS, OPENROUTER_KEYS, PRIMARY, StepHeader, errorText } from './parts'
 
 function cliStatus(c: CliCheck | undefined): string {
   if (!c) return 'Checking…'
@@ -21,7 +21,7 @@ export function AgentStep({ settings, onChanged, onNext }: { settings: Settings;
   useEffect(() => careerloom.onReadiness(onChanged), [onChanged]) // main may switch runner to a ready CLI
   const clis = ready.data?.clis ?? []
   const selected = settings.runner
-  const usable = selected === 'api' ? settings.hasApiKey : clis.find(c => c.id === selected)?.ready === true
+  const usable = selected === 'zen' ? settings.hasOpencodeKey : selected === 'api' ? settings.hasApiKey : clis.find(c => c.id === selected)?.ready === true
 
   const pick = async (runner: RunnerId) => {
     setError(null)
@@ -53,6 +53,20 @@ export function AgentStep({ settings, onChanged, onNext }: { settings: Settings;
             </label>
           )
         })}
+        <label className="flex flex-col gap-2 rounded-md border border-border p-3 has-[:checked]:border-[var(--accent)]">
+          <span className="flex items-center gap-3">
+            <input type="radio" name="runner" checked={selected === 'zen'} disabled={!settings.hasOpencodeKey} onChange={() => void pick('zen')} />
+            <b className="flex-1">OpenCode Zen API key</b>
+            <span className={settings.hasOpencodeKey ? 'text-success' : 'text-muted-foreground'}>{settings.hasOpencodeKey ? 'Key saved' : 'No key'}</span>
+          </span>
+          <span className="pl-7 text-[length:var(--fs-meta)] text-muted-foreground">Nothing to install: Careerloom runs the agent itself on OpenCode Zen (paid models, needs a key). For free models, use OpenCode.</span>
+        </label>
+        {!settings.hasOpencodeKey && (
+          <div className="flex flex-col gap-2 pl-7">
+            <ApiKeyField provider="opencode" hasKey={false} onSaved={() => void pick('zen')} />
+            <Download label="Get an OpenCode Zen key" url={OPENCODE_KEYS} />
+          </div>
+        )}
         <label className="flex flex-col gap-2 rounded-md border border-border p-3 has-[:checked]:border-[var(--accent)]">
           <span className="flex items-center gap-3">
             <input type="radio" name="runner" checked={selected === 'api'} disabled={!settings.hasApiKey} onChange={() => void pick('api')} />

@@ -10,7 +10,10 @@ import { parse as parseYaml } from 'yaml'
 
 import { careerOpsRoot, dataRoot, runScript, startAgentPrompt, type RunRecord, type RunSummary } from './context'
 import type { JobListing } from './contract'
-import { firecrawlReady, firecrawlScrape } from './integrations/firecrawl'
+import { assertPublicResolution, firecrawlReady, firecrawlScrape } from './integrations/firecrawl'
+import { browserPageText } from './integrations/browser-fetch'
+import { jsonLdPostings, postingText } from './integrations/web-board-core'
+import { BROWSER_UA, htmlToText, publicUrl } from './zen-tools'
 
 const WORK_DIR = ['batch', 'careerloom'] // under the career-ops checkout; agents read it from cwd
 const JD_CAP = 60_000
@@ -89,15 +92,46 @@ function appendBatchState(root: string, row: { id: string; url: string; status: 
   fs.appendFileSync(file, cells.map(tsvCell).join('\t') + '\n')
 }
 
-async function prefetchJd(url: string): Promise<string> {
-  if (!(await firecrawlReady())) return '' // the worker falls back to WebFetch on an empty file
-  try {
-    const page = await firecrawlScrape(url)
-    return `Source: ${page.url}\n\n${page.markdown}`.slice(0, JD_CAP)
-  } catch (err) {
-    console.error('JD prefetch failed, worker will fetch it:', err)
-    return ''
+/** The JD for the worker: Firecrawl when it's up, else the page's own JobPosting JSON-LD, else the page
+ *  rendered in Chrome. An empty file makes the worker try WebFetch, which fails on script-rendered,
+ *  bot-protected boards (Naukri, LinkedIn…). */
+export async function prefetchJd(url: string): Promise<string> {
+  if (await firecrawlReady()) {
+    try {
+      const page = await firecrawlScrape(url)
+      if (page.markdown.trim().length > MIN_JD) return `Source: ${page.url}\n\n${page.markdown}`.slice(0, JD_CAP)
+    } catch (err) { console.error('Firecrawl JD prefetch failed, trying the page directly:', err) }
   }
+  try {
+    const direct = await directJd(url)
+    if (direct) return direct
+  } catch (err) { console.error('Direct JD fetch failed, rendering it in Chrome:', err) }
+  try {
+    const target = publicUrl(url)
+    await assertPublicResolution(target.hostname)
+    const snapshot = await browserPageText(target.href)
+    return snapshot.trim().length > MIN_JD ? `Source: ${url} (page rendered in Chrome)\n\n${snapshot}`.slice(0, JD_CAP) : ''
+  } catch (err) { console.error('JD prefetch failed, worker will fetch it:', err); return '' }
+}
+
+const MIN_JD = 400
+
+/** Plain fetch (public hosts only, redirects re-checked). Script-rendered boards still ship the
+ *  posting as JSON-LD for search engines; markdown converters drop that script, so read it here. */
+export async function directJd(raw: string): Promise<string> {
+  let url = publicUrl(raw)
+  for (let hop = 0; hop < 5; hop++) {
+    await assertPublicResolution(url.hostname)
+    const res = await fetch(url, { redirect: 'manual', headers: { 'user-agent': BROWSER_UA, accept: 'text/html,*/*' }, signal: AbortSignal.timeout(20_000) })
+    const next = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
+    if (next) { url = publicUrl(new URL(next, url).href); continue }
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${url.hostname}`)
+    const html = await res.text()
+    const posting = jsonLdPostings(html)[0]
+    const text = posting ? postingText(posting, htmlToText) : htmlToText(html)
+    return text.trim().length > MIN_JD ? `Source: ${url.href}\n\n${text}`.slice(0, JD_CAP) : ''
+  }
+  throw new Error('too many redirects')
 }
 
 const TRACKER_HEADER = '# Applications Tracker\n\n| # | Date | Company | Role | Score | Status | PDF | Report | Notes |\n|---|------|---------|------|-------|--------|-----|--------|-------|\n'

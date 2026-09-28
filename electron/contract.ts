@@ -90,7 +90,7 @@ export type CanonicalStatus = 'Evaluated' | 'Applied' | 'Responded' | 'Interview
 
 // ————— CLI readiness (electron/readiness.ts) —————
 export type CliCheck = {
-  id: 'claude' | 'codex' | 'antigravity'
+  id: 'claude' | 'codex' | 'antigravity' | 'opencode'
   label: string
   path: string | null
   version: string | null
@@ -162,6 +162,8 @@ export type Portal = {
   newCount: number
   lastSeen: string | null
   guideline: string | null
+  /** Starter-pack group (portals.yml `category:`): Common, Tech, Finance or Consulting; null when unset. */
+  category?: string | null
   /** Web board (any listing page, portals.yml `fetch:`), null for provider portals. */
   fetch?: 'firecrawl' | 'browser' | null
   /** Rail grouping: a tracked company, a job_boards aggregator, or a Careerloom web/browser board. */

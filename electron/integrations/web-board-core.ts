@@ -168,6 +168,11 @@ function postingToJob(p: Record<string, unknown>): Record<string, unknown> {
 
 /** schema.org JobPosting objects in the page's JSON-LD (incl. @graph and ItemList wrappers). */
 export function jsonLdJobs(html: string, pageUrl: string): WebJob[] {
+  return validateJobs(jsonLdPostings(html).map(postingToJob), pageUrl)
+}
+
+/** Raw schema.org JobPosting objects from the page's JSON-LD (full descriptions, uncapped). */
+export function jsonLdPostings(html: string): Record<string, unknown>[] {
   const found: Record<string, unknown>[] = []
   const walk = (node: unknown, depth: number): void => {
     if (!node || typeof node !== 'object' || depth > 6) return
@@ -180,7 +185,15 @@ export function jsonLdJobs(html: string, pageUrl: string): WebJob[] {
   for (const m of html.matchAll(/<script\b[^>]*type=["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi)) {
     try { walk(JSON.parse(m[1]!), 0) } catch { /* malformed block: skip it, keep the rest */ }
   }
-  return validateJobs(found.map(postingToJob), pageUrl)
+  return found
+}
+
+/** One JobPosting as a plain-text JD for the evaluation worker. */
+export function postingText(p: Record<string, unknown>, toText: (html: string) => string): string {
+  const j = postingToJob(p)
+  const line = (label: string, v: unknown) => (typeof v === 'string' && v.trim() ? `${label}: ${v.trim()}\n` : '')
+  return `# ${String(j.title ?? '').trim()}\n\n${line('Company', j.company)}${line('Location', j.location)}${line('Salary', j.salary)}`
+    + `${line('Employment type', j.employment_type)}${line('Posted', j.posted_at)}\n${typeof p.description === 'string' ? toText(p.description) : ''}`
 }
 
 /** The last `{"jobs": …}` object in an agent's output (balanced-brace scan, string-aware). */

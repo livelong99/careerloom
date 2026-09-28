@@ -12,23 +12,26 @@ import { resolveBin, spawnSpec } from './runner'
 export type CliId = CliCheck['id']
 export type { CliCheck, Readiness }
 
-const BIN: Record<CliId, string> = { claude: 'claude', codex: 'codex', antigravity: 'agy' }
-const LABEL: Record<CliId, string> = { claude: 'Claude Code', codex: 'Codex', antigravity: 'Antigravity' }
+const BIN: Record<CliId, string> = { claude: 'claude', codex: 'codex', antigravity: 'agy', opencode: 'opencode' }
+const LABEL: Record<CliId, string> = { claude: 'Claude Code', codex: 'Codex', antigravity: 'Antigravity', opencode: 'OpenCode' }
 /** Where each CLI discovers the career-ops skill inside the checkout. */
 const SKILL: Record<CliId, string[]> = {
   claude: ['.claude/skills/career-ops/SKILL.md'],
   codex: ['.agents/skills/career-ops/SKILL.md', 'AGENTS.md'],
   antigravity: ['.antigravitycli/skills/career-ops/SKILL.md', '.agents/skills/career-ops/SKILL.md'],
+  opencode: ['.opencode/skills/career-ops/SKILL.md', '.claude/skills/career-ops/SKILL.md'],
 }
 const HOW_TO_INSTALL: Record<CliId, string> = {
   claude: 'Install Claude Code: npm install -g @anthropic-ai/claude-code',
   codex: 'Install Codex: npm install -g @openai/codex',
   antigravity: 'Install the Antigravity CLI (agy) from antigravity.google',
+  opencode: 'Install OpenCode: npm install -g opencode-ai',
 }
 const HOW_TO_SIGN_IN: Record<CliId, string> = {
   claude: 'Sign in: run `claude` in a terminal and use /login',
   codex: 'Sign in: run `codex login` in a terminal',
   antigravity: 'Sign in: run `agy` in a terminal and sign in with Google',
+  opencode: 'No sign-in needed for free models; add an OpenCode Zen key in Settings for paid ones',
 }
 
 // ————— Pure parsers (tested) —————
@@ -62,14 +65,19 @@ async function checkCli(id: CliId, root: string, skillDirs: string[]): Promise<C
     run(bin, ['--version'], root, 10_000),
     id === 'claude' ? run(bin, ['auth', 'status'], root)
       : id === 'codex' ? run(bin, ['login', 'status'], root)
-        : run(bin, ['models'], root),
+        : id === 'antigravity' ? run(bin, ['models'], root)
+          : run(bin, ['models', 'opencode'], root), // opencode: free Zen models need no sign-in; this proves the binary works
   ])
-  const signedIn = id === 'claude' ? parseClaudeAuth(auth.out) : id === 'codex' ? parseCodexLogin(auth.out) : parseAgyModels(auth.out)
+  const signedIn = id === 'claude' ? parseClaudeAuth(auth.out) : id === 'codex' ? parseCodexLogin(auth.out) : id === 'antigravity' ? parseAgyModels(auth.out) : null
 
   const problems: string[] = []
   let configured = true
   if (signedIn === false) problems.push(HOW_TO_SIGN_IN[id])
   if (!base.skill) problems.push(`The career-ops skill for ${LABEL[id]} is missing — update career-ops (Integrations → career-ops → Update)`)
+  if (id === 'opencode' && !auth.ok) {
+    configured = false
+    problems.push(`OpenCode couldn't list its models: ${firstLine(auth.out) ?? 'no output'}`)
+  }
   if (id === 'antigravity') {
     // Headless agy can't ask for permissions; make sure Careerloom's scoped project exists.
     try { ensureAgyProject(root, skillDirs) } catch (err) { configured = false; problems.push(`Couldn't write Antigravity's Careerloom project: ${(err as Error).message}`) }
@@ -83,13 +91,13 @@ async function checkCli(id: CliId, root: string, skillDirs: string[]): Promise<C
 
 /** Check all three CLIs in parallel (a few seconds, no tokens). */
 export async function checkReadiness(root: string, skillDirs: string[] = []): Promise<Readiness> {
-  const clis = await Promise.all((['claude', 'codex', 'antigravity'] as const).map(id => checkCli(id, root, skillDirs)))
+  const clis = await Promise.all((['claude', 'codex', 'antigravity', 'opencode'] as const).map(id => checkCli(id, root, skillDirs)))
   return { root, checkedAt: Date.now(), deps: fs.existsSync(path.join(root, 'node_modules')), clis }
 }
 
 /** The runner to switch to when the chosen one isn't usable: first ready CLI, in preference order. */
 export function pickReadyRunner(current: string, r: Readiness): CliId | null {
-  if (current === 'api') return null // an explicit API-key choice is never overridden
+  if (current === 'api' || current === 'zen') return null // an explicit API choice is never overridden
   if (r.clis.find(c => c.id === current)?.ready) return null
   return r.clis.find(c => c.ready)?.id ?? null
 }

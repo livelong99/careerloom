@@ -1,6 +1,6 @@
 // ————— Careerloom bridge contract (electron/main.ts handlers ↔ renderer) —————
 
-export type RunnerId = 'claude' | 'codex' | 'antigravity' | 'api'
+export type RunnerId = 'claude' | 'codex' | 'antigravity' | 'opencode' | 'zen' | 'api'
 
 export type Application = {
   num: number
@@ -18,10 +18,12 @@ export type PipelineItem = { url: string; company: string | null; role: string |
 export type ReportMeta = { file: string; title: string; date: string | null; score: number | null; url: string | null }
 export type RootCheck = { ok: true; root: string; dataRoot: string } | { ok: false; reason: string }
 
-export type CliRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<CliRunner, string>>; hasApiKey: boolean; rootCheck: RootCheck | null }
+export type CliRunner = Exclude<RunnerId, 'api' | 'zen'>
+/** Runners with a model setting. */
+export type ModelRunner = Exclude<RunnerId, 'api'>
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; hasApiKey: boolean; hasOpencodeKey: boolean; rootCheck: RootCheck | null }
 export type ModelOption = { id: string; label: string }
-export type RunnerStatus = Record<'claude' | 'codex' | 'antigravity' | 'node' | 'git', string | null>
+export type RunnerStatus = Record<'claude' | 'codex' | 'antigravity' | 'opencode' | 'node' | 'git', string | null>
 export type ProfileStatus = { cv: boolean; profile: boolean; portals: boolean }
 
 export type ModeInput = 'url' | 'report' | 'text' | null
@@ -47,10 +49,10 @@ export type CareerloomBridge = {
   getSettings(): Promise<Settings>
   setRoot(root: string): Promise<RootCheck>
   setRunner(runner: RunnerId): Promise<unknown>
-  setApiKey(key: string | null): Promise<boolean>
+  setApiKey(key: string | null, provider?: 'openrouter' | 'opencode'): Promise<boolean>
   /** Model for one CLI runner; null = that CLI's default. */
-  setModel(runner: CliRunner, model: string | null): Promise<unknown>
-  listModels(runner: CliRunner): Promise<ModelOption[]>
+  setModel(runner: ModelRunner, model: string | null): Promise<unknown>
+  listModels(runner: ModelRunner): Promise<ModelOption[]>
   chooseDirectory(): Promise<string | null>
   runnerStatus(): Promise<RunnerStatus>
   modes(): Promise<Modes>
@@ -109,6 +111,7 @@ export type CareerloomBridge = {
   deletePortals(ids: string[], hideUnevaluated: boolean): Promise<{ removed: number; hidden: number }>
   /** Merge career-ops' default portals + browser presets (disabled); returns how many were added. */
   addDefaultPortals(): Promise<number>
+  switchToStarterPack(): Promise<{ removed: number; hidden: number; added: number }>
   getPortal(id: string): Promise<PortalDetail>
   /** Validated in main (names, SSRF-checked URLs, provider id); a rename carries the guideline along. */
   updatePortal(id: string, patch: PortalPatch): Promise<PortalDetail>
