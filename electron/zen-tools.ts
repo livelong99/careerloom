@@ -102,7 +102,7 @@ function runCommand(spec: SpawnSpec, cwd: string): Promise<string> {
 
 // ponytail: literal-host check; DNS rebinding to a private IP isn't caught (the CLIs' fetch tools don't either).
 const PRIVATE_HOST = /^(localhost|.*\.local|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|\[)/i
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
+export const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
 
 export function publicUrl(raw: string): URL {
   const u = new URL(raw)
@@ -126,7 +126,7 @@ export function htmlToText(html: string): string {
 async function webfetch(raw: unknown): Promise<string> {
   let url = publicUrl(String(raw))
   for (let hop = 0; hop < 5; hop++) {
-    const res = await fetch(url, { redirect: 'manual', headers: { 'user-agent': UA }, signal: AbortSignal.timeout(30_000) })
+    const res = await fetch(url, { redirect: 'manual', headers: { 'user-agent': BROWSER_UA }, signal: AbortSignal.timeout(30_000) })
     const next = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
     if (next) { url = publicUrl(new URL(next, url).href); continue }
     const body = await res.text()
@@ -138,7 +138,7 @@ async function webfetch(raw: unknown): Promise<string> {
 
 /** DuckDuckGo's HTML endpoint: no key, no account. */
 async function websearch(query: unknown): Promise<string> {
-  const res = await fetch('https://html.duckduckgo.com/html/', { method: 'POST', body: new URLSearchParams({ q: String(query) }), headers: { 'user-agent': UA }, signal: AbortSignal.timeout(20_000) })
+  const res = await fetch('https://html.duckduckgo.com/html/', { method: 'POST', body: new URLSearchParams({ q: String(query) }), headers: { 'user-agent': BROWSER_UA }, signal: AbortSignal.timeout(20_000) })
   const html = await res.text()
   const hits = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)].slice(0, 10)
   if (!hits.length) return `No results (HTTP ${res.status})`
