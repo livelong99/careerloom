@@ -7,6 +7,9 @@ import { readRunHistory, readSettings, runs, startAgentPrompt, str, userFile, ty
 import { firecrawlReady } from './integrations/firecrawl'
 import { readRegistry } from './integrations/registry'
 
+/** Runners whose runs report a session id that a follow-up message can continue. */
+const RESUMABLE = new Set<string>(['claude', 'antigravity', 'opencode', 'zen'])
+
 // Agent chat: free-form threads over claude sessions (resume), persisted in userData/threads.
 // Contract: electron/contract.ts + renderer/lib/types.ts (CareerloomBridge).
 
@@ -87,8 +90,8 @@ export function listThreads(): ChatThreadSummary[] {
 export function finishRun(threadId: string, run: RunRecord): void {
   const thread = readThread(threadId)
   const messages = thread.messages.map(m => (m.runId === run.id ? { ...m, text: capReply(run.log), status: run.status } : m))
-  // claude session / agy conversation ids let the next message continue; codex has none.
-  const sessionId = run.runner === 'claude' || run.runner === 'antigravity' ? run.sessionId ?? thread.sessionId : null
+  // claude session / agy conversation / opencode + zen session ids let the next message continue; codex has none.
+  const sessionId = RESUMABLE.has(run.runner) ? run.sessionId ?? thread.sessionId : null
   writeThread({ ...thread, messages, sessionId, updatedAt: Date.now() })
 }
 
@@ -101,15 +104,17 @@ async function sendMessage(threadId: unknown, text: unknown): Promise<{ thread: 
     : readThread(threadId)
   if (toThread(base).status === 'running') throw new Error('The agent is still working in this chat — wait for it or stop it first')
   const env = (await firecrawlReady()) ? { FIRECRAWL_URL: readRegistry().firecrawl.url } : {}
+  const runner = readSettings().runner
   const run = startAgentPrompt('Agent chat', 'chat', buildPrompt(body), body.slice(0, 80), {
-    resume: base.sessionId ?? undefined,
+    // A session id only means something to the runner that made it.
+    resume: base.runner === runner ? base.sessionId ?? undefined : undefined,
     env,
     onExit: r => { try { finishRun(base.id, r) } catch (err) { console.error('chat save failed:', err) } },
   })
   // launch() is synchronous and onExit fires on a later tick, so this write always lands first.
   const user: ChatMessage = { id: randomUUID(), role: 'user', text: body, at: now }
   const agent: ChatMessage = { id: randomUUID(), role: 'agent', text: '', at: now, runId: run.id, status: 'running' }
-  const next = { ...base, runner: readSettings().runner, updatedAt: now, messages: [...base.messages, user, agent] }
+  const next = { ...base, runner, updatedAt: now, messages: [...base.messages, user, agent] }
   writeThread(next)
   return { thread: toThread(next), run }
 }
@@ -120,7 +125,7 @@ function continueRun(runId: unknown): ChatThread {
   const id = str(runId, 'run id')
   const run = runs.get(id) ?? readRunHistory().find(r => r.id === id)
   if (!run) throw new Error('That run is no longer available')
-  if ((run.runner !== 'claude' && run.runner !== 'antigravity') || !run.sessionId) throw new Error('Only Claude Code and Antigravity runs can be continued in chat')
+  if (!RESUMABLE.has(run.runner) || !run.sessionId) throw new Error('Only Claude Code, Antigravity, OpenCode and OpenCode Zen runs can be continued in chat')
   if (run.status === 'running') throw new Error('Wait for the run to finish, then continue it in chat')
   if (threadCount() >= MAX_THREADS) throw new Error(`You have ${MAX_THREADS} chats — delete some old ones to continue this run`)
   const now = Date.now()

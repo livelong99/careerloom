@@ -22,16 +22,18 @@ function integerTicks(max: number): number[] {
  *  active day in a wide panel stretches into one giant bar. */
 const MAX_BAR_PX = 24
 
-// codeburn's model-series palette, reused for the four runner ids; anything
+// codeburn's model-series palette, reused for the runner ids (opencode/zen are tints); anything
 // else (setup/script/unknown) falls back to the fifth "other" swatch.
 const RUNNER_COLOR: Record<string, string> = {
   claude: 'var(--s-flagship)',
   codex: 'var(--s-premium)',
   antigravity: 'var(--s-balanced)',
   api: 'var(--s-fast)',
+  opencode: 'color-mix(in oklch, var(--s-balanced) 55%, var(--s-other))',
+  zen: 'color-mix(in oklch, var(--s-fast) 55%, var(--s-other))',
 }
 const OTHER_COLOR = 'var(--s-other)'
-const RUNNER_ORDER = ['claude', 'codex', 'antigravity', 'api']
+const RUNNER_ORDER = ['claude', 'codex', 'antigravity', 'opencode', 'zen', 'api']
 export const colorForRunner = (id: string) => RUNNER_COLOR[id] ?? OTHER_COLOR
 
 /** Daily run count stacked by runner (codeburn StackedBars.tsx, adapted from

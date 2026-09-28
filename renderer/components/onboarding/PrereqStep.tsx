@@ -16,7 +16,8 @@ export function PrereqStep({ hasApiKey, onKeySaved, onNext }: { hasApiKey: boole
   const checking = pre.loading || bins.loading
   const nodeOld = Boolean(p?.node.version && !p.node.ok)
   const engines = ENGINES.filter(e => bins.data?.[e.id])
-  const hasEngine = engines.length > 0 || hasApiKey
+  // OpenCode Zen runs in-process on free models, so an agent is always available.
+  const hasEngine = true
   const ok = Boolean(p?.node.ok && p.npm.ok && p.git.ok && hasEngine)
   const recheck = () => setTick(n => n + 1)
 
@@ -34,8 +35,8 @@ export function PrereqStep({ hasApiKey, onKeySaved, onNext }: { hasApiKey: boole
           {p?.platform === 'darwin' && <><span>On a Mac, this installs it:</span><Command cmd="xcode-select --install" /></>}
           <Download label="Download Git" url="https://git-scm.com/downloads" />
         </Requirement>
-        <Requirement ok={hasEngine} title="An AI agent" status={!bins.data ? 'Checking…' : hasEngine ? [...engines.map(e => e.label), ...(hasApiKey ? ['API key'] : [])].join(', ') : 'None found'}>
-          <span>Install one of these agent tools. You’ll sign in to it after setup.</span>
+        <Requirement ok={hasEngine} title="An AI agent" status={!bins.data ? 'Checking…' : [...engines.map(e => e.label), ...(hasApiKey ? ['API key'] : []), 'OpenCode Zen (free)'].join(', ')}>
+          <span>OpenCode Zen works with no install or account. For more capable agents, install one of these tools; you’ll sign in to it after setup.</span>
           {ENGINES.map(e => (
             <div key={e.id} className="flex flex-col gap-2 rounded-md border border-border p-3">
               <span><b className="text-foreground">{e.label}</b> — {e.what}</span>

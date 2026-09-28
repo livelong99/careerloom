@@ -90,7 +90,7 @@ export type CanonicalStatus = 'Evaluated' | 'Applied' | 'Responded' | 'Interview
 
 // ————— CLI readiness (electron/readiness.ts) —————
 export type CliCheck = {
-  id: 'claude' | 'codex' | 'antigravity'
+  id: 'claude' | 'codex' | 'antigravity' | 'opencode'
   label: string
   path: string | null
   version: string | null

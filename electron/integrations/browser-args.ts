@@ -106,6 +106,8 @@ export function browserAgentArgs(runner: string, prompt: string, mcp: McpServer,
       prompt,
     ]
   }
+  // opencode takes the MCP server + read-only permissions via env (opencodeBrowserConfig).
+  if (runner === 'opencode') return ['run', '--format', 'json', ...(model ? ['--model', model] : []), prompt]
   return null
 }
 
