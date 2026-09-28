@@ -22,7 +22,9 @@ metadata:
 **Blockers & resolutions:**
 - Playwright MCP wrote console logs (signed-in page output) to the repo root → `--output-dir`; `.playwright-mcp/` ignored.
 
-**State:** done (not committed, not in installed app)
+- Evaluate on OpenCode CLI: worker couldn't find `batch/careerloom/<id>.worker.md` — `opencode run` resolves its directory from `process.env.PWD` before `cwd` (opencode `cli/cmd/run.ts`), and spawned children inherited Electron's PWD (the Careerloom checkout). Fix: `startRun` (and mcp-client, zen-tools commands) set `PWD` = spawn cwd; regression test in `zen.test.ts`.
+
+**State:** done (PWD fix committed)
 
 **Next steps:**
 - User: restart `npm run dev` (main-process changes) and retest; paid Zen model needs credits — untested live.

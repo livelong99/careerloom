@@ -91,7 +91,7 @@ export function commandSpec(command: string, ctx: ToolContext): SpawnSpec {
 
 function runCommand(spec: SpawnSpec, cwd: string): Promise<string> {
   return new Promise(resolve => {
-    execFile(spec.bin, spec.args, { cwd, env: spec.env, timeout: 600_000, maxBuffer: 20 * 1024 * 1024, windowsHide: true, ...(spec.verbatim ? { windowsVerbatimArguments: true } : {}) }, (err, stdout, stderr) => {
+    execFile(spec.bin, spec.args, { cwd, env: { ...spec.env, PWD: cwd }, timeout: 600_000, maxBuffer: 20 * 1024 * 1024, windowsHide: true, ...(spec.verbatim ? { windowsVerbatimArguments: true } : {}) }, (err, stdout, stderr) => {
       const code = err ? (typeof err.code === 'number' ? err.code : err.message) : 0
       resolve(cap(`exit ${code}\n${stdout}${stderr ? `\n[stderr]\n${stderr}` : ''}`))
     })
