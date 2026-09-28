@@ -10,7 +10,9 @@ import path from 'node:path'
 import { agyDenied, ensureAgyProject } from './agy-project'
 import { checkRoot } from './careerops'
 import { logTail } from './scan-history'
-import { agyFormatter, agyResultOk, agySessionId, agyUsage, argsFor, argsForPrompt, claudeSessionId, isModelId, claudeUsage, formatClaudeLine, isRunner, MODES, resolveBin, spawnSpec, startRun, type ModeId, type PromptOptions, type RunnerId, type RunUsage, type SpawnSpec } from './runner'
+import { opencodeConfig, opencodeEnv, ZEN_DEFAULT_MODEL } from './opencode'
+import { agyFormatter, agyResultOk, agySessionId, agyUsage, argsFor, argsForPrompt, claudeSessionId, formatOpencodeLine, isModelId, claudeUsage, formatClaudeLine, isRunner, MODES, opencodeResultOk, opencodeSessionId, opencodeUsage, promptFor, resolveBin, RUNNERS, spawnSpec, startRun, type CliRunner, type ModeId, type PromptOptions, type RunnerId, type RunUsage, type SpawnSpec } from './runner'
+import { BROWSER_SYSTEM, runZen, zenPrompt, zenSystem, type BrowserTools } from './zen-agent'
 
 export type Handler = (...args: unknown[]) => unknown
 
@@ -21,8 +23,10 @@ export const str = (v: unknown, name: string): string => {
 
 // ————— Settings (userData/settings.json) + API key (safeStorage) —————
 
-export type CliRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<CliRunner, string>> }
+export type { CliRunner }
+/** Runners with a model setting (every one but career-ops' OpenRouter script). */
+export type ModelRunner = Exclude<RunnerId, 'api'>
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>> }
 const DEFAULT_SETTINGS: Settings = { root: null, runner: 'claude', models: {} }
 
 export const userFile = (name: string) => path.join(app.getPath('userData'), name)
@@ -33,7 +37,7 @@ export function readSettings(): Settings {
     return {
       root: typeof raw.root === 'string' ? raw.root : null,
       runner: isRunner(raw.runner) ? raw.runner : DEFAULT_SETTINGS.runner,
-      models: Object.fromEntries(Object.entries(raw.models ?? {}).filter(([k, v]) => ['claude', 'codex', 'antigravity'].includes(k) && isModelId(v))),
+      models: Object.fromEntries(Object.entries(raw.models ?? {}).filter(([k, v]) => k !== 'api' && (RUNNERS as string[]).includes(k) && isModelId(v))),
     }
   } catch {
     return DEFAULT_SETTINGS
@@ -60,6 +64,8 @@ export function writeSecret(name: string, value: string | null): void {
 }
 
 export const readApiKey = () => readSecret('openrouter')
+/** Optional OpenCode Zen key (paid models) for the opencode and zen runners. */
+export const readOpencodeKey = () => readSecret('opencode')
 
 /** The career-ops checkout (system layer: modes, scripts). */
 export function careerOpsRoot(): string {
@@ -204,9 +210,9 @@ export function launch(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'in
   // Usage, session id and final status come from either CLI's stream-json events.
   const consume = (lines: string[]) => {
     for (const line of lines) {
-      run.usage = claudeUsage(line) ?? agyUsage(line) ?? run.usage
-      run.sessionId = claudeSessionId(line) ?? agySessionId(line) ?? run.sessionId
-      resultOk = agyResultOk(line) ?? resultOk
+      run.usage = claudeUsage(line) ?? agyUsage(line) ?? opencodeUsage(line, run.usage) ?? run.usage
+      run.sessionId = claudeSessionId(line) ?? agySessionId(line) ?? opencodeSessionId(line) ?? run.sessionId
+      resultOk = agyResultOk(line) ?? opencodeResultOk(line) ?? resultOk
     }
     const shown = lines.map(l => opts.format!(l)).filter((l): l is string => l !== null)
     if (shown.length) append(shown.join(''))
@@ -247,7 +253,7 @@ export function launch(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'in
 
 /** A tracked run for in-process work (no child process): `work` streams via `log`; a throw
  *  marks it failed. Cancel only flips `run.status` — `work` checks it between steps. */
-export function launchTask(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'input'>, work: (log: (text: string) => void, run: RunRecord) => Promise<void>): RunRecord {
+export function launchTask(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'input'>, work: (log: (text: string) => void, run: RunRecord) => Promise<void>, onExit?: (run: RunRecord) => void): RunRecord {
   const run: RunRecord = { ...record, id: randomUUID(), startedAt: Date.now(), endedAt: null, status: 'running', usage: null, log: '' }
   runs.set(run.id, run)
   const log = (text: string) => {
@@ -264,6 +270,7 @@ export function launchTask(record: Pick<RunRecord, 'runner' | 'mode' | 'label' |
       appendRunHistory(summary(run))
       saveLogTail(run)
       broadcast('careerloom:run', { id: run.id, kind: 'exit', status: run.status })
+      try { onExit?.(run) } catch (err) { console.error('run onExit failed:', err) }
     })
   return run
 }
@@ -280,7 +287,7 @@ export function setSkillContext(fn: () => SkillContext): void { skillContext = f
 function promptOptions(extra: PromptOptions = {}): PromptOptions {
   const skills = skillContext()
   const { runner, models } = readSettings()
-  const model = runner === 'api' ? undefined : models[runner]
+  const model = runner === 'api' || runner === 'zen' ? undefined : models[runner]
   const agyProject = runner === 'antigravity' ? ensureAgyProject(careerOpsRoot(), skills.dirs) : undefined
   return { addDirs: skills.dirs, systemAppend: skills.note ?? undefined, model, agyProject, ...extra }
 }
@@ -291,12 +298,14 @@ export function streamFormat(runner: RunnerId, root: string): ((line: string) =>
   const rel = (s: string | null) => s?.replaceAll(`${root}/`, '') ?? null
   if (runner === 'claude') return line => { const out = rel(formatClaudeLine(line)); return out === null ? null : `${out}\n` }
   if (runner === 'antigravity') { const fmt = agyFormatter(); return line => rel(fmt(line)) }
+  if (runner === 'opencode') return line => rel(formatOpencodeLine(line))
   return undefined
 }
 
 /** Launch a career-ops mode with the configured runner. `input` is validated by promptFor. */
 export function startAgent(mode: ModeId, input?: string, extraEnv: NodeJS.ProcessEnv = {}): RunSummary {
   const { runner } = readSettings()
+  if (runner === 'zen') return startZen({ runner, mode, label: MODES[mode].label, input: input ?? null }, promptFor(mode, input), { env: extraEnv })
   const root = careerOpsRoot()
   const { bin, args } = argsFor({ runner, mode, input }, promptOptions())
   let spec: SpawnSpec
@@ -310,7 +319,9 @@ export function startAgent(mode: ModeId, input?: string, extraEnv: NodeJS.Proces
       ? spawnSpec(bin, args, { ...extraEnv, OPENROUTER_API_KEY: key })
       : { bin: process.execPath, args, env: { ...process.env, ...extraEnv, OPENROUTER_API_KEY: key, ELECTRON_RUN_AS_NODE: '1' } }
   } else {
-    spec = spawnSpec(bin, args, extraEnv)
+    const cli = cliEnv(runner)
+    secret = cli.secret
+    spec = spawnSpec(bin, args, { ...extraEnv, ...cli.env })
   }
   return summary(launch(
     { runner, mode, label: MODES[mode].label, input: input ?? null },
@@ -319,16 +330,41 @@ export function startAgent(mode: ModeId, input?: string, extraEnv: NodeJS.Proces
   ))
 }
 
+/** Per-runner env for a CLI spawn: opencode gets its permission config and optional Zen key. */
+function cliEnv(runner: CliRunner): { env: NodeJS.ProcessEnv; secret?: string } {
+  if (runner !== 'opencode') return { env: {} }
+  const key = readOpencodeKey()
+  return { env: opencodeEnv(opencodeConfig(skillContext().dirs), key), secret: key ?? undefined }
+}
+
+/** A zen (in-process OpenCode Zen) run: career-ops file tools by default, or `browser` tools only. */
+export function startZen(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'input'>, prompt: string, opts: AgentPromptOptions & { browser?: BrowserTools } = {}): RunSummary {
+  const root = careerOpsRoot()
+  const skills = skillContext()
+  const job = {
+    model: readSettings().models.zen ?? ZEN_DEFAULT_MODEL,
+    key: readOpencodeKey(),
+    resume: opts.resume,
+    sessionDir: userFile('zen-sessions'),
+    ...(opts.browser
+      ? { tools: opts.browser, system: BROWSER_SYSTEM, prompt }
+      : { tools: { root, readDirs: skills.dirs, env: opts.env ?? {} }, system: zenSystem(root, skills.note), prompt: zenPrompt(root, prompt) }),
+  }
+  return summary(launchTask(record, (log, run) => runZen(job, log, run), opts.onExit))
+}
+
 /** Launch a server-built prompt (must start with a fixed literal, e.g. "/career-ops …").
- *  Needs an agent CLI; the API runner only implements fixed commands. */
+ *  Needs an agent (CLI or zen); the OpenRouter API runner only implements fixed commands. */
 export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void }
 
 export function startAgentPrompt(label: string, mode: string, prompt: string, input: string | null = null, opts: AgentPromptOptions = {}): RunSummary {
   const { runner } = readSettings()
-  if (runner === 'api') throw new Error(`"${label}" needs Claude Code, Codex or Antigravity — switch runner in Settings`)
+  if (runner === 'api') throw new Error(`"${label}" needs an agent (Claude Code, Codex, Antigravity, OpenCode or OpenCode Zen) — switch runner in Settings`)
   if (/^\s*-/.test(prompt)) throw new Error('Prompt must start with a fixed literal, not a flag')
+  if (runner === 'zen') return startZen({ runner, mode, label, input }, prompt, opts)
   const root = careerOpsRoot()
-  // claude (--resume) and agy (--conversation) continue sessions; codex starts fresh each message.
+  // claude (--resume), agy (--conversation) and opencode (--session) continue sessions; codex starts fresh each message.
   const { bin, args } = argsForPrompt(runner, prompt, promptOptions(runner === 'codex' ? {} : { resume: opts.resume }))
-  return summary(launch({ runner, mode, label, input }, [{ spec: spawnSpec(bin, args, opts.env), cwd: root }], { format: streamFormat(runner, root), onExit: opts.onExit }))
+  const cli = cliEnv(runner)
+  return summary(launch({ runner, mode, label, input }, [{ spec: spawnSpec(bin, args, { ...opts.env, ...cli.env }), cwd: root }], { format: streamFormat(runner, root), onExit: opts.onExit, secret: cli.secret }))
 }

@@ -13,7 +13,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2dd4bf"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.1.1-fbbf24">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-fbbf24">
 </p>
 
 <p align="center"><img src="docs/screenshots/jobs.png" alt="Jobs screen" width="860"></p>
@@ -21,7 +21,8 @@
 ## What it does
 
 Careerloom is a desktop interface for [career-ops](https://github.com/career-ops-hq/career-ops), the open-source
-job-search agent toolkit. It drives an agent CLI you already have — or any model through an API key — and turns
+job-search agent toolkit. It drives an agent CLI you already have, OpenCode's free models with nothing to install, or any model through
+an API key, and turns
 career-ops' files and scripts into a visual workflow.
 
 - **Jobs** — scan company boards (Greenhouse, Ashby, Lever, Workday and more), browse every listing across portals
@@ -52,9 +53,11 @@ career-ops' files and scripts into a visual workflow.
 | Claude Code | `claude` CLI, headless, streamed |
 | Codex | `codex exec` |
 | Antigravity | `agy`, sandboxed project with scoped permissions |
+| OpenCode | `opencode run`, headless, streamed; free models need no account |
+| OpenCode Zen | Careerloom's built-in agent on the [OpenCode Zen](https://opencode.ai/docs/zen/) API — nothing to install, free models need no key |
 | API key | Any model through [OpenRouter](https://openrouter.ai) |
 
-Pick a runner and a model per CLI in **Settings**. Careerloom checks each CLI's install and sign-in status
+Pick a runner and a model per runner in **Settings**. An OpenCode Zen API key is optional and unlocks paid models. Careerloom checks each CLI's install and sign-in status
 when you choose your career-ops folder.
 
 ## Install
@@ -70,7 +73,7 @@ choose **More info → Run anyway** in SmartScreen.
 ### Requirements
 
 - [Node.js](https://nodejs.org) 18 or newer and [Git](https://git-scm.com)
-- One agent CLI from the table above, or an OpenRouter API key
+- Nothing else for OpenCode Zen; optionally one agent CLI from the table above, or an OpenRouter API key
 - Optional: [Docker](https://www.docker.com) for self-hosted Firecrawl
 - Optional: Python 3.10 or newer for the local pre-screen model (installed from onboarding, about 1.4 GB)
 
@@ -110,7 +113,9 @@ bridge (`window.careerloom`), and every IPC argument is validated in the main pr
 
 Careerloom runs locally. Your résumé, profile and job data stay in your career-ops folder. Job titles are
 pre-screened on your machine. Content is sent only to the agent or model provider you choose, and to job boards
-you ask it to read. API keys are stored in the operating system's secure storage.
+you ask it to read. API keys are stored in the operating system's secure storage. Some free models may use
+prompts for training — check the provider's terms before sending your résumé, and pick a zero-retention model
+if that matters to you.
 
 Browser-based boards are off by default, require a per-site acknowledgement, use only that site's cookies, and
 the agent has no click, type or form tools. Many job sites prohibit automated access in their terms — use this

@@ -65,7 +65,7 @@ export function RunLog({ run, log, onCancel }: { run: Run; log: string | undefin
       <div className="flex items-center justify-between">
         <b>{run.label}</b>
         <span className="flex items-center gap-2">
-          {run.status !== 'running' && (run.runner === 'claude' || run.runner === 'antigravity') && run.sessionId && (
+          {run.status !== 'running' && ['claude', 'antigravity', 'opencode', 'zen'].includes(run.runner) && run.sessionId && (
             <button type="button" className="btnp" onClick={() => void continueInChat(run.id)}>Continue in chat</button>
           )}
           {run.status === 'running'

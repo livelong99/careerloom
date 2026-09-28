@@ -4,9 +4,12 @@ import { homedir, platform } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 
 /** Who does the work. CLI runners use the user's own subscription; `api` runs
- *  career-ops' OpenRouter runner with an API key. */
-export type RunnerId = 'claude' | 'codex' | 'antigravity' | 'api'
-export const RUNNERS: RunnerId[] = ['claude', 'codex', 'antigravity', 'api']
+ *  career-ops' OpenRouter runner with an API key; `zen` is Careerloom's own agent loop
+ *  on the OpenCode Zen API (zen-agent.ts) — free models need no key. */
+export type RunnerId = 'claude' | 'codex' | 'antigravity' | 'opencode' | 'zen' | 'api'
+export const RUNNERS: RunnerId[] = ['claude', 'codex', 'antigravity', 'opencode', 'zen', 'api']
+/** Runners that spawn an agent CLI. */
+export type CliRunner = Exclude<RunnerId, 'api' | 'zen'>
 
 /** career-ops modes the UI can launch. `apiCommand` marks the ones the
  *  key-based OpenRouter runner also implements; the rest need an agent CLI. */
@@ -33,7 +36,7 @@ export type ModeId = keyof typeof MODES
 export type RunRequest = { runner: RunnerId; mode: ModeId; input?: string }
 export type SpawnSpec = { bin: string; args: string[]; env: NodeJS.ProcessEnv; verbatim?: true }
 
-const BINS: Record<Exclude<RunnerId, 'api'>, string> = { claude: 'claude', codex: 'codex', antigravity: 'agy' }
+const BINS: Record<CliRunner, string> = { claude: 'claude', codex: 'codex', antigravity: 'agy', opencode: 'opencode' }
 
 // Headless claude may edit files and run career-ops' own node scripts, nothing
 // broader. ponytail: fixed allowlist; make it a setting if users need MCP tools.
@@ -62,6 +65,7 @@ export function promptFor(mode: ModeId, input: string | undefined): string {
 
 /** argv for one run. Pure, so it is tested without spawning. */
 export function argsFor(req: RunRequest, opts: PromptOptions = {}): { bin: string; args: string[] } {
+  if (req.runner === 'zen') throw new Error('The Zen runner runs in-process (zen-agent.ts), not as a CLI')
   if (req.runner === 'api') {
     const command = MODES[req.mode].apiCommand
     if (!command) throw new Error(`"${MODES[req.mode].label}" needs Claude Code, Codex or Antigravity — the API runner only does evaluate, scan, pipeline and apply`)
@@ -90,7 +94,7 @@ export type PromptOptions = {
 /** Model ids are passed as argv values; keep them to a safe charset so they can't read as flags. */
 export const isModelId = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9][\w.:/@-]{0,99}$/.test(v)
 
-export function argsForPrompt(runner: Exclude<RunnerId, 'api'>, prompt: string, opts: PromptOptions = {}): { bin: string; args: string[] } {
+export function argsForPrompt(runner: CliRunner, prompt: string, opts: PromptOptions = {}): { bin: string; args: string[] } {
   switch (runner) {
     case 'claude': {
       const extra = [
@@ -125,6 +129,21 @@ export function argsForPrompt(runner: Exclude<RunnerId, 'api'>, prompt: string, 
           ...(opts.addDirs ?? []).flatMap(d => ['--add-dir', d]),
         ],
       }
+    case 'opencode': {
+      // career-ops ships .opencode/commands/career-ops.md; other prompts go in as plain messages.
+      // Permissions come from OPENCODE_CONFIG_CONTENT (opencode.ts), never --auto.
+      const cmd = /^\/career-ops\s+([\s\S]+)$/.exec(prompt)
+      return {
+        bin: BINS.opencode,
+        args: [
+          'run', '--format', 'json',
+          ...(cmd ? ['--command', 'career-ops'] : []),
+          ...(opts.resume && /^[\w-]{8,64}$/.test(opts.resume) ? ['--session', opts.resume] : []),
+          ...(isModelId(opts.model) ? ['--model', opts.model] : []),
+          cmd ? cmd[1]! : prompt,
+        ],
+      }
+    }
   }
 }
 
@@ -349,3 +368,53 @@ export function agyResultOk(line: string): boolean | null {
   const ev = line.includes('"result"') ? parseAgy(line) : null
   return ev?.event === 'result' ? ev.result?.status === 'SUCCESS' : null
 }
+
+// ————— opencode (`opencode run --format json`) —————
+// One JSON object per line: {type, sessionID, part|error}. `text` and `tool_use` arrive complete;
+// each `step_finish` carries that step's cost + tokens; there is no final result event.
+type OpencodeEvent = {
+  type?: string
+  sessionID?: string
+  part?: { text?: string; tool?: string; state?: { status?: string; input?: Record<string, unknown>; title?: string }; cost?: number; tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } } }
+  error?: { name?: string; data?: { message?: string } }
+}
+const parseOpencode = (line: string): OpencodeEvent | null => {
+  if (!line.startsWith('{')) return null
+  try { return JSON.parse(line) as OpencodeEvent } catch { return null }
+}
+
+export function formatOpencodeLine(line: string): string | null {
+  if (!line.trim()) return null
+  const ev = parseOpencode(line)
+  if (!ev) return `${line}\n`
+  if (ev.type === 'text' && ev.part?.text) return `${ev.part.text}\n`
+  if (ev.type === 'tool_use' && ev.part?.tool) {
+    const p = ev.part.state?.input ?? {}
+    const hint = p.command ?? p.filePath ?? p.url ?? p.pattern ?? p.path ?? ''
+    return `▸ ${ev.part.tool}${hint ? ` ${String(hint).slice(0, 160)}` : ''}${ev.part.state?.status === 'error' ? ' (failed)' : ''}\n`
+  }
+  if (ev.type === 'error') return `✗ ${ev.error?.data?.message ?? ev.error?.name ?? 'error'}\n`
+  return null
+}
+
+export function opencodeSessionId(line: string): string | null {
+  const ev = line.includes('"sessionID"') ? parseOpencode(line) : null
+  return typeof ev?.sessionID === 'string' && /^[\w-]{8,64}$/.test(ev.sessionID) ? ev.sessionID : null
+}
+
+/** Running total: adds this `step_finish` to `prev`; null for any other line. */
+export function opencodeUsage(line: string, prev: RunUsage | null): RunUsage | null {
+  const ev = line.includes('"step_finish"') ? parseOpencode(line) : null
+  if (ev?.type !== 'step_finish' || !ev.part) return null
+  const t = ev.part.tokens ?? {}
+  return {
+    costUsd: (prev?.costUsd ?? 0) + (typeof ev.part.cost === 'number' ? ev.part.cost : 0),
+    inputTokens: (prev?.inputTokens ?? 0) + (t.input ?? 0) + (t.cache?.read ?? 0),
+    outputTokens: (prev?.outputTokens ?? 0) + (t.output ?? 0) + (t.reasoning ?? 0),
+    turns: (prev?.turns ?? 0) + 1,
+    durationMs: null,
+  }
+}
+
+/** An `error` event fails the run even though opencode exits 0. */
+export const opencodeResultOk = (line: string): boolean | null => (line.includes('"error"') && parseOpencode(line)?.type === 'error' ? false : null)

@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { checkRoot, listReports, readPipeline, readReport, readTracker } from './careerops'
-import { broadcast, dataRoot, launch, setSkillContext, readApiKey, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSecret, writeSettings, type Handler } from './context'
+import { broadcast, dataRoot, launch, setSkillContext, readApiKey, readOpencodeKey, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSecret, writeSettings, type Handler } from './context'
 import { chatHandlers } from './chat'
 import { onboardingHandlers } from './onboarding'
 import { prescreenHandlers, stopPrescreen } from './prescreen'
@@ -15,6 +15,7 @@ import { metricsHandlers } from './metrics'
 import { resumeHandlers } from './resume'
 import { trackerHandlers } from './tracker-actions'
 import { checkReadiness, pickReadyRunner, type Readiness } from './readiness'
+import { zenModels } from './opencode'
 import { sweepCookieTemp } from './integrations/browser-cookies'
 import { createUpdateChecker, type UpdateChecker } from './updates'
 import { cancelAll, cancelRun, isMode, isModelId, isRunner, MODES, resolveBin, spawnSpec } from './runner'
@@ -45,9 +46,29 @@ async function refreshReadiness(): Promise<Readiness | null> {
   return readiness
 }
 
-function writeApiKey(key: string | null): void {
+function writeApiKey(key: string | null, provider: unknown = 'openrouter'): void {
+  if (provider === 'opencode') {
+    if (key && !/^[\w.-]{16,200}$/.test(key.trim())) throw new Error('That does not look like an OpenCode Zen API key')
+    writeSecret('opencode', key)
+    return
+  }
   if (key && !/^sk-or-[\w-]{10,}$/.test(key.trim())) throw new Error('That does not look like an OpenRouter key (sk-or-…)')
   writeSecret('openrouter', key)
+}
+
+let opencodeModels: Array<{ id: string; label: string }> | null = null
+/** `opencode models` prints one provider/model id per line. */
+function listOpencodeModels(): Promise<Array<{ id: string; label: string }>> {
+  if (opencodeModels) return Promise.resolve(opencodeModels)
+  const bin = resolveBin('opencode')
+  if (!bin) return Promise.resolve([])
+  return new Promise(resolve => {
+    execFile(bin, ['models'], { timeout: 30_000, env: spawnSpec('opencode', []).env }, (err, stdout) => {
+      if (err) return resolve([])
+      opencodeModels = stdout.split('\n').map(l => l.trim()).filter(id => id.includes('/') && isModelId(id)).map(id => ({ id, label: id }))
+      resolve(opencodeModels)
+    })
+  })
 }
 
 /** Env every agent run gets: the local Firecrawl endpoint, when it is up. */
@@ -95,7 +116,7 @@ const pickedDirs = new Set<string>()
 const handlers: Record<string, Handler> = {
   getSettings: () => {
     const s = readSettings()
-    return { ...s, hasApiKey: readApiKey() !== null, rootCheck: s.root ? checkRoot(s.root) : null }
+    return { ...s, hasApiKey: readApiKey() !== null, hasOpencodeKey: readOpencodeKey() !== null, rootCheck: s.root ? checkRoot(s.root) : null }
   },
   setRoot: (root: unknown) => {
     // Only folders the user picked in the native dialog (or the current one) — never a raw renderer path.
@@ -112,7 +133,7 @@ const handlers: Record<string, Handler> = {
     return writeSettings({ runner })
   },
   setModel: (runner: unknown, model: unknown) => {
-    if (runner !== 'claude' && runner !== 'codex' && runner !== 'antigravity') throw new Error('Pick Claude Code, Codex or Antigravity')
+    if (!isRunner(runner) || runner === 'api') throw new Error('Pick an agent runner')
     if (model !== null && !isModelId(model)) throw new Error('Model ids are letters, digits and . _ : / @ - (up to 100 characters)')
     const { models } = readSettings()
     const next = { ...models }
@@ -122,10 +143,15 @@ const handlers: Record<string, Handler> = {
   },
   listModels: (runner: unknown) => {
     if (runner === 'antigravity') return antigravityModels()
+    if (runner === 'opencode') return listOpencodeModels()
+    if (runner === 'zen') return zenModels(readOpencodeKey())
     if (runner === 'claude' || runner === 'codex') return MODEL_SUGGESTIONS[runner]
     throw new Error('Unknown runner')
   },
-  setApiKey: (key: unknown) => { writeApiKey(key === null ? null : str(key, 'key')); return readApiKey() !== null },
+  setApiKey: (key: unknown, provider: unknown) => {
+    writeApiKey(key === null ? null : str(key, 'key'), provider)
+    return (provider === 'opencode' ? readOpencodeKey() : readApiKey()) !== null
+  },
   chooseDirectory: async () => {
     const res = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
     const dir = res.canceled ? null : res.filePaths[0] ?? null
@@ -136,6 +162,7 @@ const handlers: Record<string, Handler> = {
     claude: resolveBin('claude'),
     codex: resolveBin('codex'),
     antigravity: resolveBin('agy'),
+    opencode: resolveBin('opencode'),
     node: resolveBin('node'),
     git: resolveBin('git'),
   }),

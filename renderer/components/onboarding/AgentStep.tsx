@@ -21,7 +21,7 @@ export function AgentStep({ settings, onChanged, onNext }: { settings: Settings;
   useEffect(() => careerloom.onReadiness(onChanged), [onChanged]) // main may switch runner to a ready CLI
   const clis = ready.data?.clis ?? []
   const selected = settings.runner
-  const usable = selected === 'api' ? settings.hasApiKey : clis.find(c => c.id === selected)?.ready === true
+  const usable = selected === 'zen' || (selected === 'api' ? settings.hasApiKey : clis.find(c => c.id === selected)?.ready === true)
 
   const pick = async (runner: RunnerId) => {
     setError(null)
@@ -53,6 +53,14 @@ export function AgentStep({ settings, onChanged, onNext }: { settings: Settings;
             </label>
           )
         })}
+        <label className="flex flex-col gap-2 rounded-md border border-border p-3 has-[:checked]:border-[var(--accent)]">
+          <span className="flex items-center gap-3">
+            <input type="radio" name="runner" checked={selected === 'zen'} onChange={() => void pick('zen')} />
+            <b className="flex-1">OpenCode Zen (free, nothing to install)</b>
+            <span className="text-success">Ready</span>
+          </span>
+          <span className="pl-7 text-[length:var(--fs-meta)] text-muted-foreground">Careerloom runs the agent itself on OpenCode’s free models. No account or key; add a Zen key in Settings for paid models.</span>
+        </label>
         <label className="flex flex-col gap-2 rounded-md border border-border p-3 has-[:checked]:border-[var(--accent)]">
           <span className="flex items-center gap-3">
             <input type="radio" name="runner" checked={selected === 'api'} disabled={!settings.hasApiKey} onChange={() => void pick('api')} />
