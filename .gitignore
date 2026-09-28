@@ -14,12 +14,15 @@ graft/
 .DS_Store
 
 # Local AI/agent tooling (not part of the app)
-.claude/
+.claude/*
+!.claude/memory/
+!.claude/commands/
+.claude/commands/*
+!.claude/commands/cloud-setup.md
 .claude-flow/
 .agents/
 .swarm/
 ruvector.db
-CLAUDE.md
 AGENTS.md
 
 # Launch video workspace
