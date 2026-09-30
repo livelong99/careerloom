@@ -28,7 +28,7 @@ const SHAPE = `{"status":"done|needs_input",
 "questions":[{"id":"q1","finding_id":"f1","text":"","type":"text|choice|number","options":[],"why":""}]}`
 
 const RULES = `Rules:
-- Everything you need is in this message. Do not read or search any other file; your only action is writing the output file.
+- Everything you need is in this message. You have no file access and need none: reply with the JSON as your final message and nothing else.
 - severity: critical = likely to fail an automated screen (a missing required skill, unreadable content); major = clearly weakens the match; minor = polish.
 - Never output any score or overall verdict; code computes them.
 - requirements: every distinct JD requirement (required vs preferred), at most 25. judgements: only where cv.md uses a different word for the same thing, or you are unsure; cv_quote must be verbatim.
@@ -41,14 +41,14 @@ const COURSES_OFF = '- courses: leave [] (this runner cannot search the web); pl
 
 export const numbered = (cv: string) => cv.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n')
 
-export type PromptInput = { cv: string; jd: string; outPath: string; canSearch: boolean; answers?: AtsAnswer[]; partial?: string; finalRound?: boolean }
+export type PromptInput = { cv: string; jd: string; canSearch: boolean; answers?: AtsAnswer[]; partial?: string; finalRound?: boolean }
 
 export function buildPrompt(p: PromptInput): string {
   const answers = p.answers?.length ? `\nThe user answered your questions:\n${p.answers.map(a => `- ${a.id}: ${a.value}`).join('\n')}\n` : ''
   const partial = p.partial ? `\nYour earlier partial result (continue from it, do not start over):\n${p.partial.slice(0, 6000)}\n` : ''
   const last = p.finalRound ? '\nThis is the last round: ask no more questions, use the answers you have, set status "done".\n' : ''
   return `Careerloom ATS analysis (headless task from the app; do not ask for confirmation).
-Compare the résumé with the job description and write ONE JSON object (no prose) to ${p.outPath}, shaped:
+Compare the résumé with the job description and reply with ONE JSON object (no prose, no commentary) shaped:
 ${SHAPE}
 ${RULES}
 ${p.canSearch ? COURSES_ON : COURSES_OFF}
@@ -61,11 +61,11 @@ ${p.jd.slice(0, JD_CAP)}
 </job-description>`
 }
 
-export const resumePrompt = (answers: AtsAnswer[], outPath: string, finalRound: boolean) =>
-  `The user answered:\n${answers.map(a => `- ${a.id}: ${a.value}`).join('\n')}\n${finalRound ? 'This is the last round: ask no more questions, set status "done". ' : ''}Continue and rewrite the complete JSON object to ${outPath} (same shape, no prose).`
+export const resumePrompt = (answers: AtsAnswer[], finalRound: boolean) =>
+  `The user answered:\n${answers.map(a => `- ${a.id}: ${a.value}`).join('\n')}\n${finalRound ? 'This is the last round: ask no more questions, set status "done". ' : ''}Continue and reply with the complete JSON object again (same shape, no prose).`
 
-export const repairPrompt = (errors: string[], outPath: string) =>
-  `The JSON you wrote to ${outPath} failed validation:\n${errors.slice(0, 6).map(e => `- ${e}`).join('\n')}\nRewrite the complete, corrected JSON object to that file (same shape, no prose).`
+export const repairPrompt = (errors: string[]) =>
+  `The JSON you sent failed validation:\n${errors.slice(0, 6).map(e => `- ${e}`).join('\n')}\nReply with the complete, corrected JSON object (same shape, no prose).`
 
 /** First balanced {...} in free text (an agent that printed instead of writing the file). */
 export function extractJson(text: string): string | null {

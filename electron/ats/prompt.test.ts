@@ -40,16 +40,18 @@ describe('validateAgentOutput', () => {
 
 describe('prompts', () => {
   it('are lean: the prompt is the résumé + JD + a short shape, under 2.5k tokens for a sample', () => {
-    const p = buildPrompt({ cv: SAMPLE_CV, jd: 'We need Kafka. '.repeat(50), outPath: '/x/out.json', canSearch: true })
+    const p = buildPrompt({ cv: SAMPLE_CV, jd: 'We need Kafka. '.repeat(50), canSearch: true })
+    expect(p).toMatch(/reply with ONE JSON/)
+    expect(p).not.toMatch(/\.json/)
     expect(p.length / 4).toBeLessThan(2500)
     expect(p).toMatch(/^Careerloom ATS analysis/)
     expect(p).toContain('12: ')
   })
   it('only asks for courses when the runner can search', () => {
-    expect(buildPrompt({ cv: 'a', jd: 'b', outPath: 'o', canSearch: false })).toMatch(/cannot search/)
-    expect(buildPrompt({ cv: 'a', jd: 'b', outPath: 'o', canSearch: true })).toMatch(/only from web search/)
+    expect(buildPrompt({ cv: 'a', jd: 'b', canSearch: false })).toMatch(/cannot search/)
+    expect(buildPrompt({ cv: 'a', jd: 'b', canSearch: true })).toMatch(/only from web search/)
   })
-  it('the repair prompt carries the errors', () => expect(repairPrompt(['bad status'], 'o.json')).toMatch(/bad status/))
+  it('the repair prompt carries the errors', () => expect(repairPrompt(['bad status'])).toMatch(/bad status/))
   it('extractJson finds the object in fenced or chatty text', () => {
     expect(extractJson('here you go ```json\n{"a":1}\n``` done')).toBe('{"a":1}')
     expect(extractJson('prefix {"a":{"b":2}} suffix')).toBe('{"a":{"b":2}}')
