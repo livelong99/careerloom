@@ -19,7 +19,7 @@ export function installCommands(engine: Installable, script: string, cache: stri
   if (engine === 'whisper-mlx') {
     const m = WHISPER_MODELS[model as keyof typeof WHISPER_MODELS]
     return [
-      ['Packages (about 1.1 GB: Whisper needs PyTorch)', [...PIP, PINS['whisper-mlx']]],
+      ['Packages (about 1.3 GB: Whisper needs PyTorch)', [...PIP, PINS['whisper-mlx']]],
       ['Model', [script, 'fetch', m.repo, m.rev, cache]],
       ['Self-test', [script, 'selftest', m.repo, m.rev, cache]],
     ]

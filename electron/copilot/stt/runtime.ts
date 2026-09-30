@@ -15,7 +15,7 @@ export const WHISPER_MODELS = {
   turbo: { repo: 'mlx-community/whisper-large-v3-turbo', rev: 'a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb', sizeMb: 1600 },
 } as const
 export const STT_MODELS: Record<'moonshine' | 'whisper-mlx', readonly string[]> = { moonshine: MOONSHINE_MODELS, 'whisper-mlx': Object.keys(WHISPER_MODELS) }
-/** Download sizes (MB) from the S2 report; the Whisper venv adds about 1.1 GB because mlx-whisper depends on torch. */
+/** Download sizes (MB) from the S2 report; the Whisper venv adds about 1.3 GB because mlx-whisper depends on torch. */
 export const MODEL_SIZE_MB: Record<string, number> = { 'moonshine:tiny': 45, 'moonshine:small': 139, 'moonshine:medium': 269, 'whisper-mlx:small': 481, 'whisper-mlx:turbo': 1600 }
 export const DEFAULT_MOONSHINE_MODEL = 'small'
 

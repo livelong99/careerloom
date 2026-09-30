@@ -6,7 +6,7 @@ export type SttCatalogModel = { id: string; label: string; hint: string; recomme
 /** Hints quote the S2 bake-off (plan §3.2): computer-generated speech, time from the end of a sentence to its text. Real calls are noisier; Benchmark measures this computer. */
 export const STT_ENGINES: ReadonlyArray<{ id: SttEngineId; label: string; hint: string; models: SttCatalogModel[]; devices: Array<Exclude<SttDevice, 'auto'>> }> = [
   {
-    id: 'whisper-mlx', label: 'Whisper (Apple silicon)', hint: 'Default on Apple silicon. Writes each sentence once you pause, about a second after the question ends. The first install is large because Whisper needs PyTorch (about 1.1 GB on top of the model).',
+    id: 'whisper-mlx', label: 'Whisper (Apple silicon)', hint: 'Default on Apple silicon. Writes each sentence once you pause, about a second after the question ends. The first install is large because Whisper needs PyTorch (about 1.3 GB on top of the model).',
     devices: [],
     models: [
       { id: 'small', label: 'Small', hint: 'default · text about 0.8 s after you stop · accurate on technical words', recommended: true },
