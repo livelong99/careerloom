@@ -23,12 +23,13 @@ export type ReportView = {
   warnings: string[]
 }
 
+export type KeywordStatus = { keyword: string; status: 'covered' | 'related' | 'missing'; /** The résumé skill that covers it (related/covered). */ via?: string }
 export type JobPosting = {
   title: string | null; company: string | null; location: string | null
   workMode: 'remote' | 'hybrid' | 'onsite' | null; employmentType: string | null; seniority: string | null
   salary: { min: number | null; max: number | null; currency: string | null; period: string | null; text: string | null } | null
   summary: string | null; responsibilities: string[]; requirements: { required: string[]; preferred: string[] }
-  benefits: string[]; aboutCompany: string | null; techStack: string[]; deadline: string | null
+  benefits: string[]; aboutCompany: string | null; /** Tools, languages, platforms only. */ techStack: string[]; /** Themes and competencies (leadership, system design…). */ skills: string[]; /** The posting's own overview text; `summary` is the distilled version. */ fullDescription: string | null; deadline: string | null
 }
 export type JobViewMeta = { source: 'report' | 'prefetch' | 'none'; filled: 'deterministic' | 'model' | 'model-failed'; model: string | null; tokens: number | null; cachedAt: number }
-export type JobView = { id: string; report: ReportView | null; posting: JobPosting | null; meta: JobViewMeta; rawJd: string | null; rawReport: string | null }
+export type JobView = { id: string; report: ReportView | null; posting: JobPosting | null; meta: JobViewMeta; rawJd: string | null; rawReport: string | null; keywords: KeywordStatus[] }

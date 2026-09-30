@@ -65,8 +65,8 @@ const bridge = {
   savePdf: (name: string) => invoke('savePdf', name),
   // ————— ATS / Resume —————
   atsAnalyze: (input: unknown) => invoke('atsAnalyze', input),
-  atsGet: () => invoke('atsGet'),
-  atsAnswer: (runId: string, answers: unknown[]) => invoke('atsAnswer', runId, answers),
+  atsGet: (jobId?: string) => invoke('atsGet', jobId),
+  atsAnswer: (runId: string, answers: unknown[], jobId?: string) => invoke('atsAnswer', runId, answers, jobId),
   atsPreviewApply: (findingId: string, answers?: unknown[]) => invoke('atsPreviewApply', findingId, answers),
   atsApply: (findingId: string, answers?: unknown[]) => invoke('atsApply', findingId, answers),
   atsUndo: (undoId: string) => invoke('atsUndo', undoId),

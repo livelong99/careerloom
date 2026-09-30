@@ -38,9 +38,9 @@ export function OverviewTab({ job, view, goTab }: { job: ScreenedJob; view: JobV
       </Block>
       <Block title="Key facts">
         <Facts rows={[
-          ['Pay', r.advertisedComp ?? (p?.salary?.text ?? null)], ['Work mode', p?.workMode], ['Type', p?.employmentType], ['Level', p?.seniority],
+          ['Pay', r.advertisedComp ?? (p?.salary?.text ?? null)], ['Work mode', p?.workMode], ['Type', p?.employmentType], ['Level in the posting', p?.seniority],
           ['Work authorisation', r.workAuth], ['Legitimacy', r.legitimacy], ['Evaluated', r.date],
-          ...r.roleAttributes.slice(0, 6).map(a => [a.label, a.value.length > 110 ? `${a.value.slice(0, 107)}…` : a.value] as [string, string]),
+          ...r.roleAttributes.slice(0, 8).map(a => [/seniority|level/i.test(a.label) ? `${a.label} (evaluation)` : a.label, a.value] as [string, string]),
         ]} />
       </Block>
       <Block title="Top strengths"><Bullets items={r.topStrengths} empty="None listed." /></Block>

@@ -299,4 +299,4 @@ export type AtsEvent = { runId: string; phase: AtsPhase; message: string; questi
 export type AtsAnalyzeInput = { jd?: string; jobId?: string; templateId?: string }
 
 // ————— Job page —————
-export type { JobPosting, JobView, JobViewMeta, MatchStatus, ReportBlock, ReportGap, ReportSection, ReportView } from './job-view/types'
+export type { JobPosting, JobView, KeywordStatus, JobViewMeta, MatchStatus, ReportBlock, ReportGap, ReportSection, ReportView } from './job-view/types'

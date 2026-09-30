@@ -5,7 +5,7 @@ import type { AtsAnswer } from '../../lib/types'
 import { IDLE, type AtsLive } from './ctx'
 
 /** Live state of the analysis run. `onSettled` refetches the report when a round ends or asks something. */
-export function useAtsLive(onSettled: () => void) {
+export function useAtsLive(onSettled: () => void, jobId?: string) {
   const [live, setLive] = useState<AtsLive>(IDLE)
 
   useEffect(() => careerloom.onAtsEvent(e => {
@@ -22,17 +22,17 @@ export function useAtsLive(onSettled: () => void) {
 
   const analyze = useCallback(async (jd: string, templateId?: string) => {
     setLive({ ...IDLE, running: true, phase: 'parse', message: 'Starting' })
-    try { await careerloom.atsAnalyze({ jd: jd.trim() || undefined, templateId }) } catch (err) {
+    try { await careerloom.atsAnalyze({ jd: jd.trim() || undefined, jobId, templateId }) } catch (err) {
       setLive({ ...IDLE, error: normalizeCliError(err).message })
     }
-  }, [])
+  }, [jobId])
 
   const answer = useCallback(async (runId: string, answers: AtsAnswer[]) => {
     setLive(prev => ({ ...prev, running: true, phase: 'agent', message: 'Sending your answers', questions: [], error: null }))
-    try { await careerloom.atsAnswer(runId, answers) } catch (err) {
+    try { await careerloom.atsAnswer(runId, answers, jobId) } catch (err) {
       setLive(prev => ({ ...prev, running: false, error: normalizeCliError(err).message }))
     }
-  }, [])
+  }, [jobId])
 
   return { live, analyze, answer }
 }
