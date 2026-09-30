@@ -2,21 +2,25 @@
 // Sizes/latencies are deliberately absent: they are measured (benchmark) or reported by the engine, never guessed here.
 import type { SttDevice, SttEngineId } from '@/lib/types'
 
-export type SttCatalogModel = { id: string; label: string; hint: string }
+export type SttCatalogModel = { id: string; label: string; hint: string; recommended?: boolean }
+/** Hints quote the S2 bake-off (plan §3.2): computer-generated speech, time from the end of a sentence to its text. Real calls are noisier; Benchmark measures this computer. */
 export const STT_ENGINES: ReadonlyArray<{ id: SttEngineId; label: string; hint: string; models: SttCatalogModel[]; devices: Array<Exclude<SttDevice, 'auto'>> }> = [
   {
-    id: 'moonshine', label: 'Moonshine (streaming)', hint: 'Runs on this computer. Streaming engines show words while the person is still talking.',
-    devices: ['cpu', 'coreml'],
+    id: 'whisper-mlx', label: 'Whisper (Apple silicon)', hint: 'Default on Apple silicon. Writes each sentence once you pause, about a second after the question ends. The first install is large because Whisper needs PyTorch (about 1.1 GB on top of the model).',
+    devices: [],
     models: [
-      { id: 'tiny-streaming', label: 'Tiny streaming', hint: 'fastest · lower accuracy' },
-      { id: 'small-streaming', label: 'Small streaming', hint: 'balanced' },
-      { id: 'medium-streaming', label: 'Medium streaming', hint: 'most accurate of the three' },
+      { id: 'small', label: 'Small', hint: 'default · text about 0.8 s after you stop · accurate on technical words', recommended: true },
+      { id: 'turbo', label: 'Turbo · most accurate (on demand)', hint: 'about 1.5 s or slower · best used when you press Answer after the question' },
     ],
   },
   {
-    id: 'whisper-mlx', label: 'Whisper (Apple silicon)', hint: 'Re-reads the audio every second or so. Slower to the first words, often more accurate.',
-    devices: ['cpu'],
-    models: [{ id: 'small', label: 'Small', hint: 'balanced' }, { id: 'turbo', label: 'Turbo', hint: 'most accurate' }],
+    id: 'moonshine', label: 'Moonshine (streaming)', hint: 'Fallback that also works on Intel Macs. Shows words while the person is still talking, but mishears technical words more often.',
+    devices: ['cpu', 'coreml'],
+    models: [
+      { id: 'tiny', label: 'Tiny', hint: 'fastest · about 0.7 s · lower accuracy' },
+      { id: 'small', label: 'Small', hint: 'fallback · about 0.8 s with fast updates · balanced', recommended: true },
+      { id: 'medium', label: 'Medium', hint: 'about 1 s · most accurate of the three' },
+    ],
   },
   {
     id: 'faster-whisper', label: 'faster-whisper', hint: 'Needs an NVIDIA GPU for real-time use; not available on this Mac.',

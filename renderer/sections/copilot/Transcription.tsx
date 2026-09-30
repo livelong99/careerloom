@@ -30,7 +30,7 @@ export function TranscriptionPage() {
         return { model: m.model, label: cat?.label ?? m.model, hint: cat?.hint ?? '', sizeMb: m.sizeMb, installed: m.installed, p50FinalMs: m.lastBenchmark?.p50FinalMs ?? null, recommended: m.recommended }
       })
     }
-    return engine.models.map(c => ({ model: c.id, label: c.label, hint: c.hint, sizeMb: null, installed: null, p50FinalMs: null, recommended: false }))
+    return engine.models.map(c => ({ model: c.id, label: c.label, hint: c.hint, sizeMb: null, installed: null, p50FinalMs: null, recommended: c.recommended ?? false }))
   }, [listed, engine])
   // CUDA is offered only when the engine itself reports it; the static catalog never enables it.
   const devices = new Set<string>(['auto', ...(listed ? listed.filter(m => m.engine === engine.id).flatMap(m => m.devices) : engine.devices.filter(d => d !== 'cuda'))])
@@ -74,7 +74,7 @@ export function TranscriptionPage() {
         <Row label="Model" hint="Pick the smallest model that is accurate enough for you. Latency is measured on this computer." stack>
           <SttModelPicker rows={rows} value={model} onChange={m => void save({ stt: { model: m } })} />
         </Row>
-        <Row label="Compute" hint="Auto picks the fastest option this computer supports. NVIDIA GPU (CUDA) appears only when the engine can use it." htmlFor="stt-device">
+        <Row label="Compute" hint={engine.id === 'whisper-mlx' ? 'Whisper runs on the Apple silicon GPU, so Auto is the only choice.' : 'Auto picks the fastest option this computer supports. NVIDIA GPU (CUDA) appears only when the engine can use it.'} htmlFor="stt-device">
           <select id="stt-device" className={selectClass} value={stt.device} onChange={e => void save({ stt: { device: e.target.value as SttDevice } })}>
             {DEVICES.map(d => <option key={d} value={d} disabled={!devices.has(d)}>{DEVICE_LABEL[d]}{d === 'cuda' && engine.id === 'moonshine' ? ' · experimental' : ''}</option>)}
           </select>
@@ -82,6 +82,8 @@ export function TranscriptionPage() {
         <Row label="Benchmark result" hint={note ?? (shown ? 'Measured on this computer.' : 'Run the benchmark to see speed and memory.')}>
           {shown && <><Chip tone="ok">Final {Math.round(shown.p50FinalMs)} ms</Chip>{shown.ramMb !== null && <Chip>RAM {Math.round(shown.ramMb)} MB</Chip>}<Chip>Speed {shown.realTimeFactor}× real time</Chip></>}
         </Row>
+        {engine.id === 'whisper-mlx' && selected?.installed === false && <Note tone="warn">Installing Whisper downloads about 1.1 GB of Python packages (PyTorch) plus the model, into a folder in your home directory. Nothing is bundled with the app.</Note>}
+        <Note>Speeds above come from a test with computer-generated speech, which is cleaner than a real call. Press Benchmark to measure this computer with the same audio.</Note>
         <Note tone="ok">Audio from your microphone and system audio stays on this computer. Only the text of the conversation is sent to the answer provider.</Note>
       </Group>
 

@@ -37,7 +37,7 @@ afterEach(() => { cleanup(); Object.values(api).forEach(f => f.mockReset()) })
 describe('TranscriptionPage', () => {
   it('falls back to the catalog, never claims a size, and keeps CUDA disabled unless reported', async () => {
     render(<TranscriptionPage />)
-    await screen.findByRole('radio', { name: /Small streaming/ })
+    await screen.findByRole('radio', { name: /Small/ })
     expect(screen.getAllByText(/size shown after install/i).length).toBeGreaterThan(0)
     const compute = screen.getByLabelText('Compute') as HTMLSelectElement
     expect([...compute.options].find(o => o.value === 'cuda')?.disabled).toBe(true)
@@ -45,7 +45,7 @@ describe('TranscriptionPage', () => {
   })
   it('enables CUDA only when the engine reports it, shows Installed / Recommended from the list', async () => {
     api.copilotListSttModels.mockResolvedValue([
-      { engine: 'moonshine', model: 'small-streaming', sizeMb: 150, installed: true, devices: ['cpu', 'cuda'], lastBenchmark: { at: 1, p50FinalMs: 80, realTimeFactor: 0.08, ramMb: 610, wer: null }, recommended: true },
+      { engine: 'moonshine', model: 'small', sizeMb: 139, installed: true, devices: ['cpu', 'cuda'], lastBenchmark: { at: 1, p50FinalMs: 80, realTimeFactor: 0.08, ramMb: 610, wer: null }, recommended: true },
     ])
     render(<TranscriptionPage />)
     await screen.findByText('Installed')
@@ -57,11 +57,28 @@ describe('TranscriptionPage', () => {
   })
   it('selecting a model saves it; benchmark calls main with the selection and shows a neutral note when unwired', async () => {
     render(<TranscriptionPage />)
-    fireEvent.click(await screen.findByRole('radio', { name: /Medium streaming/ }))
-    await waitFor(() => expect(api.copilotSetConfig).toHaveBeenCalledWith({ stt: { model: 'medium-streaming' } }))
+    fireEvent.click(await screen.findByRole('radio', { name: /Medium/ }))
+    await waitFor(() => expect(api.copilotSetConfig).toHaveBeenCalledWith({ stt: { model: 'medium' } }))
     fireEvent.click(screen.getByRole('button', { name: /Benchmark on this computer/ }))
-    await waitFor(() => expect(api.copilotBenchmarkStt).toHaveBeenCalledWith({ engine: 'moonshine', model: 'medium-streaming', device: 'auto' }))
+    await waitFor(() => expect(api.copilotBenchmarkStt).toHaveBeenCalledWith({ engine: 'moonshine', model: 'medium', device: 'auto' }))
     await screen.findByText(/not available in this build yet/i)
+  })
+  it('Whisper (the default): warns about the ~1.1 GB install when missing, offers Turbo as on-demand, Auto compute only, and says the speeds are from synthetic speech', async () => {
+    const whisper = { ...CONFIG, stt: { ...CONFIG.stt, engine: 'whisper-mlx' as const } }
+    api.copilotGetConfig.mockResolvedValue(whisper)
+    api.copilotListSttModels.mockResolvedValue([
+      { engine: 'whisper-mlx', model: 'small', sizeMb: 481, installed: false, devices: [], lastBenchmark: null, recommended: true },
+      { engine: 'whisper-mlx', model: 'turbo', sizeMb: 1600, installed: false, devices: [], lastBenchmark: null, recommended: false },
+    ])
+    render(<TranscriptionPage />)
+    await screen.findByRole('radio', { name: /Turbo · most accurate \(on demand\)/ })
+    expect(screen.getByText(/about 481 MB/)).toBeTruthy()
+    expect(screen.getByText('Recommended')).toBeTruthy()
+    expect(screen.getByText(/about 1\.1 GB of Python packages \(PyTorch\)/)).toBeTruthy()
+    expect(screen.getByText(/computer-generated speech/)).toBeTruthy()
+    const compute = screen.getByLabelText('Compute') as HTMLSelectElement
+    expect([...compute.options].filter(o => !o.disabled).map(o => o.value)).toEqual(['auto'])
+    expect(screen.getByRole('button', { name: /Install speech model/ })).toBeTruthy()
   })
   it('shows benchmark result chips', async () => {
     api.copilotBenchmarkStt.mockResolvedValue({ at: 1, p50FinalMs: 82, realTimeFactor: 0.08, ramMb: 610, wer: null })
