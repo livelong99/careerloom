@@ -1,5 +1,4 @@
-// Ported in part from Open-Cluely (owner's project), adapted for Careerloom: app-state.js session persistence,
-// with keys removed (they live in safeStorage) and a required Job on every session.
+// Session store: original code. (Open-Cluely's app-state.js is a flat settings file with plaintext keys and no sessions, so there was nothing to port.)
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
