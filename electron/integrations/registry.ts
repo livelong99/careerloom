@@ -12,7 +12,7 @@ export type FirecrawlConfig = { url: string; composeDir: string }
 /** Browser boards: where the board's login cookies come from, and per-domain ToS acknowledgements. */
 /** `sourceSet` = the user chose `source` (an unset "off" means Chrome's last-used profile when
  *  Chrome is installed); `pageWait` = seconds the browser agent waits after each page load. */
-export type BrowserLoginConfig = { source: 'off' | 'chrome' | 'file'; profile: string; cookiesFile: string; headless: boolean; testDomain: string; acks: string[]; sourceSet?: boolean; pageWait?: number }
+export type BrowserLoginConfig = { source: 'off' | 'chrome' | 'file'; profile: string; cookiesFile: string; headless: boolean; testDomain: string; acks: string[]; sourceSet?: boolean; pageWait?: number; fast?: boolean }
 export type IntegrationsRegistry = { skills: SkillEntry[]; firecrawl: FirecrawlConfig; browser: BrowserLoginConfig }
 
 const DEFAULTS: IntegrationsRegistry = {

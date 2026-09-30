@@ -21,7 +21,7 @@ export type FastDeps = {
 }
 const realDeps: FastDeps = { findBrowser, launch: launchBrowser, open: openPage, sleep: ms => new Promise(r => setTimeout(r, ms)), random: Math.random }
 
-export type FastOptions = { domain: string; urls: string[]; cookies: PwCookie[]; headless: boolean; settleSeconds: number; log: (t: string) => void; cancelled?: () => boolean }
+export type FastOptions = { domain: string; urls: string[]; cookies: PwCookie[]; headless: boolean; settleSeconds: number; maxPages?: number; log: (t: string) => void; cancelled?: () => boolean }
 
 const PAUSE_MS = [3000, 8000] as const // between pages: a person's pace, not a crawler's
 const MAX_SCROLLS = 12
@@ -44,7 +44,8 @@ async function readPage(page: Page, site: Site | undefined, log: (t: string) => 
 async function collect(page: Page, o: FastOptions, d: FastDeps): Promise<RawJob[]> {
   const site = siteFor(o.domain)
   const single = o.urls.length === 1 && site
-  const targets = single ? Array.from({ length: MAX_PAGES }, (_, i) => site.pageUrl(o.urls[0]!, i)) : o.urls.slice(0, MAX_PAGES)
+  const max = Math.min(MAX_PAGES, o.maxPages ?? MAX_PAGES)
+  const targets = single ? Array.from({ length: max }, (_, i) => site.pageUrl(o.urls[0]!, i)) : o.urls.slice(0, max)
   const all = new Map<string, RawJob>()
   for (let i = 0; i < targets.length && !o.cancelled?.(); i++) {
     if (i > 0) await d.sleep(PAUSE_MS[0] + d.random() * (PAUSE_MS[1] - PAUSE_MS[0]))
