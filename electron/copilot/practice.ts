@@ -54,6 +54,25 @@ export function parseFollowUp(text: string): string | null {
   return t
 }
 
+/** Optional extras on a practice `copilotStart` (additive to StartRequest): which listed questions to ask, and your own for this session only. */
+export type PracticeExtras = { questionIds?: string[]; custom?: string[] }
+
+/** Chosen listed questions (all when no selection) followed by your own; an explicit empty selection is an error. */
+export function selectQuestions(report: ReportView | null, extras: PracticeExtras, lastScore: Record<string, number> = {}): PracticeQuestion[] {
+  const base = questionsFromReport(report, [], lastScore)
+  const chosen = extras.questionIds === undefined ? base : base.filter(q => extras.questionIds!.includes(q.id))
+  const seen = new Set(chosen.map(q => q.id))
+  const own = (extras.custom ?? []).map(t => t.trim()).filter(Boolean).flatMap((text): PracticeQuestion[] => {
+    const id = qid(text)
+    if (seen.has(id)) return []
+    seen.add(id)
+    return [{ id, text, type: 'other', source: 'custom', lastScore: lastScore[id] ?? null }]
+  })
+  const out = [...chosen, ...own].slice(0, MAX_QUESTIONS)
+  if (out.length === 0) throw new Error('Pick at least one question to practise')
+  return out
+}
+
 export const FOLLOWUP_SYSTEM = 'You are a mock interviewer. Given the question and the candidate\'s answer, reply with ONE short follow-up question that probes the weakest part of the answer, or NONE. No preamble.'
 
 export type PracticeSink = { question(q: DetectedQuestion): void; line(l: TranscriptLine): void; done(): void }

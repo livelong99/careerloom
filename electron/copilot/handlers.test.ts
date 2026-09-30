@@ -196,6 +196,18 @@ describe('practice end to end on fakes', () => {
     expect(d.score).toBe(4)
     expect(fs.existsSync(path.join(base, 'bullets.json'))).toBe(false)
   })
+  it('practice start honours the chosen questions plus your own, and refuses an empty selection', async () => {
+    const { c } = setup()
+    const ids = (await c.handlers.copilotPracticeQuestions('job-1') as Array<{ id: string }>).map(q => q.id)
+    await c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null, questionIds: [ids[2]], custom: ['What would you do in month one?'] })
+    const asked = sent.filter(([ch]) => ch === 'careerloom:copilotQuestion').map(([, q]) => (q as { id: string }).id)
+    expect(asked).toEqual([ids[2]])
+    await c.feed({ id: 'a', speaker: 'you', text: 'x', final: true, t0: 2_000_000_000_001, t1: null }, true)
+    expect(sent.filter(([ch]) => ch === 'careerloom:copilotQuestion')).toHaveLength(2)
+    await c.handlers.copilotStop('user')
+    await expect(c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null, questionIds: [] })).rejects.toThrow(/question/i)
+    await expect(c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null, custom: 'nope' })).rejects.toThrow()
+  })
   it('practice questions come from the report plan and carry last scores', async () => {
     const { c } = setup()
     const qs = await c.handlers.copilotPracticeQuestions('job-1') as Array<{ source: string }>
