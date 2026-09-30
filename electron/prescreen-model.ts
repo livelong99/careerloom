@@ -61,7 +61,7 @@ function probePython(bin: string, pre: string[]): Promise<PyFound | null> {
 }
 
 /** The first suitable interpreter, else the newest too-old one found (for the message). */
-async function findPython(): Promise<{ ok: PyFound | null; old: PyFound | null }> {
+export async function findPython(): Promise<{ ok: PyFound | null; old: PyFound | null }> {
   let old: PyFound | null = null
   for (const [bin, pre] of pythonCandidates()) {
     const p = await probePython(bin, pre)
