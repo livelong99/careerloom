@@ -119,6 +119,7 @@ The one-time notice says: some interviewers and employers prohibit AI assistance
 | `css/tokens.css` | Careerloom tokens (values only) |
 | `shots/*.png` | 26 screenshots (dark + light), incl. `config-privacy-*` (default off, Privacy mode on, first-use notice) |
 
-## 9. Updates from user decisions (2026-10-01)
+## 9. Updates from user decisions (2026-10-01, rounds 1 and 2)
 
-Whisper MLX (local STT), OpenRouter (LLM), answer-on-demand default, Windows = Practice only, retention 3 months editable. Prototype reflects: Transcription page (on-device engine, install status, no API key), Answer engine page (OpenRouter + data-collection + auto-answer off), Privacy/Sessions retention control, consent gate wording (audio stays on this Mac; text goes to OpenRouter), Windows note on Setup. Screenshots re-rendered: `config-transcription-dark`, `config-engine-dark`, `config-privacy-*`, `config-gate-dark`, `config-setup-windows-dark`.
+OpenRouter (LLM), answer-on-demand default, retention 3 months editable (accepted for consent copy), **every session belongs to one Job (a Job has many sessions)**, Windows = Practice only in M1, STT = local fastest accurate engine chosen by bake-off (Moonshine streaming expected), proper model-selection fields.
+Prototype reflects: Transcription page with **Engine / Model / Compute fields and a Benchmark button** (model rows show size, expected latency, Recommended); Answer engine page with **per-tier model pickers** (searchable list, price, context, data-policy badge, Test model); Setup requires a Job (no "no job" option) and lists earlier sessions for the selected Job; Sessions page grouped by Job with per-Job trend; Privacy retention control; consent gate wording; Windows note. Screenshots re-rendered: `config-setup-dark/light`, `config-transcription-dark`, `config-engine-dark`, `config-sessions-dark`, `config-privacy-*`, `config-gate-dark`, `config-setup-windows-dark`.

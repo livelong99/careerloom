@@ -12,7 +12,9 @@ type: project
 - `docs/plans/interview-copilot/design.md` + `prototype/` (config.html, overlay.html, css, js, `shots/`, `shoot.sh`): clickable static prototype, dark + light.
 - `docs/plans/interview-copilot/plan.md`: architecture, IPC types, storage, config schema, WP0-WP5 with file ownership and gates, test/packaging/rollout, risks, open questions.
 
-**User decisions (2026-10-01, final for now):** STT = Whisper on MLX (local, Apple Silicon; mlx-whisper has no documented streaming, so chunked pseudo-streaming + spike S2); LLM = OpenRouter (data_collection deny, SSE, skip `: OPENROUTER PROCESSING`); answer-on-demand default; Windows = Practice only; transcript retention 3 months, editable in app.
+**User decisions round 2 (2026-10-01):** STT = fastest accurate local engine via bake-off (spike S2), Moonshine Voice streaming expected (MIT, streaming API, macOS/Windows/Linux, claimed 34-107 ms; CUDA NOT documented; no Hindi STT), Whisper MLX/faster-whisper alternates; proper model-selection fields (STT engine/model/compute + benchmark; OpenRouter model per tier with Test); every session belongs to exactly one Job (job has many sessions; `copilotSessionsForJob` for the Job page); 3-month retention accepted for consent copy; open: voice practice on Windows, NVIDIA box for CUDA check.
+
+**User decisions round 1 (2026-10-01):** STT = Whisper on MLX (local, Apple Silicon; mlx-whisper has no documented streaming, so chunked pseudo-streaming + spike S2); LLM = OpenRouter (data_collection deny, SSE, skip `: OPENROUTER PROCESSING`); answer-on-demand default; Windows = Practice only; transcript retention 3 months, editable in app.
 
 **Earlier decisions (provisional, lead-approved, user to confirm; all listed in plan.md §15):**
 - Open-Cluely is the user's own project: code/prompts are PORTED (per-WP port map in plan.md §11); never port disguise identities, plaintext keys, LAN companion.

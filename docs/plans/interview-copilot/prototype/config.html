@@ -61,8 +61,8 @@
       <button class="mode" aria-pressed="true"><b>Senior Platform Engineer</b><small>Northwind Labs · fit 4.3 · report ready · interview 14 Oct</small></button>
       <button class="mode" aria-pressed="false"><b>Staff Backend Engineer</b><small>Tessellate · fit 3.9 · report ready</small></button>
       <button class="mode" aria-pressed="false"><b>Engineering Manager, Infra</b><small>Harbor &amp; Pine · evaluated · no interview plan yet</small></button>
-      <button class="mode" aria-pressed="false"><b>No job: general practice</b><small>Uses only your résumé</small></button>
-    </div></div></div>
+    </div>
+    <div class="notice" style="margin-top:12px"><i data-i="history" data-s="16"></i><div>Every session belongs to a job. <b>3 earlier sessions</b> for Senior Platform Engineer (2 practice, 1 live), best score <b>3.9 / 5</b>. <a href="#sessions" style="color:var(--accent-text)">View sessions</a></div></div></div></div>
   <div class="card"><div class="ch"><b>Interview type</b></div><div class="cb">
     <div class="seg" role="group" aria-label="Interview type"><button aria-pressed="false">Recruiter screen</button><button aria-pressed="true">Behavioural</button><button aria-pressed="false">Technical</button><button aria-pressed="false">System design</button><button aria-pressed="false">Mixed</button></div>
     <p class="desc" style="margin-top:8px">Sets how questions are classified and which answer shape is offered first. Mixed detects the type per question.</p></div></div>
@@ -113,19 +113,26 @@
 
 <!-- TRANSCRIPTION -->
 <section class="page" id="p-transcription">
-  <header><h2>Transcription</h2><p>Turns speech into text as it happens. It runs on this Mac, so your audio is never uploaded.</p></header>
-  <div class="card"><div class="ch"><b>Engine</b><div class="r"><span class="badge ok"><i data-i="check" data-s="12"></i>Installed</span></div></div><div class="cb">
-    <div class="row"><div class="lab"><b>Whisper on Apple silicon</b><span>Runs locally with MLX. About 1 GB of memory while listening. Needs an Apple silicon Mac.</span></div><span class="badge brand">On this Mac</span></div>
-    <div class="row"><div class="lab"><b>Model</b><span>Bigger is more accurate and slower. Downloaded once, never bundled in the app.</span></div><select class="sel" aria-label="Model"><option>Recommended: small</option><option>Tiny (fastest)</option><option>Large (most accurate)</option></select></div>
-    <div class="row"><div class="lab"><b>Model status</b><span>Installed in ~/.careerloom/stt. Self-test passed.</span></div><button class="btn sm">Reinstall</button><button class="btn sm danger">Remove</button></div>
-    <div class="notice ok" style="margin-top:12px"><i data-i="shield" data-s="16"></i><div>Audio from your microphone and system audio stays on this Mac. Only the text of the conversation is sent to the answer provider.</div></div>
+  <header><h2>Transcription</h2><p>Turns speech into text as it happens. It runs on this computer, so your audio is never uploaded.</p></header>
+  <div class="card"><div class="ch"><b>Speech model</b><div class="r"><span class="badge ok"><i data-i="check" data-s="12"></i>Installed</span><button class="btn sm" id="bench"><i data-i="play" data-s="12"></i>Benchmark on this computer</button></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>Engine</b><span>Runs on this computer. Streaming engines show words while the person is still talking.</span></div><select class="sel" aria-label="Engine"><option>Moonshine (streaming)</option><option>Whisper for Apple silicon (MLX)</option><option>faster-whisper (NVIDIA GPU)</option></select></div>
+    <div class="row" style="display:block"><div class="lab"><b>Model</b><span>Pick the smallest model that is accurate enough for you. Latency is measured on this computer.</span></div>
+      <div class="models" role="radiogroup" aria-label="Model" style="margin-top:10px">
+        <button class="mode mrow" aria-pressed="false"><span><b>Tiny streaming</b><small>about 50 MB · fastest · lower accuracy</small></span><span class="badge">Final in 40 ms</span></button>
+        <button class="mode mrow" aria-pressed="true"><span><b>Small streaming</b><small>about 150 MB · balanced</small></span><span class="badge ok">Final in 80 ms</span><span class="badge brand">Recommended</span></button>
+        <button class="mode mrow" aria-pressed="false"><span><b>Medium streaming</b><small>about 400 MB · most accurate of the three</small></span><span class="badge">Final in 120 ms</span><span class="badge warn">Not installed</span></button>
+      </div>
+      <p class="desc" style="margin-top:8px">Sizes and times are examples until you run the benchmark.</p></div>
+    <div class="row"><div class="lab"><b>Compute</b><span>Auto picks the fastest option this computer supports. NVIDIA GPU (CUDA) appears only when the engine can use it.</span></div><select class="sel" aria-label="Compute"><option>Auto (CPU)</option><option>CPU</option><option>Apple Neural Engine / GPU</option><option disabled>NVIDIA GPU (CUDA) — not available here</option></select></div>
+    <div class="row" id="benchres" style="display:none"><div class="lab"><b>Benchmark result</b><span>Small streaming · CPU · 12 s test clip</span></div><span class="badge ok">Final 82 ms</span><span class="badge">RAM 610 MB</span><span class="badge">Speed 0.08× real time</span></div>
+    <div class="notice ok" style="margin-top:12px"><i data-i="shield" data-s="16"></i><div>Audio from your microphone and system audio stays on this computer. Only the text of the conversation is sent to the answer provider.</div></div>
   </div></div>
   <div class="card"><div class="cb">
-    <div class="row"><div class="lab"><b>Language</b></div><select class="sel" aria-label="Language"><option>English</option><option>Hindi</option><option>Auto-detect</option></select></div>
+    <div class="row"><div class="lab"><b>Language</b><span>English only for now. Accented English works, and you can check accuracy with the benchmark.</span></div><select class="sel" aria-label="Language"><option>English</option></select></div>
     <div class="row"><div class="lab"><b>Wait after the interviewer stops</b><span>Shorter is faster but may cut a question in half.</span></div><input class="rng" type="range" min="400" max="1400" value="800" aria-label="Wait after speech"><span class="val">800 ms</span></div>
     <div class="row"><div class="lab"><b>Words to recognise</b><span>Names and tools the engine often gets wrong.</span></div><div class="tags"><span class="badge">Kubernetes</span><span class="badge">Northwind</span><span class="badge">Terraform</span><button class="btn sm"><i data-i="plus" data-s="12"></i>Add</button></div></div>
   </div></div>
-  <div class="notice warn"><i data-i="warn" data-s="16"></i><div><b>Windows:</b> live transcription isn't available yet. Practice works, and you type your answers.</div></div>
+  <div class="notice warn"><i data-i="warn" data-s="16"></i><div><b>Windows:</b> live sessions aren't available yet. Practice works.</div></div>
 </section>
 
 <!-- ENGINE -->
@@ -145,7 +152,13 @@
     <div class="row"><div class="lab"><b>API key</b><span>Shared with your other Careerloom agents. Kept in your system keychain.</span></div><span class="badge ok"><i data-i="check" data-s="12"></i>Saved</span><button class="btn sm">Replace</button></div>
     <div class="row"><div class="lab"><b>Only use providers that don't keep or train on my data</b><span>Safer, but it limits which models you can pick.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Data collection deny"></button></div>
     <div class="row"><div class="lab"><b>Answer automatically</b><span>Off: press <span class="kbd">⌃⌥A</span> when you want a suggestion. On: a suggestion starts when a question is detected.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Auto answer"></button></div>
-    <div class="row"><div class="lab"><b>Model</b></div><select class="sel" aria-label="Model"><option>Recommended for Fast</option><option>Choose a model…</option></select></div>
+    <div class="row" style="display:block"><div class="lab"><b>Models</b><span>One model per speed tier. Search the OpenRouter list, then test how fast it starts.</span></div>
+      <div class="mp" style="margin-top:10px">
+        <div class="mprow"><span class="mpt">Fast</span><div class="mpf"><span class="mpname">provider/small-fast-model</span><span class="mpmeta">128k context · $0.10 in / $0.50 out per million tokens</span></div><span class="badge ok">Doesn't collect data</span><span class="badge">First word 0.6 s</span><button class="btn sm">Change…</button><button class="btn sm quiet">Test</button></div>
+        <div class="mprow"><span class="mpt">Balanced</span><div class="mpf"><span class="mpname">provider/mid-model</span><span class="mpmeta">200k context · $1 in / $5 out per million tokens</span></div><span class="badge ok">Doesn't collect data</span><span class="badge">First word 0.9 s</span><button class="btn sm">Change…</button><button class="btn sm quiet">Test</button></div>
+        <div class="mprow"><span class="mpt">Deep</span><div class="mpf"><span class="mpname">provider/large-model</span><span class="mpmeta">200k context · $2 in / $10 out per million tokens</span></div><span class="badge warn">Data policy unknown</span><span class="badge">Not tested</span><button class="btn sm">Change…</button><button class="btn sm quiet">Test</button></div>
+      </div>
+      <p class="desc" style="margin-top:8px">Names, prices and sizes here are placeholders. The real list comes from OpenRouter and is cached for a day.</p></div>
     <div class="row"><div class="lab"><b>Check answers against your résumé</b><span>Flags numbers, tools and names that aren't in your résumé or stories.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Fact check"></button></div>
     <div class="row"><div class="lab"><b>Read screenshots with</b><span>For coding questions shown on screen.</span></div><div class="seg"><button aria-pressed="true">Vision model</button><button aria-pressed="false">Text only (OCR)</button></div></div>
   </div></div>
@@ -242,13 +255,16 @@
 
     <!-- SESSIONS -->
 <section class="page" id="p-sessions">
-  <header><h2>Sessions &amp; debrief</h2><p>Review how an answer landed and move the good parts into your résumé and job notes.</p></header>
+  <header><h2>Sessions &amp; debrief</h2><p>Every session belongs to a job, and a job can have many sessions. Review how an answer landed and move the good parts into your résumé and job notes.</p></header>
   <div class="notice" style="margin-bottom:12px"><i data-i="clock" data-s="16"></i><div>Transcripts are kept for <b>3 months</b>, then deleted. <a href="#privacy" style="color:var(--accent-text)">Change</a></div></div>
-  <div class="card"><div class="cb" style="padding:4px 16px 8px"><table class="tbl">
-    <tr><th>Date</th><th>Job</th><th>Mode</th><th>Length</th><th>Answers</th><th>Score</th></tr>
-    <tr class="on"><td class="num">Today 09:40</td><td>Senior Platform Engineer</td><td><span class="badge brand">Practice</span></td><td class="num">18 min</td><td class="num">6</td><td class="num"><b>3.9</b> / 5</td></tr>
-    <tr><td class="num">Yesterday</td><td>Senior Platform Engineer</td><td><span class="badge brand">Practice</span></td><td class="num">12 min</td><td class="num">4</td><td class="num">3.6 / 5</td></tr>
-    <tr><td class="num">28 Sep</td><td>Staff Backend Engineer</td><td><span class="badge warn">Live</span></td><td class="num">41 min</td><td class="num">11</td><td class="num">Not scored</td></tr>
+  <div class="card"><div class="ch"><b>Senior Platform Engineer</b><span class="badge">Northwind Labs</span><div class="r"><span class="badge ok">Trend 3.6 → 3.9</span><button class="btn sm">Open job</button></div></div><div class="cb" style="padding:4px 16px 8px"><table class="tbl">
+    <tr><th>Date</th><th>Mode</th><th>Length</th><th>Answers</th><th>Score</th></tr>
+    <tr class="on"><td class="num">Today 09:40</td><td><span class="badge brand">Practice</span></td><td class="num">18 min</td><td class="num">6</td><td class="num"><b>3.9</b> / 5</td></tr>
+    <tr><td class="num">Yesterday</td><td><span class="badge brand">Practice</span></td><td class="num">12 min</td><td class="num">4</td><td class="num">3.6 / 5</td></tr>
+    <tr><td class="num">28 Sep</td><td><span class="badge warn">Live</span></td><td class="num">41 min</td><td class="num">11</td><td class="num">Not scored</td></tr>
+  </table></div></div>
+  <div class="card"><div class="ch"><b>Staff Backend Engineer</b><span class="badge">Tessellate</span><div class="r"><button class="btn sm">Open job</button></div></div><div class="cb" style="padding:4px 16px 8px"><table class="tbl">
+    <tr><td class="num">26 Sep</td><td><span class="badge brand">Practice</span></td><td class="num">9 min</td><td class="num">3</td><td class="num">3.2 / 5</td></tr>
   </table></div></div>
   <div class="grid2" style="grid-template-columns:1fr 1.3fr;align-items:start">
     <div class="card"><div class="ch"><b>Scorecard</b><div class="r"><span class="badge ok">+0.3 vs last</span></div></div><div class="cb" style="display:grid;gap:12px">
@@ -272,7 +288,7 @@
 
 <!-- per-session consent gate -->
 <div class="scrim" id="gate" role="dialog" aria-modal="true" aria-labelledby="gt"><div class="dlg">
-  <header><h3 id="gt">Before you start a live session</h3><p>Careerloom will listen on this Mac (audio never leaves it) and send the conversation's text to <b>OpenRouter</b> to suggest answers. Transcripts are kept for <b>3 months</b> (change in Privacy). A “Listening” indicator is shown by default.</p></header>
+  <header><h3 id="gt">Before you start a live session</h3><p>Careerloom will listen on this computer (audio never leaves it) and send the conversation's text to <b>OpenRouter</b> to suggest answers. Transcripts are kept for <b>3 months</b> (change in Privacy). A “Listening” indicator is shown by default.</p></header>
   <div class="body">
     <div class="src"><i data-i="mic" data-s="16"></i><div class="lab"><b style="font-weight:600">Your microphone</b><span>Always included in a live session</span></div><span class="badge ok">On</span></div>
     <div class="src"><i data-i="speaker" data-s="16"></i><div class="lab"><b style="font-weight:600">System audio (the other person)</b><span>Records them. Off unless you turn it on.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Include system audio"></button></div>
@@ -327,6 +343,8 @@ document.getElementById('pmCancel').onclick = () => pmn.classList.remove('on');
 document.getElementById('pmOk').onclick = () => { pmn.classList.remove('on'); setPm(true); };
 if (q.get('os') === 'win') { document.getElementById('winnote').style.display = 'flex'; document.getElementById('openGate').classList.add('dis'); document.getElementById('openGate').disabled = true; }
 if (q.get('pm') === '1') setPm(true); if (q.get('notice') === '1') pmn.classList.add('on');
+document.getElementById('bench').onclick = () => { document.getElementById('benchres').style.display = 'flex'; };
+if (q.get('bench') === '1') document.getElementById('benchres').style.display = 'flex';
 // range value labels
 document.querySelectorAll('.rng').forEach(r => r.oninput = () => { const v = r.nextElementSibling; if (!v) return; const t = v.textContent; v.textContent = /ms/.test(t) ? r.value + ' ms' : /px/.test(t) ? r.value + ' px' : /%/.test(t) ? r.value + '%' : /min/.test(t) ? r.value + ' min' : t; });
 </script>

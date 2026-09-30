@@ -117,3 +117,8 @@
 .seg button { white-space:nowrap; }
 .tbl .kbd { font-size:13px; padding:2px 7px; }
 .row .lab .badge { display:inline-flex; margin:0 0 0 4px; } .row .lab .kbd { display:inline-block; margin:0; font-size:12px; }
+
+.models { display:grid; gap:8px; } .mrow { display:flex; align-items:center; gap:10px; } .mrow > span:first-child { flex:1; } .mrow small { margin-top:1px; }
+.mp { display:grid; gap:8px; } .mprow { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:var(--r-md); background:var(--card); }
+.mpt { width:66px; font-weight:var(--fw-sub); font-size:13px; } .mpf { flex:1; min-width:0; } .mpname { display:block; font-family:var(--mono); font-size:12.5px; } .mpmeta { display:block; color:var(--mut); font-size:12px; }
+#p-sessions .tbl { table-layout:fixed; }

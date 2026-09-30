@@ -11,7 +11,7 @@ Caveat on sources: the fetch tool summarises pages with a small model; prices/ve
 | 1 | Open-Cluely reuse | **Port** (user confirmed it is their own project; supersedes the clean-room rule). Do not port disguise/stealth-identity features or plaintext keys. Port map in `plan.md` §11 |
 | 2 | Responsible-use default | **Option B** (practice first; live = per-session consent + policy acknowledgement; Listening indicator on by default) **plus an opt-in Privacy mode group, OFF by default** (option C) |
 | 3 | Hide-from-capture | Included **only inside Privacy mode** (OFF by default, one-time plain notice, labelled unreliable on macOS 15+). Not included: process-name masquerading, fake system-app identities, anything aimed at defeating proctoring or anti-cheat |
-| 4 | STT | **User decision (2026-10-01): Whisper on MLX, local on-device** (Apple Silicon; `mlx-whisper`, MIT repo, file/array transcribe + word timestamps, no documented streaming so chunked pseudo-streaming is ours; model size/latency via spike S2). Cloud providers remain a later adapter option |
+| 4 | STT | **User decision (2026-10-01): local, fastest accurate engine by bake-off; Moonshine Voice streaming expected.** Moonshine (MIT code + models, streaming API, macOS/Windows/Linux, claimed 34–107 ms on a MacBook Pro vs Whisper 277 ms–11 s; CUDA not documented, no Hindi STT) vs Whisper MLX vs faster-whisper CUDA, decided in spike S2. See `research.md` §C2 addendum |
 | 5 | Answer runner | **User decision: OpenRouter**, new in-process **streaming** runner (SSE; skip `: OPENROUTER PROCESSING` comments, handle mid-stream `error`, `data_collection:'deny'`). Answer on demand by default; Windows = Practice only; transcript retention 3 months. Agent CLIs are not viable for live |
 | 6 | Components | shadcn core (`message bubble marker message-scroller`) + prompt-kit (`response-stream text-shimmer loader`); hand-build meter/stepper/suggestion card; avoid AI Elements heavy parts, coss ui (AGPL), Aceternity |
 
@@ -95,6 +95,16 @@ Detail + file:line: `research-notes/B-careerloom-blocks.md`.
 | Vosk / faster-whisper | free, Apache-2.0 / MIT | lower accuracy / Python burden |
 
 Vendor latency/accuracy claims are **not benchmarked**. 45-min interview STT: interviewer-only ≈ $0.09–0.11 (Soniox/AAI), both channels ≈ $0.18–0.23.
+
+### C2 addendum: Moonshine Voice (read 2026-10-01, after the user suggested it)
+
+- **What:** on-device toolkit for real-time voice; platforms listed: Python, JS/WASM, iOS, Android, macOS, Linux, Windows, Raspberry Pi; `pip install moonshine-voice` (PyPI 0.1.5). Sources: https://github.com/moonshine-ai/moonshine (11.1k stars, pushed 2026-09-30, GitHub licence field NOASSERTION), https://moonshine-voice.readthedocs.io/en/latest/, https://pypi.org/pypi/moonshine-voice/json.
+- **Licence:** README states code MIT and models MIT by default, except legacy non-streaming non-English models (non-commercial Moonshine Community License). Verify the LICENSE file.
+- **Streaming design:** `create_stream(update_interval=0.5)`; events line started / text changed / completed with `last_transcription_latency_ms`; per-chunk VAD; cached encoder/decoder state (docs mirror https://mintlify.wiki/moonshine-ai/moonshine/concepts/streaming, secondary source). Paper (abstract only read): https://arxiv.org/abs/2602.12241.
+- **Claimed latency (vendor, MacBook Pro):** tiny 34 ms, small 73 ms, medium 107 ms vs Whisper tiny 277 ms, small 1,940 ms, large-v3 11,286 ms. Not measured by us.
+- **Runtime:** ONNX Runtime with `ort_providers` (CPU/CoreML/NNAPI seen). **CUDA not documented** ⇒ unverified; and the dev Mac has no CUDA. faster-whisper (CTranslate2, CUDA) is the GPU alternate.
+- **Languages (STT):** English, Spanish, Mandarin, Japanese, Korean, Vietnamese, Ukrainian, Arabic. **No Hindi listed.** Accuracy on accented English is unknown until S2.
+- **Implication:** a streaming local engine that also runs on Windows removes the main reason for Windows being Practice-only (STT); remaining Windows blockers are loopback capture and testing, so `plan.md` gates Live by a capability table and recommends voice practice on Windows now.
 
 ### C3. Question detection (design, inference)
 Endpoint on the interviewer channel (STT EOT or ~700–900 ms silence) → rules (trailing `?`, openers "tell me / walk me through / how would you / design / implement…") → one tiny LLM call only for ambiguous turns returning `{question|statement, type: behavioural|technical|system-design|coding}` → speculative start at eager-EOT, abort if speech resumes. Embeddings add little over rules at MVP (`verdict-small` not needed).
