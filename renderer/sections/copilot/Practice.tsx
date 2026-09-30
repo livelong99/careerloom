@@ -2,9 +2,9 @@ import { Play } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { Group, Row } from '@/components/copilot/Group'
+import { rangeClass } from '@/components/copilot/hwControls'
 import { QuestionList } from '@/components/copilot/QuestionList'
 import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { careerloom } from '@/lib/ipc'
 import type { PracticeQuestion } from '@/lib/types'
@@ -50,7 +50,7 @@ export function PracticePage() {
             <ToggleSwitch aria-label="Read questions aloud" checked={config.practice.readAloud} onCheckedChange={v => void save({ practice: { readAloud: v } })} />
           </Row>
           <Row label="Time per answer" hint="A soft timer in the overlay. It never cuts you off." htmlFor="answer-minutes">
-            <Slider id="answer-minutes" aria-label="Time per answer" className="w-48" min={1} max={5} step={1} value={[Math.min(5, config.practice.answerMinutes)]} onValueChange={([v]) => { if (v) void save({ practice: { answerMinutes: v } }) }} />
+            <input id="answer-minutes" type="range" aria-label="Time per answer" className={rangeClass} min={1} max={5} step={1} value={Math.min(5, config.practice.answerMinutes)} onChange={e => { void save({ practice: { answerMinutes: Number(e.target.value) } }) }} />
             <span className="w-14 text-right text-xs tabular-nums text-muted-foreground">{config.practice.answerMinutes} min</span>
           </Row>
         </Group>

@@ -3,7 +3,7 @@ import { ContextTiles } from '@/components/copilot/ContextTiles'
 import { JobPicker } from '@/components/copilot/JobPicker'
 import { ReadinessStrip } from '@/components/copilot/ReadinessStrip'
 import { SessionsNote } from '@/components/copilot/SessionsNote'
-import { SegTabs } from '@/components/SegTabs'
+import { Pills } from '@/components/copilot/hwControls'
 import { careerloom } from '@/lib/ipc'
 import type { InterviewType } from '@/lib/types'
 import { orNull, useAsync } from '@/components/copilot/api'
@@ -25,7 +25,7 @@ export function SetupPage() {
       <ReadinessStrip readiness={r ? { ...r.context, mic: r.mic, system: r.system, stt: r.stt, engine: r.engine } : null} />
       <JobPicker summary={jobId ? <SessionsNote jobId={jobId} title={r?.context.title} /> : null} />
       <Group title="Interview type">
-        <SegTabs options={TYPES} value={interviewType} onChange={v => setSelection({ interviewType: v as InterviewType })} />
+        <Pills label="Interview type" options={TYPES} value={interviewType} onChange={v => setSelection({ interviewType: v })} />
         <p className="m-0 mt-2 text-xs text-muted-foreground">Sets how questions are classified and which answer shape is offered first. Mixed detects the type per question.</p>
       </Group>
       <ContextTiles preview={preview.data} />
