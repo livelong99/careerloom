@@ -114,3 +114,20 @@ describe('session controller (mic-only, fake STT)', () => {
     await s.stop('user')
   })
 })
+
+describe('stop while arming (kill switch)', () => {
+  it('a stop during a slow adapter start stays stopped and never reaches listening', async () => {
+    let release: () => void = () => undefined
+    const slow = () => { const a = createFakeAdapter([]); const start = a.start.bind(a); return { ...a, on: a.on, start: async (o: Parameters<typeof start>[0]) => { await new Promise<void>(r => { release = r }); await start(o) } } }
+    const { s, of } = setup(slow)
+    const starting = s.start(REQ)
+    await Promise.resolve()
+    expect(s.state()).toBe('armed')
+    await s.stop('panic')
+    expect(s.state()).toBe('stopped')
+    release()
+    await expect(starting).rejects.toThrow(/stopped/i)
+    expect(s.state()).toBe('stopped')
+    expect(of('copilotState').map(e => (e as { state: string }).state)).toEqual(['armed', 'stopped'])
+  })
+})

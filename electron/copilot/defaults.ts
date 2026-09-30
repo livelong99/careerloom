@@ -7,7 +7,6 @@ import { BrowserWindow, shell, systemPreferences } from 'electron'
 import { broadcast, readApiKey, userFile } from '../context'
 import { readCv } from '../resume-agent'
 import { jobContext } from '../job-view/handlers'
-import { runText } from '../job-view/agent'
 import { ensureMic } from './audio-perms'
 import { readCopilotConfig } from './config'
 import { createContextBuilder, defaultContextDeps, type GroundingContext } from './context'
@@ -20,6 +19,7 @@ import { createLiveWiring } from './live-wiring'
 import { listLiveModels, liveProvider, testLiveModel } from './live'
 import { parseAudioMsg } from './audio-in'
 import { getOverlayHost } from './overlay-runtime'
+import { createScoreCall } from './privacy-calls'
 import { PRIVACY_NOTICE_VERSION } from './privacy-mode'
 import { collectText } from './providers/openrouter'
 import { createSessionController } from './session'
@@ -95,10 +95,8 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     permission: kind => { try { return systemPreferences.getMediaAccessStatus(kind) } catch { return 'unknown' } },
     hasKey: () => e2e() !== null || readApiKey() !== null,
     sttInstalled: sttReady,
-    // QA hook only: scoring goes through the fake provider instead of launching an agent run.
-    call: prompt => e2e()
-      ? collectText(provider(), { system: 'Score interview answers.', messages: [{ role: 'user', content: prompt }], model: fastModel(), maxTokens: 600, signal: AbortSignal.timeout(8000) }).then(r => ({ text: r.text, tokens: null, model: 'e2e' }))
-      : runText(prompt, { tier: 'helper', label: 'Score interview practice' }),
+    // Same provider, redaction and local-only rule as live answers: the transcript never goes to an agent CLI.
+    call: createScoreCall({ provider, config: readCopilotConfig, model: fastModel }),
     openSettings: pane => { void shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${PANE[pane]}`); return true },
 
     session: {

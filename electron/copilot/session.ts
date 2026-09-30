@@ -38,6 +38,7 @@ export function createSessionController(deps: SessionDeps) {
   const health = new Map<SourceId, ReturnType<typeof createSourceHealth>>()
   const lastLevel = new Map<SourceId, number>()
   let lineSeq = 0 // per session, so ids stay unique across an STT retry
+  let gen = 0 // bumped by stop(): a start/retry still opening sources when it changes must not reach 'listening'
 
   function publish(next: CopilotState) {
     state = next
@@ -65,7 +66,7 @@ export function createSessionController(deps: SessionDeps) {
     adapters.clear(); health.clear(); lastLevel.clear()
   }
 
-  async function openSources() {
+  async function openSources(my: number) {
     await Promise.all(active.map(async source => {
       const a = deps.createAdapter()
       adapters.set(source, a)
@@ -74,6 +75,7 @@ export function createSessionController(deps: SessionDeps) {
       health.set(source, h)
       const cfg = deps.stt()
       await a.start({ source, language: cfg.language, vocab: cfg.vocab, endSilenceMs: cfg.endSilenceMs })
+      if (gen !== my) { await a.stop().catch(() => undefined); return } // stopped while it was starting: teardown already dropped it
       h.start()
     }))
   }
@@ -85,15 +87,18 @@ export function createSessionController(deps: SessionDeps) {
       if (state === 'armed' || state === 'listening') throw new Error('A session is already running')
       sessionId = newId(); mode = req.mode; startedAt = now()
       active = deps.sources?.(req) ?? ['mic']
+      const my = ++gen
       publish('armed')
       try {
-        await openSources()
+        await openSources(my)
       } catch (err) {
+        if (gen !== my) throw new Error('Stopped while starting')
         await teardown()
         deps.emit('copilotError', { kind: 'stt', message: (err as Error).message, retrying: false })
         publish('stopped')
         throw err
       }
+      if (gen !== my) throw new Error('Stopped while starting')
       publish('listening')
       return { sessionId }
     },
@@ -112,7 +117,7 @@ export function createSessionController(deps: SessionDeps) {
     async retry() {
       if (state !== 'listening') return
       await teardown()
-      try { await openSources() } catch (err) {
+      try { await openSources(gen) } catch (err) {
         await teardown()
         deps.emit('copilotError', { kind: 'stt', message: (err as Error).message, retrying: false })
       }
@@ -120,6 +125,7 @@ export function createSessionController(deps: SessionDeps) {
 
     async stop() {
       if (state !== 'armed' && state !== 'listening') return
+      gen++
       await teardown()
       publish('stopped')
     },
