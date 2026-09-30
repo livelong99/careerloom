@@ -17,7 +17,7 @@ import { copilotSupported } from './capabilities'
 import { CONSENT_TEXT_VERSION, validateConsent } from './consent'
 import { readCopilotConfig, writeCopilotConfig } from './config'
 import { applyDebrief, scoreSession } from './debrief'
-import { createPracticeRunner, questionsFromReport, type PracticeRunner } from './practice'
+import { createPracticeRunner, questionsFromReport, selectQuestions, type PracticeExtras, type PracticeRunner } from './practice'
 import { buildContext } from './setup'
 import { createRecorder, openSessionStore, type SessionStore } from './store'
 import type {
@@ -108,13 +108,20 @@ export function createCopilot(deps: CopilotDeps) {
   }
 
   async function start(raw: unknown): Promise<{ sessionId: string }> {
-    const r = (typeof raw === 'object' && raw !== null ? raw : {}) as Partial<StartRequest>
+    const r = (typeof raw === 'object' && raw !== null ? raw : {}) as Partial<StartRequest> & PracticeExtras
     const jobId = jobIdOf(r.jobId)
     const mode = oneOf(r.mode, MODES, 'session mode')
     const interviewType = oneOf(r.interviewType, INTERVIEW_TYPES, 'interview type')
     const job = deps.job(jobId)
     if (!job) throw new Error('That job is no longer in your list: pick another one')
     if (recorder.active()) throw new Error('A session is already running: stop it first')
+    const strings = (v: unknown, name: string): string[] | undefined => {
+      if (v === undefined) return undefined
+      if (!Array.isArray(v) || !v.every(x => typeof x === 'string' && x.length <= 500) || v.length > 50) throw new Error(`${name} must be a list of short strings`)
+      return v as string[]
+    }
+    const extras: PracticeExtras = { questionIds: strings(r.questionIds, 'questionIds'), custom: strings(r.custom, 'custom') }
+    if (mode === 'practice') selectQuestions(job.report, extras) // fail before anything is saved
     const cfg = readCopilotConfig()
     let sessionId: string = randomUUID()
     if (mode === 'live') {
@@ -137,13 +144,13 @@ export function createCopilot(deps: CopilotDeps) {
     try {
       await deps.session?.start({ mode, jobId, interviewType, consent: mode === 'live' ? r.consent! : null }, sessionId)
     } catch (err) { recorder.end(); store.remove(sessionId); throw err }
-    if (mode === 'practice') startPractice(jobId, job, cfg)
+    if (mode === 'practice') startPractice(jobId, job, cfg, extras)
     if (!deps.session) broadcast('careerloom:copilotState', { state: 'listening', mode, sessionId, sources: ['mic'], startedAt: now() })
     return { sessionId }
   }
 
-  function startPractice(jobId: string, job: JobInfo, cfg: CopilotConfig): void {
-    const questions = questionsFromReport(job.report, [], lastScores(jobId))
+  function startPractice(jobId: string, job: JobInfo, cfg: CopilotConfig, extras: PracticeExtras): void {
+    const questions = selectQuestions(job.report, extras, lastScores(jobId))
     practice = createPracticeRunner({
       questions, followups: cfg.practice.followups, answerMs: cfg.practice.answerMinutes * 60_000, complete: deps.complete, now,
       sink: {
