@@ -45,6 +45,8 @@ export interface OverlayController {
   /** Config changed (size, anchor, display, privacy): re-position and re-apply flags. */
   refresh(): void
   onGone(cb: () => void): void
+  /** The overlay page finished loading: events sent before this were missed, so senders replay current state. */
+  onLoaded(cb: () => void): void
   /** Presentation commands to the overlay renderer only. */
   send(ev: OverlayCmdEvent): void
 }
@@ -71,6 +73,7 @@ export function createOverlayController(deps: OverlayDeps): OverlayController {
   let anchor: Anchor = deps.getConfig().overlay.anchor
   let hangTimer: ReturnType<typeof setTimeout> | null = null
   const goneListeners: Array<() => void> = []
+  const loadedListeners: Array<() => void> = []
   const alive = (w: BrowserWindow | null): w is BrowserWindow => w !== null && !w.isDestroyed()
 
   function area(): Rect {
@@ -113,6 +116,7 @@ export function createOverlayController(deps: OverlayDeps): OverlayController {
       hangTimer ??= setTimeout(() => { hangTimer = null; if (alive(w)) w.webContents.reload() }, HANG_RELOAD_MS)
     })
     w.on('responsive', () => { if (hangTimer) clearTimeout(hangTimer); hangTimer = null })
+    w.webContents.on('did-finish-load', () => { for (const cb of loadedListeners) cb() })
     w.webContents.on('will-navigate', e => e.preventDefault())
     w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     w.webContents.on('render-process-gone', () => {
@@ -179,6 +183,7 @@ export function createOverlayController(deps: OverlayDeps): OverlayController {
       send({ layout, anchor })
     },
     onGone(cb) { goneListeners.push(cb) },
+    onLoaded(cb) { loadedListeners.push(cb) },
     send,
   }
 }

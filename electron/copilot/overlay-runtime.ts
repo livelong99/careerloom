@@ -51,6 +51,7 @@ export function startFakeOverlayIfRequested(): void {
   }
   h.setSessionHooks({ stopCapture: () => { stopFake?.(); stopFake = null }, abortRequests: () => undefined })
   h.onAction(a => { if (a === 'listen') play(spec === 'cycle' ? 'cycle' : spec) })
+  if (spec !== 'cycle') h.onOverlayLoaded(() => play(spec)) // a fixed state is replayed once the page can hear it
   if (spec !== 'idle') play(spec)
   else { h.publishState({ state: 'idle', mode: 'live', sessionId: null, sources: [], startedAt: null }); h.overlayCommand({ hide: false }) }
 }
