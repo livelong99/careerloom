@@ -1,0 +1,3 @@
+/* The overlay page itself: fully transparent, nothing but the card. The card is placed by anchor in Overlay.tsx. */
+html, body, #root { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+.ov-win { display: flex; width: 100vw; height: 100vh; padding: 0; }

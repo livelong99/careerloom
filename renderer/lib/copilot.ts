@@ -57,7 +57,7 @@ export function deriveView(m: OverlayModel): OverlayViewState {
   const s = m.session?.state
   if (!s || s === 'idle' || s === 'armed') return 'idle'
   if (s === 'stopped') return 'stopped'
-  if (m.error) return 'error'
+  if (m.error && m.error.kind !== 'hotkey') return 'error' // a rejected shortcut is reported in Settings, it must not cover the answer
   if (Object.values(m.health).some(h => h && h.status !== 'ok')) return 'permission'
   if (m.suggestion) return m.suggestion.done ? 'answered' : 'answering'
   return m.question ? 'question' : 'listening'
