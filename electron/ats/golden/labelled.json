@@ -1,0 +1,4 @@
+{
+  "note": "Human-labelled (cv, jd) pairs: { id, cv, jd: { reqs: [{ id, text, skill, required }], text }, label: 0-100 }. The score is only called calibrated once 30 pairs exist and golden.test.ts passes (Spearman >= 0.6).",
+  "pairs": []
+}
