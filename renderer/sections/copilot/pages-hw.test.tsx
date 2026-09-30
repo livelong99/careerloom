@@ -63,7 +63,7 @@ describe('TranscriptionPage', () => {
     await waitFor(() => expect(api.copilotBenchmarkStt).toHaveBeenCalledWith({ engine: 'moonshine', model: 'medium', device: 'auto' }))
     await screen.findByText(/not available in this build yet/i)
   })
-  it('Whisper (the default): warns about the ~1.1 GB install when missing, offers Turbo as on-demand, Auto compute only, and says the speeds are from synthetic speech', async () => {
+  it('Whisper (the default): warns about the ~1.3 GB install when missing, offers Turbo as on-demand, Auto compute only, and says the speeds are from synthetic speech', async () => {
     const whisper = { ...CONFIG, stt: { ...CONFIG.stt, engine: 'whisper-mlx' as const } }
     api.copilotGetConfig.mockResolvedValue(whisper)
     api.copilotListSttModels.mockResolvedValue([
@@ -74,7 +74,7 @@ describe('TranscriptionPage', () => {
     await screen.findByRole('radio', { name: /Turbo · most accurate \(on demand\)/ })
     expect(screen.getByText(/about 481 MB/)).toBeTruthy()
     expect(screen.getByText('Recommended')).toBeTruthy()
-    expect(screen.getByText(/about 1\.1 GB of Python packages \(PyTorch\)/)).toBeTruthy()
+    expect(screen.getByText(/about 1\.3 GB of Python packages \(PyTorch\)/)).toBeTruthy()
     expect(screen.getByText(/computer-generated speech/)).toBeTruthy()
     const compute = screen.getByLabelText('Compute') as HTMLSelectElement
     expect([...compute.options].filter(o => !o.disabled).map(o => o.value)).toEqual(['auto'])

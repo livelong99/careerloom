@@ -82,7 +82,7 @@ export function TranscriptionPage() {
         <Row label="Benchmark result" hint={note ?? (shown ? 'Measured on this computer.' : 'Run the benchmark to see speed and memory.')}>
           {shown && <><Chip tone="ok">Final {Math.round(shown.p50FinalMs)} ms</Chip>{shown.ramMb !== null && <Chip>RAM {Math.round(shown.ramMb)} MB</Chip>}<Chip>Speed {shown.realTimeFactor}× real time</Chip></>}
         </Row>
-        {engine.id === 'whisper-mlx' && selected?.installed === false && <Note tone="warn">Installing Whisper downloads about 1.1 GB of Python packages (PyTorch) plus the model, into a folder in your home directory. Nothing is bundled with the app.</Note>}
+        {engine.id === 'whisper-mlx' && selected?.installed === false && <Note tone="warn">Installing Whisper downloads about 1.3 GB of Python packages (PyTorch) plus the model, into a folder in your home directory. Nothing is bundled with the app.</Note>}
         <Note>Speeds above come from a test with computer-generated speech, which is cleaner than a real call. Press Benchmark to measure this computer with the same audio.</Note>
         <Note tone="ok">Audio from your microphone and system audio stays on this computer. Only the text of the conversation is sent to the answer provider.</Note>
       </Group>
