@@ -104,7 +104,7 @@ function listExports(root: string): ResumeExport[] {
   return out.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
-function readProfileYaml(root: string): { name?: string; email?: string; phone?: string; template: string | null } {
+export function readProfileYaml(root: string): { name?: string; email?: string; phone?: string; template: string | null } {
   const p = join(root, 'config', 'profile.yml')
   if (!existsSync(p)) return { template: null }
   try {
