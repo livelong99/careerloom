@@ -67,10 +67,20 @@ Copyright (c) 2025 Paperclip AI — licensed under the MIT License (same terms a
 |---|---|
 | [yaml](https://github.com/eemeli/yaml) | ISC |
 | [tldts](https://github.com/remusao/tldts) | MIT |
+| [pdf.js](https://github.com/mozilla/pdf.js) (`pdfjs-dist`, legacy build only; reads the text layer of your rendered résumé for the ATS parse check) | Apache-2.0 |
 | [Electron](https://github.com/electron/electron) and its Chromium runtime | MIT and bundled third-party licenses (shipped as `LICENSES.chromium.html` in the app) |
 
 Development-only dependencies (React, Vite, Tailwind CSS, Radix UI, TanStack, dnd-kit and others) are listed in
 `package.json` under their own licenses; they are compiled into the renderer bundle where used.
+
+### shadcn/ui registry components — MIT License
+`renderer/components/ui/{accordion,alert,button-group,empty,field,hover-card,item,kbd,radio-group,resizable,sonner,spinner}.tsx`
+were added from the official [shadcn/ui](https://ui.shadcn.com) registry (© shadcn, MIT), adapted to import `cn` from
+`@/lib/utils` and to read Careerloom's theme. They use `sonner` (© Emil Kowalski, MIT) and `react-resizable-panels`
+(© Brian Vaughn, MIT).
+
+The ATS engine's skill vocabulary, scoring weights and prompts are written for this app. No OpenResume code, pyresparser
+or Lightcast data is used, and no ESCO or O*NET data is used by the ATS engine.
 
 ## Data and model
 

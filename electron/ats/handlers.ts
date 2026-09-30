@@ -9,7 +9,7 @@ import { renderTemplatePdf } from '../resume-pdf'
 import { mergeProfileJson, rebuildProfile } from '../resume-profile'
 import { readProfileYaml } from '../resume'
 import { answerAnalysis, startAnalysis, type Deps } from './analyze'
-import { applyFinding, dismissFinding, previewFinding, undoApply } from './applyFlow'
+import { applyFinding, dismissFinding, history, previewFinding, undoApply } from './applyFlow'
 import { netFetcher } from './courses'
 import { localSimCall } from './embed'
 import { extractPdfPages } from './pdfText'
@@ -70,4 +70,5 @@ export const atsHandlers: Record<string, Handler> = {
   atsApply: (findingId, answers) => applyFinding(deps(), str(findingId, 'finding id'), answersOf(answers)),
   atsUndo: undoId => undoApply(deps(), str(undoId, 'undo id')),
   atsDismiss: findingId => dismissFinding(deps(), str(findingId, 'finding id')),
+  atsHistory: () => history(deps()),
 }

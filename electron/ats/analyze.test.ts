@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { AtsEvent } from '../contract'
 import { answerAnalysis, startAnalysis, type AgentRun, type Deps } from './analyze'
-import { applyFinding, dismissFinding, previewFinding, undoApply } from './applyFlow'
+import { applyFinding, dismissFinding, history, previewFinding, undoApply } from './applyFlow'
 import { SAMPLE_CV, htmlOf, onePagePdf } from './fixtures'
 import type { Analysis, Store } from './store'
 import type { UndoEntry } from './apply'
@@ -266,5 +266,21 @@ describe('findings merge', () => {
     expect(ids).toContain('f1')
     expect(ids).not.toContain('skill:kafka')
     expect(ids).toContain('skill:elasticsearch') // not mentioned by the agent: still raised by code
+  })
+})
+
+describe('answers and history', () => {
+  it('answers given during the analysis resolve {{qN}} placeholders at Apply; questions stay on the report; history lists applied changes', async () => {
+    const h = harness({ runner: 'claude' })
+    await startAnalysis(h.deps, { jd: JD })
+    await h.finish(done({ status: 'needs_input', questions: [{ id: 'q1', text: 'How many engineers?', type: 'number', why: 'w' }], findings: [{ id: 'a1', severity: 'major', category: 'bullet', title: 'Quantify mentoring', detail: 'd', apply: { op: 'replace', target: 'Mentored four engineers', after: 'Mentored {{q1}} engineers', requires_answers: ['q1'] } }] }))
+    await answerAnalysis(h.deps, 'id1', [{ id: 'q1', value: 4 }])
+    await h.finish(done({ findings: [{ id: 'a1', severity: 'major', category: 'bullet', title: 'Quantify mentoring', detail: 'd', apply: { op: 'replace', target: 'Mentored four engineers', after: 'Mentored {{q1}} engineers', requires_answers: ['q1'] } }] }))
+    const r = h.store.current()!.report
+    expect(r.questions).toEqual([expect.objectContaining({ id: 'q1', text: 'How many engineers?' })])
+    const res = await applyFinding(h.deps, 'a1', []) // no answers sent: the stored ones fill the placeholder
+    expect(res.ok).toBe(true)
+    expect(h.getCv()).toContain('Mentored 4 engineers')
+    expect(history(h.deps)).toEqual([expect.objectContaining({ findingId: 'a1', title: 'Quantify mentoring' })])
   })
 })

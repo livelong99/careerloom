@@ -49,8 +49,6 @@ const bridge = {
   resumeOverview: () => invoke('resumeOverview'),
   importResume: () => invoke('importResume'),
   parseResume: () => invoke('parseResume'),
-  scoreAts: (opts?: { keywords?: string; role?: string }) => invoke('scoreAts', opts),
-  rankAgainstJob: (job: string) => invoke('rankAgainstJob', job),
   setTemplate: (name: string) => invoke('setTemplate', name),
   importTemplate: () => invoke('importTemplate'),
   createTemplate: (description: string) => invoke('createTemplate', description),
@@ -73,6 +71,7 @@ const bridge = {
   atsApply: (findingId: string, answers?: unknown[]) => invoke('atsApply', findingId, answers),
   atsUndo: (undoId: string) => invoke('atsUndo', undoId),
   atsDismiss: (findingId: string) => invoke('atsDismiss', findingId),
+  atsHistory: () => invoke('atsHistory'),
   onAtsEvent: (cb: (event: unknown) => void) => subscribe('atsEvents', cb),
   // Jobs
   listJobs: () => invoke('listJobs'),

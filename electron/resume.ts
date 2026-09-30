@@ -5,7 +5,7 @@ import { basename, extname, join, posix } from 'node:path'
 import { parseDocument } from 'yaml'
 
 import { broadcast, careerOpsRoot, dataRoot, Handler, inside, runs, runScript, startAgent, startAgentPrompt, str, summary, userFile, type RunRecord, type RunSummary } from './context'
-import type { AtsResult, CvTemplate, ExportFormat, ResumeExport, ResumeOverview, ResumeSource } from './contract'
+import type { CvTemplate, ExportFormat, ResumeExport, ResumeOverview, ResumeSource } from './contract'
 import { extractResume, readCv, readProfile, readResearch, researchProfile, writeCv } from './resume-agent'
 import { renderTemplatePdf, savePdf } from './resume-pdf'
 import { parseCvMarkdown } from './resume-profile'
@@ -48,22 +48,6 @@ export function setProfileTemplate(yamlText: string, name: string): string {
 /** Filesystem-safe basename for an imported document (keeps the extension). */
 export function sanitizeDocName(name: string): string {
   return name.replace(/[/\\]/g, '_').replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '') || 'document'
-}
-
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-
-// ponytail: a minimal, deterministic HTML rendering of cv.md for ATS structural
-// scoring only — not the real exported CV (that needs the tailoring agent step
-// build-cv-html.mjs itself documents). Upgrade path: route scoreAts through an
-// agent run that scores the actual templated export if that gap matters.
-export function buildAtsCheckHtml(md: string, profile: { name?: string; email?: string; phone?: string }): string {
-  const { sections } = parseCvMarkdown(md)
-  const body = sections
-    .map(s => `<div class="section"><div class="section-title">${esc(s.title)}</div><p>${esc(s.text).replace(/\n+/g, '<br>')}</p></div>`)
-    .join('\n')
-  const contact = [profile.email, profile.phone].filter(Boolean).join(' | ')
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${esc(profile.name ?? 'CV')}</title></head>`
-    + `<body><h1>${esc(profile.name ?? '')}</h1><p>${esc(contact)}</p>${body}</body></html>`
 }
 
 // ————— fs/electron-backed handlers —————
@@ -129,10 +113,6 @@ async function listCvTemplates(): Promise<CvTemplate[]> {
   }))
 }
 
-function readCachedAts(): AtsResult | null {
-  try { return JSON.parse(readFileSync(userFile('ats-last.json'), 'utf8')) as AtsResult } catch { return null }
-}
-
 /** A synthetic, already-finished Run for work done inline (no agent, no subprocess). */
 function finishedRun(mode: string, label: string, input: string | null): RunSummary {
   const now = Date.now()
@@ -170,7 +150,6 @@ async function resumeOverview(): Promise<ResumeOverview> {
     sources: await safely('listing documents', [], () => listDocumentSources(root)),
     templates: await safely('listing templates', [], () => listCvTemplates()),
     activeTemplate: readProfileYaml(root).template,
-    lastAts: readCachedAts(),
     exports: await safely('listing exports', [], () => listExports(root)),
   }
 }
@@ -189,31 +168,6 @@ async function importResume(): Promise<ResumeSource | null> {
 
 function parseResume(): RunSummary {
   return startAgent('intake')
-}
-
-async function scoreAts(opts?: unknown): Promise<AtsResult> {
-  const { keywords, role } = (opts ?? {}) as { keywords?: string; role?: string }
-  const root = dataRoot()
-  const cvPath = join(root, 'cv.md')
-  if (!existsSync(cvPath)) throw new Error('No cv.md yet — import and parse your resume first')
-  const outDir = join(root, 'output')
-  mkdirSync(outDir, { recursive: true })
-  const tmp = join(outDir, '.ats-check.html')
-  writeFileSync(tmp, buildAtsCheckHtml(readFileSync(cvPath, 'utf8'), readProfileYaml(root)))
-  const args = ['verify-ats.mjs', tmp, '--json']
-  if (keywords) args.push('--keywords', keywords)
-  if (role) args.push('--role', role)
-  const res = await runScript(args)
-  rmSync(tmp, { force: true })
-  if (!res.stdout.trim()) throw new Error(res.stderr.trim() || 'ATS check failed')
-  const parsed = JSON.parse(res.stdout) as Omit<AtsResult, 'file' | 'checkedAt'>
-  const result: AtsResult = { ...parsed, file: 'cv.md', checkedAt: Date.now() }
-  writeFileSync(userFile('ats-last.json'), JSON.stringify(result))
-  return result
-}
-
-function rankAgainstJob(jobUrlOrText: unknown): RunSummary {
-  return startAgent('ats', str(jobUrlOrText, 'jobUrlOrText'))
 }
 
 async function setTemplate(name: unknown): Promise<boolean> {
@@ -294,8 +248,6 @@ export const resumeHandlers: Record<string, Handler> = {
   resumeOverview,
   importResume,
   parseResume,
-  scoreAts,
-  rankAgainstJob,
   setTemplate,
   importTemplate,
   createTemplate,

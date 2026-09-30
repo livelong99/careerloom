@@ -81,8 +81,6 @@ export type CareerloomBridge = {
   resumeOverview(): Promise<ResumeOverview>
   importResume(): Promise<ResumeSource | null>
   parseResume(): Promise<Run>
-  scoreAts(opts?: { keywords?: string; role?: string }): Promise<AtsResult>
-  rankAgainstJob(jobUrlOrText: string): Promise<Run>
   setTemplate(name: string): Promise<boolean>
   importTemplate(): Promise<CvTemplate | null>
   createTemplate(description: string): Promise<Run>
@@ -105,6 +103,8 @@ export type CareerloomBridge = {
   atsApply(findingId: string, answers?: AtsAnswer[]): Promise<AtsApplyResult>
   atsUndo(undoId: string): Promise<AtsApplyResult>
   atsDismiss(findingId: string): Promise<boolean>
+  /** Applied changes that can still be undone, newest first. */
+  atsHistory(): Promise<AtsHistoryItem[]>
   onAtsEvent(cb: (event: AtsEvent) => void): () => void
   /** The template filled with the current résumé, as PDF bytes (for the in-app viewer). */
   renderTemplatePdf(name: string): Promise<Uint8Array>
@@ -213,5 +213,5 @@ export type SpendFlow = {
 // Feature contracts live in electron/contract.ts (types only) so the main
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
-import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsPreview, AtsReport } from '../../electron/contract'
-import type { AtsResult, CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow } from '../../electron/contract'
+import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
+import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow } from '../../electron/contract'

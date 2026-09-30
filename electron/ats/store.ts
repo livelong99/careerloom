@@ -25,6 +25,9 @@ export type Analysis = {
   courses: AtsReport['courses']
   plan?: string
   notes: string[]
+  /** all questions asked so far, and every answer given (merged into Apply so {{qN}} placeholders resolve) */
+  questions?: AtsQuestion[]
+  answers?: AtsAnswer[]
   session?: Session
   report: AtsReport
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { EmptyNote } from '../components/EmptyState'
 import { SectionSkeleton } from '../components/Skeleton'
@@ -7,11 +7,12 @@ import { ScrollArea } from '../components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useRuns } from '../hooks/useRuns'
 import { usePolled } from '../hooks/usePolled'
-import { asOfLabel } from '../lib/format'
+import { when } from '../components/resume/format'
 import { careerloom } from '../lib/ipc'
 import { AtsPage } from './resume/Ats'
 import { ContentPage } from './resume/Content'
-import type { ResumeCtx } from './resume/ctx'
+import type { PageId, ResumeCtx } from './resume/ctx'
+import { useAtsLive } from './resume/useAts'
 import { OverviewPage } from './resume/Overview'
 import { ResearchPage } from './resume/Research'
 import { SkillUpPage } from './resume/SkillUp'
@@ -25,10 +26,10 @@ const PAGES = [
   ['skillup', 'Skill-up'],
   ['research', 'Research'],
 ] as const
-type PageId = (typeof PAGES)[number][0]
-
-const chip = (label: string, score: number | undefined) => (
-  <Badge variant="neutral" title={score === undefined ? 'Run an ATS analysis to see this' : undefined}>{label} {score ?? '—'}</Badge>
+const chip = (label: string, block: { score: number; low: number; high: number; confidence: string } | undefined, hint: string) => (
+  <Badge variant="neutral" title={block ? `${hint}. Range ${block.low}–${block.high}, ${block.confidence} confidence` : 'Run an ATS analysis to see this'}>
+    {label} {block ? block.score : '—'}{block && block.low !== block.high ? <span className="text-xs opacity-70">({block.low}–{block.high})</span> : null}
+  </Badge>
 )
 
 /** Resume workspace: persistent header, side navigation, one full-width page at a time. */
@@ -39,7 +40,11 @@ export function Resume() {
   const profile = usePolled(() => careerloom.readProfile(), [generation], { intervalMs: null })
   const research = usePolled(() => careerloom.readResearch(), [generation], { intervalMs: null })
   const report = usePolled(() => careerloom.atsGet(), [generation], { intervalMs: null })
+  const history = usePolled(() => careerloom.atsHistory(), [generation], { intervalMs: null })
   const [page, setPage] = useState<PageId>('overview')
+  const { refresh: refreshOverview } = overview
+  const settled = useCallback(() => { report.refresh(); history.refresh(); refreshOverview() }, [report.refresh, history.refresh, refreshOverview]) // eslint-disable-line react-hooks/exhaustive-deps
+  const ats = useAtsLive(settled)
 
   if (overview.error) return <EmptyNote>{overview.error.message.split('\n')[0]}</EmptyNote>
   if (!overview.data) return <SectionSkeleton label="Loading your résumé" />
@@ -50,8 +55,13 @@ export function Resume() {
     profile: profile.data,
     research: research.data,
     report: report.data,
-    refresh: () => { overview.refresh(); cv.refresh(); profile.refresh(); research.refresh(); report.refresh() },
+    history: history.data ?? [],
+    live: ats.live,
+    go: setPage,
+    refresh: () => { overview.refresh(); cv.refresh(); profile.refresh(); research.refresh(); report.refresh(); history.refresh() },
     adopt,
+    analyze: ats.analyze,
+    answer: ats.answer,
   }
   const template = overview.data.templates.find(t => t.name === overview.data?.activeTemplate)?.displayName ?? 'Standard'
   const r = report.data
@@ -61,23 +71,23 @@ export function Resume() {
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="min-w-0">
           <h1 className="m-0 truncate text-base font-semibold text-foreground">{profile.data?.name || 'Your résumé'}</h1>
-          <p className="m-0 text-xs text-muted-foreground">Template {template} · {r ? `analysed ${asOfLabel(r.createdAt)}` : 'not analysed yet'}</p>
+          <p className="m-0 text-xs text-muted-foreground">Template {template} · {r ? `analysed ${when(r.createdAt)}` : 'not analysed yet'}</p>
         </div>
         <div className="ml-auto flex gap-2">
-          {chip('Parse health', r?.parse.score)}
-          {chip('Job match', r?.match?.score)}
+          {chip('Parse health', r?.parse, 'A parse-risk heuristic')}
+          {chip('Job match', r?.match, 'Estimated from the job description')}
         </div>
       </header>
       <Tabs orientation="vertical" value={page} onValueChange={v => setPage(v as PageId)} className="min-h-0 flex-1 flex-row gap-4">
         <TabsList aria-label="Résumé pages" className="h-fit w-44 shrink-0 flex-col items-stretch gap-1 bg-transparent p-0">
           {PAGES.map(([id, label]) => <TabsTrigger key={id} value={id} className="h-8 flex-none justify-start data-[state=active]:bg-muted">{label}</TabsTrigger>)}
         </TabsList>
-        <ScrollArea className="min-h-0 min-w-0 flex-1 rounded-xl border border-border">
+        <ScrollArea key={page} className="min-h-0 min-w-0 flex-1 rounded-xl border border-border">
           <TabsContent value="overview"><OverviewPage ctx={ctx} /></TabsContent>
           <TabsContent value="content"><ContentPage ctx={ctx} /></TabsContent>
           <TabsContent value="templates"><TemplatesPage ctx={ctx} /></TabsContent>
-          <TabsContent value="ats"><AtsPage /></TabsContent>
-          <TabsContent value="skillup"><SkillUpPage /></TabsContent>
+          <TabsContent value="ats"><AtsPage ctx={ctx} /></TabsContent>
+          <TabsContent value="skillup"><SkillUpPage ctx={ctx} /></TabsContent>
           <TabsContent value="research"><ResearchPage ctx={ctx} /></TabsContent>
         </ScrollArea>
       </Tabs>

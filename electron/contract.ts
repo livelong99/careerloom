@@ -11,13 +11,6 @@ export type RunUsage = { costUsd: number | null; inputTokens: number; outputToke
 export type ResumeSection = { title: string; lines: number; text: string }
 export type ResumeSource = { file: string; kind: string; size: number; updatedAt: number } // documents/**
 export type CvTemplate = { name: string; displayName: string; file: string; builtin: boolean }
-export type AtsIssue = { severity: string; message: string }
-export type AtsResult = {
-  file: string; pass: boolean; minScore: number; score: number; grade: string
-  issues: AtsIssue[]
-  keywordCoverage: { total: number; found: number; percent: number; missing: string[] } | null
-  checkedAt: number
-}
 export type ExportFormat = 'pdf' | 'html' | 'tex' | 'docx' | 'md'
 export type ResumeExport = { file: string; format: ExportFormat; updatedAt: number } // output/**
 export type ResumeOverview = {
@@ -25,7 +18,6 @@ export type ResumeOverview = {
   sources: ResumeSource[]
   templates: CvTemplate[]
   activeTemplate: string | null
-  lastAts: AtsResult | null
   exports: ResumeExport[]
 }
 
@@ -295,8 +287,11 @@ export type AtsReport = {
   plan?: string
   /** Plain-language limits of this run (no web-search runner, local model missing, …). */
   notes?: string[]
+  /** Every question the agent asked during this analysis (answered or not), for "Answer first". */
+  questions?: AtsQuestion[]
   session?: { runId: string; sessionId: string | null; round: number; questions: AtsQuestion[] }
 }
+export type AtsHistoryItem = { undoId: string; findingId: string; title: string; at: number }
 export type AtsApplyResult = { ok: boolean; error?: string; undoId?: string; newCv?: string; rescore?: AtsReport }
 export type AtsPreview = { diff: { before: string; after: string }; factCheck: { ok: boolean; violations: string[] } }
 export type AtsPhase = 'parse' | 'extract' | 'agent' | 'score' | 'done'
