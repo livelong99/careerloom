@@ -17,6 +17,8 @@
     "package": "npm run build && electron-builder"
   },
   "dependencies": {
+    "react-resizable-panels": "^4.14.1",
+    "sonner": "^2.0.8",
     "tldts": "^7.4.16",
     "yaml": "^2.9.1"
   },
