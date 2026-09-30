@@ -144,7 +144,7 @@ export function readChromeCookies(dbFile: string, domain: string, key: Buffer, p
 }
 
 /** Prefixes of every temp dir that can hold plaintext cookies (DB copies, storage states). */
-export const COOKIE_TEMP_PREFIXES = ['cl-ck-', 'cl-bs-']
+export const COOKIE_TEMP_PREFIXES = ['cl-ck-', 'cl-bs-', 'cl-bd-']
 
 /** Startup sweep: delete cookie temp dirs a crash left behind. Best effort, silent. */
 export function sweepCookieTemp(dir = os.tmpdir()): number {

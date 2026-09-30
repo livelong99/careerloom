@@ -141,7 +141,7 @@ function agentExtract(board: Source, pages: ScrapedPage[], log: (t: string) => v
 async function extractBoard(board: Source, log: (t: string) => void, cancelled: () => boolean): Promise<WebJob[]> {
   if (board.fetch === 'browser') {
     const jobs = await browserExtract(board, readGuidelines(read(customFile())).get(board.name), log)
-    log(`  ${jobs.length} jobs from the browser agent (validated)\n`)
+    log(`  ${jobs.length} jobs from the browser (validated)\n`)
     return jobs
   }
   const pages = await scrapeBoard(boardUrls(board), log, cancelled)
