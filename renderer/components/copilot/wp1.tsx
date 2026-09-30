@@ -12,7 +12,7 @@ export const NOTICE_VERSION = 'privacy-mode-2026-10-01.draft1'
 export function PrivacyModeNotice({ open, onCancel, onAccept }: { open: boolean; onCancel: () => void; onAccept: () => void }): ReactNode {
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onCancel() }}>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Before you turn on Privacy mode</DialogTitle>
           <DialogDescription>TODO-legal: draft wording, not final.</DialogDescription>

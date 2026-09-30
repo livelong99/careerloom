@@ -1,6 +1,5 @@
 // Copilot IPC handlers (plan §4). Every call is refused off macOS. WP0 stubs are replaced here by real bodies for sessions,
 // consent, retention, practice, debrief and Setup; capture/STT (WP3), engine/context (WP2) and overlay/hotkeys (WP1) plug in via `CopilotDeps`.
-// Ported in part from Open-Cluely (owner's project), adapted for Careerloom: settings/ipc.js config handlers (booleans only, never key material).
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'

@@ -92,7 +92,8 @@ function JobTable({ group, selected, onSelect, jobExists }: { group: JobGroup; s
       {group.first !== null && group.last !== null && <Badge variant="success">Trend {group.first.toFixed(1)} → {group.last.toFixed(1)}</Badge>}
       <Button size="sm" variant="outline" disabled={!jobExists} title={jobExists ? undefined : 'This job is no longer in your list. Its sessions are kept.'} onClick={() => openJob(group.jobId)}>Open job</Button>
     </>}>
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full table-fixed border-collapse text-sm">
+        <colgroup><col className="w-[28%]" /><col className="w-[16%]" /><col className="w-[16%]" /><col className="w-[16%]" /><col /></colgroup>
         <thead><tr><th className={th}>Date</th><th className={th}>Mode</th><th className={th}>Length</th><th className={th}>Answers</th><th className={th}>Score</th></tr></thead>
         <tbody>{group.sessions.map(s => <Row key={s.id} s={s} on={s.id === selected} onSelect={onSelect} />)}</tbody>
       </table>
