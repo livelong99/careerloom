@@ -16,6 +16,7 @@ import { atsHandlers } from './ats/handlers'
 import { jobViewHandlers } from './job-view/handlers'
 import { docsHandlers } from './docs-gen/handlers'
 import { copilotHandlers } from './copilot/handlers'
+import { startFakeOverlayIfRequested } from './copilot/overlay-runtime'
 import { resumeHandlers } from './resume'
 import { trackerHandlers } from './tracker-actions'
 import { checkReadiness, pickReadyRunner, type Readiness } from './readiness'
@@ -335,6 +336,7 @@ function bootstrap(): void {
     void refreshReadiness().catch(err => console.error('readiness check failed:', err))
     Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate()))
     createWindow()
+    startFakeOverlayIfRequested() // dev only: CL_COPILOT_FAKE=cycle|<state>
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
     // Update availability (from codeburn): at launch, then daily. Notifies only — never installs.
     updateChecker = createUpdateChecker({ currentVersion: app.getVersion() })

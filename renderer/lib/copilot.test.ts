@@ -57,6 +57,11 @@ describe('overlay reducer and derived view state', () => {
     expect(deriveView(run([state('stopped')], m))).toBe('stopped')
   })
 
+  it('a rejected hotkey does not take over the overlay', () => {
+    const m = run([state('listening'), { type: 'copilotError', payload: { kind: 'hotkey', message: 'Control+Alt+A is in use', retrying: false } }])
+    expect(deriveView(m)).toBe('listening')
+  })
+
   it('keeps the newest three transcript lines and updates a partial in place', () => {
     const m = run([state('listening'), ...['a', 'b', 'c', 'd'].map(id => ({ type: 'copilotTranscript', payload: line(id) }) as Ev)])
     expect(m.transcript.map(l => l.id)).toEqual(['b', 'c', 'd'])
