@@ -10,6 +10,7 @@
 - [20261001 Copilot WP2](session_20261001_copilot-wp2.md) — OpenRouter SSE engine, detector, grounding, guard, failover, cost; live latency table pending a key
 - [20261001 Copilot WP3](session_20261001_copilot-wp3-capture-stt.md) — mic capture + Moonshine sidecar STT adapter/install, session controller, silent detector, mac entitlements, S1 system-audio spike (GO via loopback)
 - [20261001 Copilot WP1](session_20261001_copilot-wp1-overlay.md) — overlay window, hotkeys, tray, panic, Privacy mode, overlay UI + fake driver, QA evidence
+- [20261001 Copilot WP4](session_20261001_copilot-wp4.md) — config pages, consent gate, job-linked sessions store, retention sweep, practice runner, debrief; G-D-prep
 - [20261001 Copilot WP0](session_20261001_copilot-wp0.md) — frozen copilot IPC/config contract, stub handlers/modules, mac-only Copilot shell, copilot.json config
 - [20261001 Interview Copilot plan](session_20261001_interview-copilot-plan.md) — research + design/prototype + WP plan for config screen and overlay; option B responsible-use default, mic-only MVP, SSE runner
 - [20261001 Orca integration](session_20261001_orca-integration.md) — browser spike no-go -> deterministic driver, Orca worker flow, integration branch, job-page agent launched
