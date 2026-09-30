@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { broadcast, Handler, str } from '../context'
 import type { ModelCall } from '../job-view/jdStructure'
 import type { JobPosting, ReportView } from '../job-view/types'
-import { copilotSupported } from './capabilities'
+import { assertSupported, copilotSupported } from './capabilities'
 import { CONSENT_TEXT_VERSION, validateConsent } from './consent'
 import { readCopilotConfig, writeCopilotConfig } from './config'
 import { applyDebrief, scoreSession } from './debrief'
@@ -146,6 +146,7 @@ export function createCopilot(deps: CopilotDeps) {
     const jobId = jobIdOf(r.jobId)
     const mode = oneOf(r.mode, MODES, 'session mode')
     const interviewType = oneOf(r.interviewType, INTERVIEW_TYPES, 'interview type')
+    assertSupported(mode === 'live')
     const job = deps.job(jobId)
     if (!job) throw new Error('That job is no longer in your list: pick another one')
     if (recorder.active()) throw new Error('A session is already running: stop it first')
@@ -161,8 +162,11 @@ export function createCopilot(deps: CopilotDeps) {
     if (mode === 'live') {
       const check = validateConsent(r.consent, now())
       if (!check.ok) throw new Error(check.reason)
+      if (SESSION_ID.test(r.consent!.sessionId)) sessionId = r.consent!.sessionId
+    }
+    if (store.get(sessionId)) throw new Error('That session already exists') // before the consent record: a refused start leaves no record
+    if (mode === 'live') {
       const c = r.consent!
-      if (SESSION_ID.test(c.sessionId)) sessionId = c.sessionId
       const pm = cfg.privacy.mode
       const privacyMode = pm.enabled && pm.noticeVersion !== null
       // Server-authoritative fields: the renderer cannot claim a different indicator, provider or retention than what is configured.
@@ -173,7 +177,6 @@ export function createCopilot(deps: CopilotDeps) {
         privacyMode, indicator: privacyMode ? pm.indicator : 'chip',
       })
     }
-    if (store.get(sessionId)) throw new Error('That session already exists')
     recorder.begin({ id: sessionId, mode, jobId, jobTitle: job.title, company: job.company })
     try {
       await deps.session?.start({ mode, jobId, interviewType, consent: mode === 'live' ? r.consent! : null }, sessionId)
