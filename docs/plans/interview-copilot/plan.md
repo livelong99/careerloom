@@ -1,14 +1,14 @@
 # Interview Copilot — Implementation Plan (Phase 3)
 
 Inputs: `research.md` (facts, sources), `design.md` + `prototype/` (screens). Defaults below are **provisional** (lead-approved at G1, user to confirm) and are isolated in §15 so they are cheap to change.
-Target: Careerloom v0.3.0 · **macOS (Apple Silicon) for Live; Windows = Practice only** · Electron ^43.7.0 (installed version unverified in this worktree).
+Target: Careerloom v0.3.0 · **macOS only for now (Apple Silicon first); Windows is deferred** · Electron ^43.7.0 (installed version unverified in this worktree).
 
 ## 1. Context and scope
 
 Add a **Copilot** section (config workspace, 10 pages) and an **overlay window** that listens (mic, later system audio), detects interviewer questions, and streams grounded suggestions built from the job posting, evaluation report, `cv.md` facts and STAR stories.
 
-**User decisions (2026-10-01):** LLM = **OpenRouter**; **answer-on-demand** default; transcript retention **3 months**, changeable in the app (acceptable to state in consent copy); **every session belongs to exactly one Job, a Job can have many sessions**; **Windows gets Practice only in M1**; STT = **the fastest accurate local engine, decided by a bake-off (spike S2)**, with **Moonshine Voice (streaming) as the expected default**, Whisper MLX and faster-whisper (CUDA) as alternates behind the same adapter; **proper model-selection fields** for STT (engine/model/device) and for the answer model per tier.
-**MVP (M1):** Practice mode (macOS + Windows) + mic-only Live (macOS) + local STT adapter (Moonshine default) + OpenRouter streaming runner + job-linked sessions + consent gate + kill switch. **M2:** system audio (macOS, after spike gate); Windows Live candidate if the STT/loopback spikes pass. **M3:** screenshot → vision. **M4:** local LLM, extras.
+**User decisions (2026-10-01):** LLM = **OpenRouter**; **answer-on-demand** default; transcript retention **3 months**, changeable in the app (acceptable to state in consent copy); **every session belongs to exactly one Job, a Job can have many sessions**; **macOS first; Windows is deferred to a later phase (user, latest)**; STT = **the fastest accurate local engine, decided by a bake-off (spike S2)**, with **Moonshine Voice (streaming) as the expected default**, Whisper MLX and faster-whisper (CUDA) as alternates behind the same adapter; **proper model-selection fields** for STT (engine/model/device) and for the answer model per tier.
+**MVP (M1, macOS only):** Practice mode + mic-only Live + local STT adapter (Moonshine default) + OpenRouter streaming runner + job-linked sessions + consent gate + kill switch. **M2:** system audio (macOS, after spike gate). **M3:** screenshot → vision. **M4:** local LLM, extras. **Later (unscheduled): Windows** (live capture, STT engine/CUDA check, overlay QA, installer).
 **Included as opt-in, OFF by default — Privacy mode** (user decision): hide overlay from screen sharing (`setContentProtection`), no Dock icon while listening, neutral window title, click-through, quick-hide hotkey, configurable recording indicator. Guarded by a one-time plain notice (some interviewers/employers prohibit AI help; hide-from-capture unreliable on macOS 15+ ScreenCaptureKit). Per-session consent is **not** part of it.
 **Not included:** process-name masquerading, fake system-app/browser identities, disguised installers/icons, near-invisible opacity or cursor tricks, or anything aimed at defeating proctoring/anti-cheat software. Also out: the unauthenticated LAN companion, diarisation, auto-typing into other apps, raw-audio retention (design.md §7).
 **Reuse:** Open-Cluely is the user's own project, so code/prompts are **ported** (TS/React adaptation, keys via `safeStorage`). Per-package port map in §11.
@@ -50,7 +50,7 @@ New pattern: long-lived child process (only for M4 on-device STT helper); SSE st
 
 ### 3.1 Capture (WP3)
 - Mic: `getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})` → `AudioContext({sampleRate:16000})` → AudioWorklet posts Int16 frames (80–100 ms) to main (`copilotAudioChunk`, transferable). Worklet file under `renderer/copilot/worklet.js`, allowed by `script-src 'self'`.
-- **Platform rule:** Live is gated by a capability table (`copilot/capabilities.ts`: `{ live: boolean, liveSystemAudio: boolean, practiceVoice: boolean }` per platform/arch), **not** by scattered `process.platform` checks. M1 values: macOS arm64 `live:true`; Windows `live:false` (Practice only, user decision); Intel macOS `live` depends on the chosen engine. When `live:false`, `copilotStart(mode:'live')` is refused in main and the UI disables "Start live session" with an explanation. Because Moonshine also runs on Windows (docs), **voice practice on Windows (mic + local STT) is a cheap option**, recommended but pending your answer (open question 7); flipping Windows Live later is a one-line capability change once loopback capture (spike S1 on Windows) and STT pass.
+- **Platform rule:** macOS only for now. The Copilot sidebar item and every `copilot*` handler are available only when `capabilities.ts` says so (`process.platform === 'darwin'` and, for Live, Apple Silicon unless the bake-off engine also passes on Intel); elsewhere main refuses the calls and the renderer hides the section (no half-working Windows UI). Keep platform-specific code (dock, ScreenCaptureKit/CoreAudio tap, entitlements, permissions) in clearly named macOS modules so a Windows phase can add siblings instead of untangling branches. Windows work (later): loopback capture spike, STT engine check (Moonshine runs on Windows per its docs; CUDA unverified), overlay z-order/DPI QA, NSIS packaging.
 - System audio (M2, macOS): main sets `session.setDisplayMediaRequestHandler` with `audio:'loopback'`; renderer calls `getDisplayMedia`. **Spike gate G-B** decides between: (a) macOS ≥14.2 CoreAudio tap (`NSAudioCaptureUsageDescription`), (b) `useSystemPicker:true` path (issue #52738 workaround), (c) virtual device (BlackHole) via `getUserMedia`, (d) mic-only.
 - Health: per-source "samples received in last 3 s" detector drives the **permission-missing** overlay state (silent ended track raises no error).
 - Channel = speaker (`interviewer` = system, `you` = mic). No diarisation.
@@ -210,7 +210,7 @@ export type CopilotConfig = {
   practice: { followups: boolean; readAloud: boolean; answerMinutes: number }
 }
 ```
-Defaults: tier `fast`, escalate on, provider `openrouter` (`dataCollection:'deny'`), `autoAnswer:false` (answer on demand), shape `cues+star`, `retentionDays:90`, redact on, opacity 0.94, anchor `tr`, width 440, hotkeys `⌃⌥A/F/C/S/M/E/L/H`, quick hide `⌃⌥⇧H`, panic `⌃⌥⇧X` (Windows: Ctrl+Alt). Model ids are **not** hard-coded: resolved from a dated `recommended-models.json` (prices and ids change) and shown in the UI.
+Defaults: tier `fast`, escalate on, provider `openrouter` (`dataCollection:'deny'`), `autoAnswer:false` (answer on demand), shape `cues+star`, `retentionDays:90`, redact on, opacity 0.94, anchor `tr`, width 440, hotkeys `⌃⌥A/F/C/S/M/E/L/H`, quick hide `⌃⌥⇧H`, panic `⌃⌥⇧X`. Model ids are **not** hard-coded: resolved from a dated `recommended-models.json` (prices and ids change) and shown in the UI.
 
 ## 8. Renderer structure
 
@@ -286,7 +286,7 @@ Behaviour: states from design.md §4 driven by a **fake event generator** (no ba
 | `main-process/shared/safe-send.js` | reuse `broadcast`; port only the destroyed-window guard if missing | — |
 | `renderer/features/layout/window-adjustments.js`, `features/settings/shortcut-manager.js` | overlay resize grip, `renderer/components/copilot/HotkeyRow.tsx` | React/TS; accelerator recorder UX |
 | `windows/assistant/styles.css`, `renderer.html` | reference only | new overlay follows `design.md` and Careerloom tokens |
-Accept: all 8 states + strip/panel + light/dark match `prototype/shots` within review; overlay never takes focus (manual macOS + Windows check); panic stops fake session in < 200 ms; vitest for state reducer, hotkey registration failure handling, anchor math.
+Accept: all 8 states + strip/panel + light/dark match `prototype/shots` within review; overlay never takes focus (manual macOS check; Windows later); panic stops fake session in < 200 ms; vitest for state reducer, hotkey registration failure handling, anchor math.
 **Privacy mode acceptance (vitest with mocked electron + manual):**
 1. Defaults: Privacy mode off ⇒ `setContentProtection` never called with `true`, Dock icon untouched, normal title, indicator = chip.
 2. Enabling without a notice ack for `CURRENT_NOTICE` ⇒ flags not applied (main-side check); with ack ⇒ applied to every overlay window, including windows created later.
@@ -328,7 +328,7 @@ Files: `renderer/overlay/capture/**` (worklet, mic, system), `electron/copilot/s
 | `renderer/features/transcription/transcription-manager.js` | `renderer/overlay/useCopilotEvents.ts` (partial/final transcript state) | React hook |
 macOS system audio has no source to port (Open-Cluely relies on Windows loopback): new work behind S1.
 
-Steps: (1) mic → 16 kHz PCM → fake STT replay parity test; (2) sidecar + install flow for **Moonshine first**, then Whisper MLX and faster-whisper behind the same adapter; **spike S2 bake-off (time-boxed 2 days; Apple Silicon 16 GB Mac, plus an NVIDIA Windows/Linux box if available):** run fixture audio (clean, noisy, Indian-accented English, interviewer + candidate) through Moonshine tiny/small/medium streaming, Whisper MLX small/turbo-class, faster-whisper on CUDA; record p50/p95 final-after-silence latency, real-time factor, RAM/CPU with a call app running, WER; try `ort_providers="CUDA"` for Moonshine; confirm the Moonshine LICENSE file; output a table + the chosen default; restart/replay handling; (3) **spike S1 (time-boxed 1 day)** on a signed or ad-hoc-signed build on macOS: loopback vs system-picker vs BlackHole, record which work, silent-track detector, TCC prompt behaviour across updates; (4) Windows: assert Live is refused by `capabilities.ts` and Practice works; if the STT bake-off ran on Windows, record whether mic voice practice works (input to open question 7).
+Steps: (1) mic → 16 kHz PCM → fake STT replay parity test; (2) sidecar + install flow for **Moonshine first**, then Whisper MLX and faster-whisper behind the same adapter; **spike S2 bake-off (time-boxed 2 days; Apple Silicon 16 GB Mac; CUDA check deferred with Windows):** run fixture audio (clean, noisy, Indian-accented English, interviewer + candidate) through Moonshine tiny/small/medium streaming and Whisper MLX small/turbo-class (faster-whisper/CUDA only in the Windows phase); record p50/p95 final-after-silence latency, real-time factor, RAM/CPU with a call app running, WER; try `ort_providers="CoreML"` vs CPU for Moonshine; confirm the Moonshine LICENSE file; output a table + the chosen default; restart/replay handling; (3) **spike S1 (time-boxed 1 day)** on a signed or ad-hoc-signed build on macOS: loopback vs system-picker vs BlackHole, record which work, silent-track detector, TCC prompt behaviour across updates; (4) non-macOS: assert `capabilities.ts` hides the Copilot section and refuses the handlers; existing tests stay green.
 Accept: mic-only end-to-end in a dev build; `silent` health fires within 3 s of a dead track; adapter contract tests pass for fake + real (real behind `CL_LIVE_STT=1`, ≤ $0.50 cap); spike report committed.
 **Gate G-B:** go/no-go on system audio per platform, written from S1 evidence.
 
@@ -340,7 +340,7 @@ Accept: starting a session without `jobId` is rejected (test); two sessions for 
 **Gate G-D (legal/policy):** lead/user reviews consent text, **Privacy mode notice text**, employer-policy link text, default provider, retention defaults before Live is enabled in a release build.
 
 ### WP5 — Later milestones (separate dispatches, not started now)
-M3 screenshot→vision (`desktopCapturer`, image to vision model, FIFO cap + crash sweep, Screen Recording guidance). **Port:** `main-process/features/assistant/screenshot-manager.js` → `electron/copilot/screenshots.ts` (FIFO cap, cleanup on clear/quit, add crash-recovery sweep, temp dir), `services/ocr/service.js` → `electron/copilot/ocr.ts` (tesseract.js, fallback only); M4 local LLM (Ollama port), Windows Live via a new STT adapter (whisper.cpp or a cloud adapter), Windows voice practice, Apple SpeechAnalyzer as an alternative adapter; Windows hardening and installer tests; notarization.
+M3 screenshot→vision (`desktopCapturer`, image to vision model, FIFO cap + crash sweep, Screen Recording guidance). **Port:** `main-process/features/assistant/screenshot-manager.js` → `electron/copilot/screenshots.ts` (FIFO cap, cleanup on clear/quit, add crash-recovery sweep, temp dir), `services/ocr/service.js` → `electron/copilot/ocr.ts` (tesseract.js, fallback only); M4 local LLM (Ollama port), Apple SpeechAnalyzer as an alternative adapter, notarization. **Later (unscheduled): Windows** — loopback capture, STT engine/CUDA check, overlay QA, NSIS packaging, installer tests.
 
 ### Sequencing
 ```
@@ -356,7 +356,7 @@ Integration owner (lead's worktree) merges in order WP0 → WP2 → WP3 → WP1 
 - **Unit (vitest, existing setup):** config defaults/migration; consent validation; detector; SSE parser; prompt builder (golden prompt snapshot for a fixture job); `proof` substring invariant; redaction; retention sweep; hotkey conflict handling; anchor math; overlay state reducer.
 - **Fixtures:** `electron/copilot/fixtures/{interview-behavioural,interview-design}.jsonl` (timed STT events, original synthetic dialogue) + optional synthetic `.wav` via local TTS; fake STT replays at 1× and 4×; fake provider streams canned SSE with configurable TTFT.
 - **Latency harness:** `node scripts/copilot-latency.mjs --provider openrouter --runs 20 --max-usd 2` (plus `--stt <engine>:<model>:<device>` for decode latency on recorded fixtures; same code as the in-app Benchmark button) → p50/p95 TTFT, total, tokens, cost; output JSON checked into `docs/plans/interview-copilot/measurements/` per run.
-- **Overlay QA (manual, cloned profile):** `--user-data-dir` copy + career-ops copy (repo rule); checklist: no focus steal over a real call app, above full-screen app, second monitor, click-through + hover, panic, Spaces switch, sleep/wake, dark/light, reduced motion, 200 % text. Windows: DPI scaling, taskbar z-order, exclusive full-screen caveat.
+- **Overlay QA (manual, cloned profile):** `--user-data-dir` copy + career-ops copy (repo rule); checklist: no focus steal over a real call app, above full-screen app, second monitor, click-through + hover, panic, Spaces switch, sleep/wake, dark/light, reduced motion, 200 % text. (Windows QA — DPI scaling, taskbar z-order, exclusive full-screen caveat — is deferred with the Windows phase.)
 - **Permission matrix (manual):** fresh mac profile → mic prompt; system audio denied/allowed; revoke mid-session; app update (ad-hoc signed identity changes may reset grants — record outcome).
 - **Live-provider smoke:** behind `CL_LIVE=1`, capped spend, never in CI.
 - **Screenshot regression:** render prototype vs app screens by eye at gates (no pixel-diff infra yet).
@@ -367,7 +367,7 @@ Integration owner (lead's worktree) merges in order WP0 → WP2 → WP3 → WP1 
 - `package.json` `build.mac`: add `extendInfo` `{ NSMicrophoneUsageDescription, NSAudioCaptureUsageDescription }` (plain-language strings, reviewed at G-D); add `entitlements`/`entitlementsInherit` → `build/entitlements.mac.plist` with `com.apple.security.device.audio-input` (effective when `hardenedRuntime` is turned on at signing time; today it is off and builds are ad-hoc signed — **TCC grants may not persist across ad-hoc-signed updates; verify in S1, signing/notarization is the real fix**). Screen Recording has no usage-string key to add (system prompt names the app; verify).
 - CSP: no widening of `connect-src`. Worklet served from `'self'`. If a blob worker is needed add `worker-src 'self' blob:` only.
 - Overlay window: same preload, `sandbox:true`, `contextIsolation:true`, `webSecurity` left on (explicitly not copying any reference-project flags).
-- Windows NSIS: no extra entries for loopback; test on x64 + arm64; `npx.cmd`/path issues already tracked.
+- Windows NSIS/installer: **deferred** with the Windows phase; nothing in M1 may break the existing Windows build (the Copilot section and handlers are absent there, typecheck and tests stay green on both).
 - Nothing ML in installers; M4 models install from onboarding-style flow.
 - Release: follow existing recipe (`CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac/--win`); tag only when the user asks.
 
@@ -379,7 +379,7 @@ Integration owner (lead's worktree) merges in order WP0 → WP2 → WP3 → WP1 
 | M1 (v0.3.0) | Practice + mic-only live + streaming runner + consent gate + kill switch (WP0–WP4) | G-B(mic ok), G-C, G-D, cloned-profile QA, user confirms defaults |
 | M2 | System audio (macOS per spike) | G-B = go; permission matrix passed |
 | M3 | Screenshot → vision | privacy review of screen capture |
-| M4 | Local LLM, Windows Live STT, notarization, extras (pace/filler coaching, extra providers) | hardware test on 16 GB Mac |
+| M4 | Local LLM, Apple SpeechAnalyzer option, notarization, extras (pace/filler coaching, extra providers) | hardware test on 16 GB Mac |
 
 Feature flag `copilot.enabled` (default on in dev, off in first public build) and a runtime **Live disabled** fallback if consent text version is missing.
 
@@ -390,7 +390,7 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 | Responsible-use option | **B** + opt-in Privacy mode: practice first; live = per-session consent; no disguise features | §9, WP4 consent gate, design §7 |
 | Privacy mode (hide-from-capture, no Dock icon, neutral title, click-through, quick hide, indicator) | **Opt-in, OFF**; notice on first enable; indicator default = chip | `privacy-mode.ts`, Privacy page group |
 | MVP scope | Practice + mic-only + streaming API runner | §14 |
-| Platforms | **macOS Apple Silicon = Live + Practice; Windows = Practice only** (user, 2026-10-01) | WP3, §3.1, §12 |
+| Platforms | **macOS only for now; Windows later** (user, latest) | WP3, §3.1, §12 |
 | Budget | ≈ $0.30 per interview; per-session ceiling $1.00 | §10, `engine.ts` |
 | STT | **Local, fastest accurate engine by bake-off; Moonshine streaming expected** (user, 2026-10-01); Whisper MLX / faster-whisper alternates; CUDA unverified for Moonshine | WP3, spike S2 |
 | Session ↔ Job | **Every session belongs to exactly one Job; a Job has many sessions** (user, 2026-10-01) | `SessionSummary.jobId`, Sessions page grouped by job, Job page list |
@@ -431,11 +431,11 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 2. **Legal/policy review:** who signs off the consent text and the "check the employer's rules" copy (gate G-D)? Any jurisdictions to call out beyond the generic all-party note?
 3. ~~STT provider~~, 4. ~~LLM provider~~, 5. ~~Auto-answer~~ — **resolved by the user (2026-10-01): local fastest-accurate STT (Moonshine expected; bake-off decides), OpenRouter, answer on demand.**
 6. **System audio:** acceptable to ship M1 mic-only and let the interviewer side wait for M2 (spike outcome)? Is BlackHole (user-installed) an acceptable fallback?
-7. ~~Windows~~ — **resolved: Windows is Practice only (M1).** Moonshine runs on Windows, so **recommendation: allow voice practice on Windows (mic + local STT CPU) and keep Live off**; is that OK, or typed answers only?
+7. ~~Windows~~ — **resolved (user, latest): take Windows later, focus on macOS first.** No Windows voice-practice or Live work in this plan until that phase is scheduled.
 8. ~~Retention~~ — **resolved: 3 months, editable.** Still open: may saved sessions feed the Resume/Job pages automatically, or only on explicit Apply (plan assumes explicit)? Holding an interviewer's words for 3 months: **accepted by the user (2026-10-01)**; the consent copy states it.
 9. **Apple signing/notarization** budget: ad-hoc builds may keep re-prompting for permissions.
 10. **Open-Cluely ownership:** you own it; adding a `LICENSE` is your call. Git history lists other contributors: confirm their contributions may be ported, or limit ports to files you wrote.
 11. Is `feat-job-page`'s `reportParse` contract final (Interview Plan STAR stories), and who owns changes to it?
-12. **STT bake-off (S2):** you suggested Moonshine with CUDA. CUDA is not documented for Moonshine's runtime and the dev Mac has no CUDA, so the plan benchmarks Moonshine on CPU/CoreML (and CUDA if an NVIDIA box is available) against Whisper MLX and faster-whisper. Do you have an NVIDIA machine for the CUDA check? Is an on-demand model download in onboarding acceptable?
+12. **STT bake-off (S2):** you suggested Moonshine with CUDA. CUDA is not documented for Moonshine's runtime and this Mac has no CUDA, so with Windows deferred the bake-off runs on the Mac only (Moonshine CPU/CoreML vs Whisper MLX); the CUDA check moves to the Windows phase. Is an on-demand model download in onboarding acceptable?
 12b. **Language:** Moonshine lists no Hindi STT. Is English (incl. accented English) enough for v0.3.0?
 13. **OpenRouter defaults:** `data_collection:'deny'` narrows the available models/providers; accept that, or allow per-model opt-in? Which default models per tier (resolved from `recommended-models.json`, dated)?

@@ -50,8 +50,7 @@
 <!-- SETUP -->
 <section class="page" id="p-setup">
   <header><h2>Set up the interview</h2><p>Pick the job and the kind of interview. The copilot only uses what you choose here, plus your résumé.</p></header>
-  <div class="notice" id="winnote" style="display:none;margin-bottom:14px"><i data-i="info" data-s="16"></i><div><b>Windows:</b> live sessions aren't available yet. Practice works, and you type your answers. <button class="btn sm" disabled style="margin-left:8px">Start live session…</button></div></div>
-  <div class="ready">
+    <div class="ready">
     <div class="chk2"><span class="ok"><i data-i="check" data-s="14"></i>Job context loaded</span><span class="ok"><i data-i="check" data-s="14"></i>Microphone allowed</span><span class="wn"><i data-i="warn" data-s="14"></i>System audio needs permission</span></div>
     <span style="flex:1"></span>
     <div style="text-align:right;color:var(--mut);font-size:12.5px;max-width:260px">Practice and mic-only live sessions work now. <a href="#audio" style="color:var(--accent-text)">Fix system audio</a> to hear the interviewer.</div>
@@ -132,8 +131,7 @@
     <div class="row"><div class="lab"><b>Wait after the interviewer stops</b><span>Shorter is faster but may cut a question in half.</span></div><input class="rng" type="range" min="400" max="1400" value="800" aria-label="Wait after speech"><span class="val">800 ms</span></div>
     <div class="row"><div class="lab"><b>Words to recognise</b><span>Names and tools the engine often gets wrong.</span></div><div class="tags"><span class="badge">Kubernetes</span><span class="badge">Northwind</span><span class="badge">Terraform</span><button class="btn sm"><i data-i="plus" data-s="12"></i>Add</button></div></div>
   </div></div>
-  <div class="notice warn"><i data-i="warn" data-s="16"></i><div><b>Windows:</b> live sessions aren't available yet. Practice works.</div></div>
-</section>
+  </section>
 
 <!-- ENGINE -->
 <section class="page" id="p-engine">
@@ -341,7 +339,6 @@ setPm(false);
 pm.onclick = e => { e.stopImmediatePropagation(); if (pm.getAttribute('aria-checked') === 'true') setPm(false); else pmn.classList.add('on'); };
 document.getElementById('pmCancel').onclick = () => pmn.classList.remove('on');
 document.getElementById('pmOk').onclick = () => { pmn.classList.remove('on'); setPm(true); };
-if (q.get('os') === 'win') { document.getElementById('winnote').style.display = 'flex'; document.getElementById('openGate').classList.add('dis'); document.getElementById('openGate').disabled = true; }
 if (q.get('pm') === '1') setPm(true); if (q.get('notice') === '1') pmn.classList.add('on');
 document.getElementById('bench').onclick = () => { document.getElementById('benchres').style.display = 'flex'; };
 if (q.get('bench') === '1') document.getElementById('benchres').style.display = 'flex';

@@ -37,7 +37,7 @@ Header actions (always visible): **Preview overlay**, **Start live session…** 
 | Setup | Readiness strip (context / mic / system audio); job picker; interview type; "what the copilot will know" (posting, report, résumé facts, STAR stories, token estimate) | `job-view` (posting, `reportParse` interview plan), `readCv`, `currentProfile` |
 | Practice | Mock questions from the report (+ custom), follow-ups, read aloud, timer | report interview plan |
 | Audio | Mic device + level; system audio toggle, permission status + fix steps, virtual-device source, headphone tip | `systemPreferences`, capture probe |
-| Transcription | **Whisper on MLX (on this Mac)**: install status/size, model, language, end-of-speech wait, vocabulary, "audio never leaves this Mac" sentence; Windows: Practice only note | `whisper-mlx` sidecar + install flow |
+| Transcription | **Whisper on MLX (on this Mac)**: install status/size, model, language, end-of-speech wait, vocabulary, "audio never leaves this Mac" sentence | `whisper-mlx` sidecar + install flow |
 | Answer engine | Fast/Balanced/Deep with cost per interview, **OpenRouter** key + model per tier + data-collection setting, **answer on demand (auto-answer off)**, escalate for design/coding, fact check, vision vs OCR | streaming runner, `factCheck` |
 | Coaching style | Cues / Cues+STAR / Full script, length, tone, one-line persona, quote résumé, never invent numbers; live preview | prompt builder |
 | Appearance | Layout, 3×3 position, width, text size, opacity (≥60 %), theme, click-through, above full-screen, reduced motion; live preview | overlay window manager |
@@ -121,5 +121,7 @@ The one-time notice says: some interviewers and employers prohibit AI assistance
 
 ## 9. Updates from user decisions (2026-10-01, rounds 1 and 2)
 
-OpenRouter (LLM), answer-on-demand default, retention 3 months editable (accepted for consent copy), **every session belongs to one Job (a Job has many sessions)**, Windows = Practice only in M1, STT = local fastest accurate engine chosen by bake-off (Moonshine streaming expected), proper model-selection fields.
+OpenRouter (LLM), answer-on-demand default, retention 3 months editable (accepted for consent copy), **every session belongs to one Job (a Job has many sessions)**, macOS only for now (Windows deferred), STT = local fastest accurate engine chosen by bake-off (Moonshine streaming expected), proper model-selection fields.
 Prototype reflects: Transcription page with **Engine / Model / Compute fields and a Benchmark button** (model rows show size, expected latency, Recommended); Answer engine page with **per-tier model pickers** (searchable list, price, context, data-policy badge, Test model); Setup requires a Job (no "no job" option) and lists earlier sessions for the selected Job; Sessions page grouped by Job with per-Job trend; Privacy retention control; consent gate wording; Windows note. Screenshots re-rendered: `config-setup-dark/light`, `config-transcription-dark`, `config-engine-dark`, `config-sessions-dark`, `config-privacy-*`, `config-gate-dark`, `config-setup-windows-dark`.
+
+**Latest:** Windows is deferred; macOS first. The prototype no longer shows Windows notices.

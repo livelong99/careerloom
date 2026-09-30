@@ -33,5 +33,5 @@ type: project
 **State:** `done` (plan delivered; nothing implemented)
 
 **Next steps:**
-- User confirms open questions in plan.md §18; then dispatch WP0 (contract + shell) and run gate G-A.
+- Windows is deferred (macOS first). User confirms open questions in plan.md §18; then dispatch WP0 (contract + shell) and run gate G-A.
 - Spike S1 (macOS system audio on Electron 43) before promising M2; pick STT provider at gate G-C from the latency harness.
