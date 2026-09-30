@@ -88,13 +88,15 @@ async function generate(jobId: string, kind: DocKind, opts: DocsOptions): Promis
   const text = r.paragraphs.join('\n\n')
   const md = join(rel, 'cover.md'), pdf = join(rel, 'cover.pdf')
   writeFileSync(join(root, md), `${text}\n`)
+  const draft = r.humanized ? join(rel, 'cover.before-humanizer.md') : undefined
+  if (draft) writeFileSync(join(root, draft), `${r.draftParagraphs.join('\n\n')}\n`)
   emit({ jobId, kind, phase: 'pdf', message: 'Laying out the PDF' })
   let pdfRel: string | null = pdf
   try {
     const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     writeFileSync(join(root, pdf), await htmlToPdf(coverHtml({ name: candidate, contact: [profile?.email ?? '', profile?.phone ?? '', profile?.location ?? ''], date, company, role }, r.paragraphs)))
   } catch (e) { pdfRel = null; console.error('cover letter PDF failed:', e) }
-  const a: Artifact = { ...base, files: { md, pdf: pdfRel }, model: r.usage.model, tokens: sum(r.usage), humanized: r.humanized, humanizeTokens: sum(r.humanizeUsage), gate: { ok: true, notes: r.notes, tells: r.tells } }
+  const a: Artifact = { ...base, files: { md, pdf: pdfRel, ...(draft ? { draft } : {}) }, model: r.usage.model, tokens: sum(r.usage), humanized: r.humanized, humanizeTokens: sum(r.humanizeUsage), gate: { ok: true, notes: r.notes, tells: r.tells, tellsBefore: r.tellsBefore } }
   saveArtifact(root, a)
   emit({ jobId, kind, phase: 'done', message: 'Cover letter ready', artifact: a })
 }

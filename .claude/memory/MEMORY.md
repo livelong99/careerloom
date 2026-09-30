@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261001 Job page](session_20261001_job-page.md) — selected Job page (6 tabs) replaces drawer; report parser, cheap-model structuring, per-job ATS, tailored resume + cover letter, fact gates, vendored humanizer
 - [20261001 Resume rework](session_20261001_resume-rework.md) — side-nav Resume workspace, code-owned ATS scores (parse health + job match), Apply/Undo + fact check, skill-up + verified courses, text-only agent runs
 - [20261001 Fast browser driver](session_20261001_fast-browser-driver.md) — raw-CDP fast boards (LinkedIn 25 jobs/15 s, $0), generic+JSON-LD tiers, agent fallback; openjev/jev-ultrafast spiked & rejected
 - [20260928 OpenCode e2e](session_20260928_opencode-e2e.md) — FreeTierError root cause, skill allowlist −86% tokens, scripted scroll −87% browser tokens, Zen API paid-only

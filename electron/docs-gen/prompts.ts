@@ -1,4 +1,4 @@
-import { CONDENSED_RULES } from '../humanizer'
+import { CONDENSED_RULES, NO_TOOLS } from '../humanizer'
 import type { JobPosting } from '../job-view/types'
 
 const cap = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s)
@@ -9,7 +9,7 @@ const postingBrief = (p: JobPosting | null, company: string, role: string) => JS
 export type ResumeInput = { cv: string; posting: JobPosting | null; company: string; role: string; plan: Array<{ section: string; proposed: string; why: string }>; missing: string[] }
 
 export function resumePrompt(i: ResumeInput): string {
-  return `You tailor a résumé to one job by editing it in place. Reply with ONE JSON object and nothing else (no code fence).
+  return `You tailor a résumé to one job by editing it in place. Reply with ONE JSON object and nothing else (no code fence). ${NO_TOOLS}
 Schema: {"edits":[{"section":string,"before":string,"after":string,"cv_source_quote":string}]}
 Rules:
 - At most 8 edits. Each "before" is copied EXACTLY, character for character, from the résumé (a line or a phrase of one).
@@ -34,14 +34,25 @@ export type CoverInput = {
 
 export function coverPrompt(i: CoverInput): string {
   const words = i.length === 'short' ? '150 to 200' : '250 to 320'
-  return `Write a cover letter from ${i.candidate || 'the candidate'} to ${i.company} for the ${i.role} role. Reply with ONE JSON object and nothing else (no code fence).
-Schema: {"paragraphs":string[],"claims":[{"sentence":string,"cv_source_quote":string}],"learning":string[]}
+  return `Write a cover letter from ${i.candidate || 'the candidate'} to ${i.company} for the ${i.role} role. Reply in exactly this tagged format and nothing else (no JSON, no code fence, no reasoning, no commentary; keep it short):
+<letter>
+First paragraph.
+
+Second paragraph.
+</letter>
+<claims>
+one sentence exactly as written in the letter ||| a short exact quote from the résumé that supports it
+(one line per claim sentence)
+</claims>
+<learning>comma-separated skills that appear only as interest, or empty</learning>
 Rules:
+- ${NO_TOOLS} Do not count words with a tool; just keep to the length.
 - ${words} words in 3 or 4 paragraphs. Tone: ${i.tone}. Plain text, no greeting line, no sign-off (added later).
-- Specific to THIS job: pick the 2 or 3 requirements that matter most and answer each with one concrete thing from the résumé (what was built, at what scale, with which tools). No general praise of the company.
-- Open with a concrete fact or the problem the role solves, never with "I am writing to apply" or "I am excited".
-- Every claim about the candidate's experience must be in the résumé. "claims" lists each such sentence exactly as written in the letter, with a short exact quote from the résumé that supports it.
-- Skills in MISSING may appear at most once, only as honest interest ("I want to build depth in X"), never as experience or as something in progress. List any such skill in "learning".
+- This is a letter, not a résumé in prose. Use at most 3 résumé facts in total, the ones closest to what THIS role does day to day, and tell each as a short story: the problem, what was done, the result. Do not list tools or every achievement.
+- Paragraph 1: what the team at ${i.company} builds or needs (from the job), and the one résumé fact that answers it most directly. Middle: the second fact and why it carries over. Last: one honest interest or gap if any, and a plain closing line inviting a conversation.
+- Open with a concrete fact or the problem the role solves, never with "I am writing to apply" or "I am excited". No general praise of the company.
+- Every claim about the candidate's experience must be in the résumé. <claims> lists each such sentence exactly as written in the letter, with a short exact quote from the résumé that supports it.
+- Skills in MISSING may appear at most once, only as honest interest ("I want to build depth in X"), never as experience or as something in progress. List any such skill in <learning>.
 - Numbers, employers, titles and dates only as they appear in the résumé.
 ${CONDENSED_RULES}
 ${i.voiceSample?.trim() ? `\nVOICE SAMPLE (match rhythm and word choice, not content):\n${cap(i.voiceSample.trim(), 1500)}\n` : ''}

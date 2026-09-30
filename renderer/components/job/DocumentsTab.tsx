@@ -23,7 +23,7 @@ const Seg = <T extends string>({ value, options, onChange, label }: { value: T; 
 )
 
 function Files({ a }: { a: Artifact }) {
-  const files = [a.files.md, a.files.pdf, a.files.changes].filter((f): f is string => Boolean(f))
+  const files = [a.files.md, a.files.pdf, a.files.changes, a.files.draft].filter((f): f is string => Boolean(f))
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={() => void act(careerloom.docsReveal(a.files.pdf ?? a.files.md))}><FolderOpen className="h-3.5 w-3.5" />Show in folder</Button>
@@ -104,6 +104,7 @@ function CoverCard({ a, s, onGenerate }: { a?: Artifact; s: DocState; onGenerate
             <Badge variant="success">Fact check passed</Badge>
             <Badge variant={a.humanized ? 'brand' : 'neutral'}>{a.humanized ? 'Humanized' : 'Not humanized'}</Badge>
             {a.gate.tells?.map(t => <Badge key={t} variant="warn" title="Wording that often reads as AI-written">{t}</Badge>)}
+            {a.humanized && a.gate.tellsBefore && a.gate.tellsBefore.length > 0 && <span className="text-xs text-muted-foreground">Humanizer removed: {a.gate.tellsBefore.filter(t => !a.gate.tells?.includes(t)).join(', ') || 'nothing flagged'}</span>}
           </div>
           {a.gate.notes.map(n => <p key={n} className="m-0 text-xs text-muted-foreground">{n}</p>)}
           {text && (

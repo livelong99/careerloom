@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { extractJson } from '../ats/prompt'
+import { NO_TOOLS } from '../humanizer'
 import { extractSkills, familyOf } from '../ats/skills'
 import type { JobPosting, JobViewMeta } from './types'
 
@@ -128,7 +129,7 @@ function fill(base: JobPosting, extra: JobPosting): JobPosting {
 const SCHEMA = `{"location":string|null,"workMode":"remote"|"hybrid"|"onsite"|null,"employmentType":string|null,"seniority":string|null,"salary":{"min":number|null,"max":number|null,"currency":string|null,"period":string|null,"text":string|null}|null,"summary":string|null,"responsibilities":string[],"requirements":{"required":string[],"preferred":string[]},"benefits":string[],"aboutCompany":string|null,"techStack":string[],"skills":string[],"deadline":string|null}`
 
 export function fillPrompt(jd: string, missing: string[]): string {
-  return `You turn a job posting into structured fields. Reply with ONE JSON object and nothing else, no code fence.
+  return `You turn a job posting into structured fields. Reply with ONE JSON object and nothing else, no code fence. ${NO_TOOLS}
 Fill ONLY these keys, use null (or []) for anything the posting does not state, never guess, never add facts: ${missing.join(', ')}.
 Copy wording from the posting; keep each list item short. summary: a distilled description of the role in at most 60 words, not a copy of the posting. techStack: tools, languages, frameworks and platforms only (max 15). skills: themes and competencies such as leadership or system design (max 10). Schema of the whole object for reference: ${SCHEMA}
 
