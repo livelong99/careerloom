@@ -3,6 +3,7 @@
 import type { CopilotEvents, OverlayViewState, Suggestion } from './types'
 
 export type FakeEvent = { [K in keyof CopilotEvents]: { name: K; payload: CopilotEvents[K] } }[keyof CopilotEvents]
+export type FakeSuggestionEvent = Extract<FakeEvent, { name: 'copilotSuggestion' }>
 export const FAKE_STATES: OverlayViewState[] = ['idle', 'listening', 'question', 'answering', 'answered', 'permission', 'error', 'stopped']
 
 const SAY = 'I reset the scope, not the date, and I brought the data to do it.'
@@ -20,7 +21,7 @@ const LINES = [
 const base = (startedAt: number): Suggestion => ({ questionId: 'q1', model: 'fake/fast', tier: 'fast', say: '', bullets: [], star: null, proof: [], flags: [], done: false, firstTokenMs: 1100, totalMs: null, costUsd: null })
 
 /** Growing partial suggestions, ending in the finished card (STAR, proof, cost). */
-export function fakeAnswerStream(): FakeEvent[] {
+export function fakeAnswerStream(): FakeSuggestionEvent[] {
   const steps: Suggestion[] = [
     { ...base(0), firstTokenMs: null },
     { ...base(0), say: SAY.slice(0, 30) },
@@ -34,7 +35,7 @@ export function fakeAnswerStream(): FakeEvent[] {
     star: { s: 'Q3 release, six weeks out, pipeline migration at risk', t: 'Own the migration plan and the date', a: 'Proposed a phased cutover; shared a risk table with the PM', r: 'Core path shipped on time; no Sev-1s in the first month' },
     proof: [{ quote: 'Cut release lead time from 4 days to 6 hours across 40 services', source: 'cv.md · Northwind Labs, 2023' }],
   }
-  return [...steps, done].map(payload => ({ name: 'copilotSuggestion', payload }))
+  return [...steps, done].map((payload): FakeSuggestionEvent => ({ name: 'copilotSuggestion', payload }))
 }
 
 const state = (s: CopilotEvents['copilotState']['state'], over: Partial<CopilotEvents['copilotState']> = {}): FakeEvent => ({
