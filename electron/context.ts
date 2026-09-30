@@ -332,10 +332,10 @@ export function startAgent(mode: ModeId, input?: string, extraEnv: NodeJS.Proces
 }
 
 /** Per-runner env for a CLI spawn: opencode gets its permission config and optional Zen key. */
-function cliEnv(runner: CliRunner, textOnly = false): { env: NodeJS.ProcessEnv; secret?: string } {
+function cliEnv(runner: CliRunner, textOnly = false, neutral = false): { env: NodeJS.ProcessEnv; secret?: string } {
   if (runner !== 'opencode') return { env: {} }
   const key = readOpencodeKey()
-  const dirs = skillContext().dirs
+  const dirs = neutral ? [] : skillContext().dirs
   return { env: opencodeEnv(textOnly ? opencodeTextConfig(dirs) : opencodeConfig(dirs), key), secret: key ?? undefined }
 }
 
@@ -359,7 +359,7 @@ export function startZen(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | '
 
 /** Launch a server-built prompt (must start with a fixed literal, e.g. "/career-ops …").
  *  Needs an agent (CLI or zen); the OpenRouter API runner only implements fixed commands. */
-export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean; /** Model for this run only (helper-tier calls); unset = the runner's configured model. */ model?: string }
+export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean; /** With textOnly on claude/opencode: run in an empty folder with no skills, so no project instructions or skill lists inflate the request (8.7k vs 25k input tokens measured on opencode). */ neutral?: boolean; /** Model for this run only (helper-tier calls); unset = the runner's configured model. */ model?: string }
 
 export function startAgentPrompt(label: string, mode: string, prompt: string, input: string | null = null, opts: AgentPromptOptions = {}): RunSummary {
   const { runner } = readSettings()
@@ -371,6 +371,9 @@ export function startAgentPrompt(label: string, mode: string, prompt: string, in
   const base = promptOptions({ ...(runner === 'codex' ? {} : { resume: opts.resume }), ...(opts.model ? { model: opts.model } : {}) })
   // A text-only run needs neither the installed-skill folders nor their system-prompt note.
   const { bin, args } = argsForPrompt(runner, prompt, opts.textOnly ? { ...base, addDirs: [], systemAppend: undefined, textOnly: true } : base)
-  const cli = cliEnv(runner, opts.textOnly)
-  return summary(launch({ runner, mode, label, input }, [{ spec: spawnSpec(bin, args, { ...opts.env, ...cli.env }), cwd: root }], { format: streamFormat(runner, root), onExit: opts.onExit, secret: cli.secret }))
+  const neutral = opts.neutral === true && opts.textOnly === true && (runner === 'opencode' || runner === 'claude')
+  const cli = cliEnv(runner, opts.textOnly, neutral)
+  let cwd = root
+  if (neutral) { cwd = userFile('text-runs'); fs.mkdirSync(cwd, { recursive: true }) }
+  return summary(launch({ runner, mode, label, input }, [{ spec: spawnSpec(bin, args, { ...opts.env, ...cli.env }), cwd }], { format: streamFormat(runner, root), onExit: opts.onExit, secret: cli.secret }))
 }

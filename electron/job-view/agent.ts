@@ -7,7 +7,7 @@ import type { ModelCall } from './jdStructure'
  *  zen: its own cheapest-paid fallback already applies when no model is chosen. */
 export const DEFAULT_HELPER: Partial<Record<ModelRunner, string>> = {
   claude: 'haiku',
-  opencode: 'opencode/nemotron-3.5-lightning-free',
+  opencode: 'opencode/mimo-v2.6-flash-free',
   antigravity: 'gemini-3.8-flash-low',
 }
 
@@ -21,7 +21,7 @@ export function runText(prompt: string, o: { tier: 'helper' | 'main'; label: str
   return new Promise((resolve, reject) => {
     try {
       startAgentPrompt(o.label, 'job-view', prompt, null, {
-        textOnly: true, model,
+        textOnly: true, neutral: true, model,
         onExit: r => r.status === 'done'
           ? resolve({ text: r.log, tokens: r.usage ? r.usage.inputTokens + r.usage.outputTokens : null, model: model ?? 'default' })
           : reject(new Error(`The agent run ${r.status}`)),

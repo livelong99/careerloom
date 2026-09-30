@@ -9,8 +9,7 @@ import { careerloom, normalizeCliError } from '../../lib/ipc'
 import { neighbours, openJob } from '../../lib/jobNav'
 import { showToast } from '../../lib/toast'
 import type { JobView } from '../../lib/types'
-import { CANONICAL_STATUSES, type ScreenedJob } from '../jobs/filters'
-import { StatePill } from '../jobs/JobsTable'
+import { CANONICAL_STATUSES, stateLabel, type ScreenedJob } from '../jobs/filters'
 import { FeedbackButtons, ScreenBadge, useUnlikelyGuard } from '../jobs/prescreen'
 import { useEvaluateOne } from './useJob'
 
@@ -63,8 +62,8 @@ export function JobHeader({ job, view, onBack, onChanged, onScreened }: Props) {
           <h2 className="m-0 truncate text-lg font-semibold text-foreground">{job.title || 'Untitled posting'}</h2>
           <p className="m-0 text-sm text-muted-foreground">{[job.company, job.location, job.postedAt && `posted ${job.postedAt}`, job.ats].filter(Boolean).join(' · ')}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <StatePill job={job} />
-            <ScreenBadge entry={job.screen} />
+            <span className={`stage stage-${job.state}`}>{job.status && job.state !== 'evaluated' ? job.status : stateLabel(job.state)}</span>
+            {job.screen && <ScreenBadge entry={job.screen} />}
             {legit && <Badge variant={/high/i.test(legit) ? 'success' : /low|suspicious/i.test(legit) ? 'danger' : 'warn'}>{legit}</Badge>}
             {job.stale && <Badge variant="warn" title="Evaluated before your résumé last changed">Out of date vs your résumé</Badge>}
           </div>

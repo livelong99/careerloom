@@ -14,9 +14,11 @@ describe('deterministicPosting', () => {
   it('splits headed blocks into fields', () => {
     const p = deterministicPosting(JD, META)
     expect(p.summary).toBe('Build the internal platform.')
+    expect(p.fullDescription).toBe('Build the internal platform.')
     expect(p.responsibilities).toEqual(['Run Kubernetes clusters', 'Improve CI/CD'])
     expect(p.requirements.required).toEqual(['5+ years of experience', 'Terraform'])
     expect(p.techStack).toEqual(expect.arrayContaining(['Kubernetes', 'Terraform']))
+    expect(p.techStack).not.toContain('Leadership')
   })
   it('reads salary and work mode by regex', () => {
     const p = deterministicPosting('## Pay\nBase salary $120,000 - $150,000 USD per year. This is a fully remote, full-time role.', META)
@@ -25,6 +27,20 @@ describe('deterministicPosting', () => {
     expect(p.employmentType).toBe('Full-time')
   })
   it('handles empty input', () => { expect(deterministicPosting('', META).responsibilities).toEqual([]) })
+})
+
+describe('distilled summary', () => {
+  const long = `## About the role\n${Array.from({ length: 30 }, (_, i) => `Sentence number ${i} is here.`).join(' ')}`
+  it('keeps the full text aside and clips when no model can distil', async () => {
+    const r = await structurePosting(long, META, { run: null, cacheDir: mkdtempSync(join(tmpdir(), 'jv-')), now: () => 1 })
+    expect(r.posting.fullDescription!.split(' ').length).toBeGreaterThan(100)
+    expect(r.posting.summary!.split(' ').length).toBeLessThanOrEqual(61)
+  })
+  it('splits tools from themes', () => {
+    const p = deterministicPosting('Senior Go and Kubernetes engineer. Leadership and system design.', META)
+    expect(p.techStack).toEqual(expect.arrayContaining(['Kubernetes']))
+    expect(p.skills).toEqual(expect.arrayContaining(['Leadership', 'System Design']))
+  })
 })
 
 describe('validatePosting', () => {

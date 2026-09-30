@@ -6,10 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyNote } from '../components/EmptyState'
 import { TabSkeleton } from '../components/job/bits'
 import { JobHeader } from '../components/job/JobHeader'
+import { MatchTab } from '../components/job/MatchTab'
 import { OverviewTab } from '../components/job/OverviewTab'
 import { PostingTab } from '../components/job/PostingTab'
 import { ReportTab } from '../components/job/ReportTab'
+import { SkillUpTab } from '../components/job/SkillUpTab'
 import { useJob } from '../components/job/useJob'
+import { useJobAts } from '../components/job/useJobAts'
 import { SectionSkeleton } from '../components/Skeleton'
 import { navigate } from '../lib/nav'
 
@@ -19,6 +22,7 @@ const Soon = ({ what }: { what: string }) => <div className="p-4"><EmptyNote>{wh
 /** One job as a page: header + six tabs. Replaces the old side drawer. */
 export function Job({ id }: { id: string }) {
   const { job, view, jobs, prescreen } = useJob(id)
+  const ats = useJobAts(id)
   const [tab, setTab] = useState('overview')
   useEffect(() => setTab('overview'), [id])
 
@@ -39,8 +43,8 @@ export function Job({ id }: { id: string }) {
             : <>
               <TabsContent value="overview"><OverviewTab job={job} view={v} goTab={setTab} /></TabsContent>
               <TabsContent value="job"><PostingTab view={v} pending={v.pending} /></TabsContent>
-              <TabsContent value="match"><Soon what="The CV match view" /></TabsContent>
-              <TabsContent value="skillup"><Soon what="The skill-up plan" /></TabsContent>
+              <TabsContent value="match"><MatchTab view={v} ats={ats} /></TabsContent>
+              <TabsContent value="skillup"><SkillUpTab ats={ats} /></TabsContent>
               <TabsContent value="documents"><Soon what="Résumé and cover-letter generation" /></TabsContent>
               <TabsContent value="report"><ReportTab view={v} /></TabsContent>
             </>}

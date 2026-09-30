@@ -6,17 +6,29 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { extractJson } from '../ats/prompt'
-import { extractSkills } from '../ats/skills'
+import { extractSkills, familyOf } from '../ats/skills'
 import type { JobPosting, JobViewMeta } from './types'
 
 export const SCHEMA_VERSION = 1
-export const PROMPT_VERSION = 1
+export const PROMPT_VERSION = 2
+const SUMMARY_WORDS = 60
+const THEME_FAMILIES = new Set(['practice', 'architecture', 'leadership', 'ml', 'llm', 'security', 'process', 'data-science'])
 const MODEL_INPUT_CAP = 8000
 
 export type ModelCall = (prompt: string) => Promise<{ text: string; tokens: number | null; model: string | null }>
 type Meta = { title: string | null; company: string | null; location: string | null }
 
-const EMPTY = (m: Meta): JobPosting => ({ title: m.title, company: m.company, location: m.location, workMode: null, employmentType: null, seniority: null, salary: null, summary: null, responsibilities: [], requirements: { required: [], preferred: [] }, benefits: [], aboutCompany: null, techStack: [], deadline: null })
+const EMPTY = (m: Meta): JobPosting => ({ title: m.title, company: m.company, location: m.location, workMode: null, employmentType: null, seniority: null, salary: null, summary: null, responsibilities: [], requirements: { required: [], preferred: [] }, benefits: [], aboutCompany: null, techStack: [], skills: [], fullDescription: null, deadline: null })
+
+const words = (s: string) => s.split(/\s+/).filter(Boolean)
+/** First sentences up to `n` words, ending on a sentence boundary when it can. */
+export function clipWords(s: string, n = SUMMARY_WORDS): string {
+  const w = words(s)
+  if (w.length <= n) return s.trim()
+  const cut = w.slice(0, n).join(' ')
+  const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '))
+  return end > cut.length / 2 ? cut.slice(0, end + 1) : `${cut.replace(/[,;:]$/, '')}…`
+}
 
 const SECTION_KINDS: Array<[string, RegExp]> = [
   ['summary', /about the (role|job|position|team)|overview|the role|summary|position|stelle/i],
@@ -64,7 +76,9 @@ export function deterministicPosting(jd: string, meta: Meta): JobPosting {
   for (const k of ['responsibilities', 'benefits'] as const) if (!p[k].length) p[k] = prose[k] ?? []
   if (!p.requirements.required.length) p.requirements.required = prose.required ?? []
   if (!p.requirements.preferred.length) p.requirements.preferred = prose.preferred ?? []
-  p.summary = prose.summary?.join(' ') || null
+  const full = prose.summary?.join(' ') || null
+  p.fullDescription = full
+  p.summary = full && words(full).length <= SUMMARY_WORDS ? full : null // longer: the model distils it (clipped if it cannot)
   p.aboutCompany = prose.about?.join(' ') || null
   const low = (jd ?? '').toLowerCase()
   p.workMode = /\bhybrid\b/.test(low) ? 'hybrid' : /\b(fully )?remote\b/.test(low) && !/not remote|no remote/.test(low) ? 'remote' : /\bon.?site\b|\bin.office\b/.test(low) ? 'onsite' : null
@@ -72,7 +86,9 @@ export function deterministicPosting(jd: string, meta: Meta): JobPosting {
   p.seniority = /\b(principal|staff|senior|lead|junior|entry.level|intern|mid.level)\b/i.exec(`${meta.title ?? ''} ${(jd ?? '').slice(0, 2000)}`)?.[1]?.toLowerCase().replace(/^./, c => c.toUpperCase()) ?? null
   p.salary = salaryOf(jd ?? '')
   p.location ??= /\blocation:\s*([^\n.]{2,60})/i.exec(jd ?? '')?.[1]?.trim() ?? null
-  p.techStack = [...extractSkills(jd ?? '')].slice(0, 30)
+  const found = [...extractSkills(jd ?? '')]
+  p.techStack = found.filter(k => !THEME_FAMILIES.has(familyOf(k) ?? '')).slice(0, 15)
+  p.skills = found.filter(k => THEME_FAMILIES.has(familyOf(k) ?? '')).slice(0, 12)
   return p
 }
 
@@ -91,9 +107,9 @@ export function validatePosting(raw: unknown): JobPosting {
     workMode: typeof o.workMode === 'string' && MODES.has(o.workMode) ? o.workMode as JobPosting['workMode'] : null,
     employmentType: s(o.employmentType), seniority: s(o.seniority),
     salary: sal ? { min: n(sal.min), max: n(sal.max), currency: s(sal.currency), period: s(sal.period), text: s(sal.text) } : null,
-    summary: s(o.summary), responsibilities: arr(o.responsibilities),
+    summary: s(o.summary) ? clipWords(s(o.summary)!, 80) : null, responsibilities: arr(o.responsibilities),
     requirements: { required: arr(req.required), preferred: arr(req.preferred) },
-    benefits: arr(o.benefits), aboutCompany: s(o.aboutCompany), techStack: arr(o.techStack), deadline: s(o.deadline),
+    benefits: arr(o.benefits), aboutCompany: s(o.aboutCompany), techStack: arr(o.techStack).slice(0, 15), skills: arr(o.skills).slice(0, 12), fullDescription: null, deadline: s(o.deadline),
   }
 }
 
@@ -109,12 +125,12 @@ function fill(base: JobPosting, extra: JobPosting): JobPosting {
   return out as JobPosting
 }
 
-const SCHEMA = `{"location":string|null,"workMode":"remote"|"hybrid"|"onsite"|null,"employmentType":string|null,"seniority":string|null,"salary":{"min":number|null,"max":number|null,"currency":string|null,"period":string|null,"text":string|null}|null,"summary":string|null,"responsibilities":string[],"requirements":{"required":string[],"preferred":string[]},"benefits":string[],"aboutCompany":string|null,"techStack":string[],"deadline":string|null}`
+const SCHEMA = `{"location":string|null,"workMode":"remote"|"hybrid"|"onsite"|null,"employmentType":string|null,"seniority":string|null,"salary":{"min":number|null,"max":number|null,"currency":string|null,"period":string|null,"text":string|null}|null,"summary":string|null,"responsibilities":string[],"requirements":{"required":string[],"preferred":string[]},"benefits":string[],"aboutCompany":string|null,"techStack":string[],"skills":string[],"deadline":string|null}`
 
 export function fillPrompt(jd: string, missing: string[]): string {
   return `You turn a job posting into structured fields. Reply with ONE JSON object and nothing else, no code fence.
 Fill ONLY these keys, use null (or []) for anything the posting does not state, never guess, never add facts: ${missing.join(', ')}.
-Copy wording from the posting; keep each list item short. Schema of the whole object for reference: ${SCHEMA}
+Copy wording from the posting; keep each list item short. summary: a distilled description of the role in at most 60 words, not a copy of the posting. techStack: tools, languages, frameworks and platforms only (max 15). skills: themes and competencies such as leadership or system design (max 10). Schema of the whole object for reference: ${SCHEMA}
 
 POSTING:
 ${jd.slice(0, MODEL_INPUT_CAP)}`
@@ -134,7 +150,7 @@ export async function structurePosting(jd: string, meta: Meta, deps: { run: Mode
   const hit = cachedPosting(jd, meta, deps.cacheDir)
   if (hit) return hit
   const base = deterministicPosting(jd, meta)
-  const missing = missingFields(base).filter(k => !['title', 'company', 'deadline', 'salary'].includes(k) || (k === 'salary' && /salary|compensation|pay|\$|€|£/i.test(jd)))
+  const missing = missingFields(base).filter(k => !['title', 'company', 'deadline', 'fullDescription', 'skills', 'salary'].includes(k) || (k === 'salary' && /salary|compensation|pay|\$|€|£/i.test(jd)))
   let out: Structured = { posting: base, meta: { filled: 'deterministic', model: null, tokens: null } }
   if (missing.length && deps.run && jd.trim()) {
     let tokens = 0, model: string | null = null, prompt = fillPrompt(jd, missing), ok = false
@@ -148,6 +164,7 @@ export async function structurePosting(jd: string, meta: Meta, deps: { run: Mode
     } catch { /* runner missing or failed: fall through */ }
     if (!ok) out = { posting: base, meta: { filled: 'model-failed', model, tokens: tokens || null } }
   }
+  out.posting.summary ??= out.posting.fullDescription ? clipWords(out.posting.fullDescription) : null
   // A failed model run is not cached: the next open may succeed.
   if (out.meta.filled !== 'model-failed') {
     try { mkdirSync(deps.cacheDir, { recursive: true }); writeFileSync(file, JSON.stringify(out)) } catch { /* cache is best-effort */ }

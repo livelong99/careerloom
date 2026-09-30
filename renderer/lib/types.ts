@@ -97,8 +97,9 @@ export type CareerloomBridge = {
   readResearch(): Promise<ProfileResearch>
   // ————— ATS / Resume —————
   atsAnalyze(input: AtsAnalyzeInput): Promise<{ runId: string }>
-  atsGet(): Promise<AtsReport | null>
-  atsAnswer(runId: string, answers: AtsAnswer[]): Promise<{ runId: string }>
+  /** With `jobId`: that job's own analysis (separate from the résumé-level one). */
+  atsGet(jobId?: string): Promise<AtsReport | null>
+  atsAnswer(runId: string, answers: AtsAnswer[], jobId?: string): Promise<{ runId: string }>
   atsPreviewApply(findingId: string, answers?: AtsAnswer[]): Promise<AtsPreview>
   atsApply(findingId: string, answers?: AtsAnswer[]): Promise<AtsApplyResult>
   atsUndo(undoId: string): Promise<AtsApplyResult>

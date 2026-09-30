@@ -32,6 +32,9 @@ export type Analysis = {
   report: AtsReport
 }
 
+/** Each job keeps its own analysis folder under `<base>/jobs/`, so it never touches the résumé-level one. */
+export const jobStoreDir = (base: string, jobId: string) => join(base, 'jobs', sha(jobId))
+
 export type Store = {
   current(): Analysis | null
   save(a: Analysis): void

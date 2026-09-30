@@ -13,14 +13,16 @@ import { applyFinding, dismissFinding, history, previewFinding, undoApply } from
 import { netFetcher } from './courses'
 import { localSimCall } from './embed'
 import { extractPdfPages } from './pdfText'
-import { openStore } from './store'
+import { resolveJd } from '../job-view/handlers'
+import { jobStoreDir, openStore } from './store'
 
 const PROFILE_JSON = join('data', 'careerloom-profile.json')
 
 /** Everything the lifecycle needs from the app, wired to the real thing. */
-function deps(): Deps {
+/** `jobId` = that job's own analysis (its own store folder, so the résumé-level report is untouched). */
+function deps(jobId?: string): Deps {
   return {
-    store: openStore(userFile('ats')),
+    store: openStore(jobId ? jobStoreDir(userFile('ats'), jobId) : userFile('ats')),
     now: Date.now,
     newId: randomUUID,
     readCv: () => readCv()?.markdown ?? null,
@@ -33,7 +35,7 @@ function deps(): Deps {
     pages: extractPdfPages,
     runner: () => readSettings().runner,
     startAgent(prompt, o) {
-      startAgentPrompt('ATS analysis', 'ats', prompt, null, { resume: o.resume, textOnly: true, onExit: r => o.onExit({ status: r.status, log: r.log, sessionId: r.sessionId ?? null }) })
+      startAgentPrompt('ATS analysis', 'ats', prompt, null, { resume: o.resume, textOnly: true, neutral: !!jobId, onExit: r => o.onExit({ status: r.status, log: r.log, sessionId: r.sessionId ?? null }) })
     },
     get sim() { return localSimCall() },
     fetcher: netFetcher,
@@ -59,13 +61,18 @@ const answersOf = (v: unknown): AtsAnswer[] => (Array.isArray(v) ? v.flatMap((x)
 }) : [])
 
 export const atsHandlers: Record<string, Handler> = {
-  atsAnalyze: input => {
+  atsAnalyze: async input => {
     const o = (input ?? {}) as Record<string, unknown>
     const clean: AtsAnalyzeInput = { jd: typeof o.jd === 'string' ? o.jd.slice(0, 40_000) : undefined, jobId: typeof o.jobId === 'string' ? o.jobId : undefined, templateId: typeof o.templateId === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(o.templateId) ? o.templateId : undefined }
-    return startAnalysis(deps(), clean)
+    // A job analysis resolves its own posting (report archive, else fetched once) when none is pasted.
+    if (clean.jobId && !clean.jd) {
+      clean.jd = ((await resolveJd(clean.jobId)) ?? '').slice(0, 40_000)
+      if (!clean.jd) throw new Error('Could not get the posting text for this job. Open it in your browser, or evaluate the job first')
+    }
+    return startAnalysis(deps(clean.jobId), clean)
   },
-  atsGet: () => deps().store.current()?.report ?? null,
-  atsAnswer: (runId, answers) => answerAnalysis(deps(), str(runId, 'run id'), answersOf(answers)),
+  atsGet: jobId => deps(typeof jobId === 'string' ? jobId : undefined).store.current()?.report ?? null,
+  atsAnswer: (runId, answers, jobId) => answerAnalysis(deps(typeof jobId === 'string' ? jobId : undefined), str(runId, 'run id'), answersOf(answers)),
   atsPreviewApply: (findingId, answers) => previewFinding(deps(), str(findingId, 'finding id'), answersOf(answers)),
   atsApply: (findingId, answers) => applyFinding(deps(), str(findingId, 'finding id'), answersOf(answers)),
   atsUndo: undoId => undoApply(deps(), str(undoId, 'undo id')),

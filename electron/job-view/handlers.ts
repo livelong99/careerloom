@@ -3,6 +3,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { readReport } from '../careerops'
+import { readCv } from '../resume-agent'
+import { keywordCoverage } from './keywords'
 import { broadcast, dataRoot, Handler, readSettings, str, userFile, writeSettings } from '../context'
 import { isModelId, isRunner } from '../runner'
 import { listJobs } from '../jobs'
@@ -37,7 +39,7 @@ function snapshot(job: JobListing): JobView & { pending: boolean } {
   const hit = jd ? cachedPosting(jd, meta, join(dir(), 'posting')) : null
   const posting = hit?.posting ?? (jd ? deterministicPosting(jd, meta) : null)
   const source = report?.jd ? 'report' : prefetched ? 'prefetch' : 'none'
-  const view: JobView = { id: job.id, report, posting, rawJd: jd, rawReport: readRaw(job), meta: { source, filled: hit?.meta.filled ?? 'deterministic', model: hit?.meta.model ?? null, tokens: hit?.meta.tokens ?? null, cachedAt: Date.now() } }
+  const view: JobView = { id: job.id, report, posting, rawJd: jd, rawReport: readRaw(job), keywords: keywordCoverage([...(report?.keywords ?? []), ...(posting?.techStack ?? []), ...(posting?.skills ?? [])], readCv()?.markdown ?? ''), meta: { source, filled: hit?.meta.filled ?? 'deterministic', model: hit?.meta.model ?? null, tokens: hit?.meta.tokens ?? null, cachedAt: Date.now() } }
   return { ...view, pending: !hit && !failed.has(job.id) && (jd !== null || inflight.has(job.id) || !job.reportPath) }
 }
 
@@ -45,17 +47,25 @@ function snapshot(job: JobListing): JobView & { pending: boolean } {
 function ensure(job: JobListing): void {
   if (inflight.has(job.id)) return
   const run = (async () => {
-    let jd = loadReport(job)?.jd ?? readJd(job.id)
-    if (!jd && /^https?:\/\//i.test(job.url)) {
-      jd = await prefetchJd(job.url)
-      if (jd) { mkdirSync(join(dir(), 'jd'), { recursive: true }); writeFileSync(jdFile(job.id), jd) }
-    }
+    const jd = await resolveJd(job.id)
     if (jd) {
       const r = await structurePosting(jd, metaOf(job), { run: p => runText(p, { tier: 'helper', label: 'Structure job posting' }), cacheDir: join(dir(), 'posting'), now: Date.now })
       if (r.meta.filled === 'model-failed') failed.add(job.id)
     } else failed.add(job.id)
   })().catch(err => console.error('job view structuring failed:', err)).finally(() => { inflight.delete(job.id); broadcast('careerloom:jobView', { id: job.id }) })
   inflight.set(job.id, run)
+}
+
+/** The posting text for a job: the report's archived JD, else a prefetched one (fetched and kept on first use). */
+export async function resolveJd(id: string): Promise<string | null> {
+  const job = listJobs().find(j => j.id === id)
+  if (!job) return null
+  let jd = loadReport(job)?.jd ?? readJd(job.id)
+  if (!jd && /^https?:\/\//i.test(job.url)) {
+    jd = await prefetchJd(job.url)
+    if (jd) { mkdirSync(join(dir(), 'jd'), { recursive: true }); writeFileSync(jdFile(job.id), jd) }
+  }
+  return jd || null
 }
 
 const find = (raw: unknown): JobListing => {
