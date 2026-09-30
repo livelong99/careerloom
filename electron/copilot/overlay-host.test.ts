@@ -10,7 +10,7 @@ function setup(cfg: CopilotConfig = DEFAULT_CONFIG) {
   const calls: string[] = []
   const overlay = {
     open: vi.fn(() => { calls.push('open') }), close: vi.fn(() => { calls.push('close') }), apply: vi.fn(), isVisible: vi.fn(() => true),
-    setLive: vi.fn(), refresh: vi.fn(), onGone: vi.fn(), send: vi.fn(),
+    setLive: vi.fn(), refresh: vi.fn(), onGone: vi.fn(), onLoaded: vi.fn(), send: vi.fn(),
   }
   const hotkeys = { registerAll: vi.fn(() => [] as ReturnType<HostDeps['hotkeys']['registerAll']>), unregisterAll: vi.fn(), check: vi.fn(() => ({ ok: true })) }
   const tray = { setState: vi.fn(), onStopNow: vi.fn(), destroy: vi.fn() }
@@ -49,6 +49,15 @@ describe('overlay host wiring', () => {
     expect(hotkeys.unregisterAll).toHaveBeenCalled()
     expect(deps.restorePrivacy).toHaveBeenCalled()
     expect(published.at(-1)).toEqual(['copilotState', expect.objectContaining({ state: 'stopped' })])
+  })
+
+  it('replays the current state once the overlay page has loaded', () => {
+    const { host, overlay, published } = setup()
+    host.publishState(listening)
+    const loaded = (overlay.onLoaded.mock.calls.at(0) as unknown as [() => void])[0]
+    published.length = 0
+    loaded()
+    expect(published).toEqual([['copilotState', listening]])
   })
 
   it('tray "Stop now" is wired to panic', async () => {

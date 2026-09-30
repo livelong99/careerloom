@@ -233,6 +233,15 @@ describe('overlay window', () => {
     vi.useRealTimers()
   })
 
+  it('tells listeners when the page has loaded', () => {
+    const { ctl, win } = setup()
+    const cb = vi.fn()
+    ctl.onLoaded(cb)
+    ctl.open()
+    win().handlers.get('wc:did-finish-load')?.forEach(f => f())
+    expect(cb).toHaveBeenCalledTimes(1)
+  })
+
   it('blocks navigation and popups like the main window', () => {
     const { ctl, win } = setup()
     ctl.open()

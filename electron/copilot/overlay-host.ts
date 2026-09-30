@@ -48,6 +48,8 @@ export function createOverlayHost(deps: HostDeps) {
   })
   deps.tray.onStopNow(() => { void stop('panic') })
   deps.overlay.onGone(() => { void panic.trigger('error') })
+  // A window that opens after the state was published would miss it: replay the current state once it has loaded.
+  deps.overlay.onLoaded(() => { if (lastState) deps.publish('copilotState', lastState) })
   panic.arm()
 
   function onHotkey(action: HotkeyAction): void {
@@ -86,6 +88,7 @@ export function createOverlayHost(deps: HostDeps) {
   return {
     publishState,
     publish: deps.publish,
+    onOverlayLoaded(cb: () => void): void { deps.overlay.onLoaded(cb) },
     stop,
     setSessionHooks(h: SessionHooks): void { hooks = h },
     onAction(cb: (a: HotkeyAction) => void): void { actionListeners.push(cb) },
