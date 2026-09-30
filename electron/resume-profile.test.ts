@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { SAMPLE_CV } from './ats/fixtures'
-import { profileFromCv, profileToPayload, rebuildProfile, validateProfile } from './resume-profile'
+import { mergeProfileJson, profileFromCv, profileToPayload, rebuildProfile, validateProfile } from './resume-profile'
 
 const CV = `${SAMPLE_CV}
 ## Awards
@@ -54,4 +54,15 @@ it('validateProfile round-trips the new optional fields', () => {
   const p = validateProfile({ name: 'A', awards: ['x', 3], certifications: ['c'], skillGroups: [{ category: 'Lang', items: ['Go'] }, { category: '', items: [] }] })!
   expect(p.awards).toEqual(['x'])
   expect(p.skillGroups).toEqual([{ category: 'Lang', items: ['Go'] }])
+})
+
+describe('mergeProfileJson', () => {
+  it('replaces cv-derived content but keeps every other key of the old file', () => {
+    const old = { name: 'Old', awards: ['stale'], targetRoles: ['Staff Engineer'], archetypes: [{ id: 'a' }], narrative: 'n', lastBuilt: 1, skills: ['x'] }
+    const rebuilt = { name: 'Sam', links: [], skills: ['Go'], experience: [], education: [], projects: [] } as Parameters<typeof mergeProfileJson>[1]
+    const out = mergeProfileJson(old, rebuilt)
+    expect(out).toMatchObject({ name: 'Sam', skills: ['Go'], targetRoles: ['Staff Engineer'], narrative: 'n', lastBuilt: 1 })
+    expect(out.awards).toBeUndefined() // cv.md has none, so the stale copy goes
+  })
+  it('works without an old file', () => expect(mergeProfileJson(null, { name: 'A', links: [], skills: [], experience: [], education: [], projects: [] }).name).toBe('A'))
 })

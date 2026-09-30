@@ -40,20 +40,23 @@ export function seniorityFinding(have: number, need: number | null): AtsFinding[
 
 const defaultHow = (skill: string) => `Build something small with ${skill} (a real project or a work task), then add it to your Skills and describe what you did in a bullet. Do not list it until you have used it.`
 
+/** Concepts the JD wrote in lower case ("observability") read better capitalised; known names keep their canonical form. */
+const display = (skill: string) => canonicalize(skill) ?? (skill === skill.toLowerCase() ? skill[0]!.toUpperCase() + skill.slice(1) : skill)
+
 export function skillGaps(perReq: ReqResult[], hints: Record<string, string>): SkillGap[] {
   return perReq.map(r => ({
-    skill: r.req.skill, canonical: canonicalize(r.req.skill) ?? r.req.skill, required: r.req.required,
+    skill: display(r.req.skill), canonical: canonicalize(r.req.skill) ?? r.req.skill.toLowerCase(), required: r.req.required,
     bucket: r.match.kind === 'none' ? 'gap' as const : r.match.kind === 'exact' ? 'existing' as const : 'supported' as const,
     ...(r.uncertain ? { lowConfidence: true } : {}),
-    howToAdd: hints[r.req.skill.toLowerCase()] || (r.match.kind === 'none' ? defaultHow(r.req.skill) : r.match.kind === 'exact' ? 'Already on your résumé.' : `Your résumé shows ${r.match.via}, which is close. Say ${r.req.skill} explicitly only if you have used it.`),
+    howToAdd: hints[r.req.skill.toLowerCase()] || (r.match.kind === 'none' ? defaultHow(r.req.skill) : r.match.kind === 'exact' ? 'Already on your résumé.' : `Your résumé already points to this (“${r.match.via}”). Name ${display(r.req.skill)} explicitly in a bullet if you have used it.`),
   })).sort((a, b) => Number(b.required) - Number(a.required))
 }
 
 /** One Apply per missing skill: adds it to Skills only after the user confirms they really have it. */
 export function skillFindings(gaps: SkillGap[]): AtsFinding[] {
-  return gaps.filter(g => g.bucket !== 'existing').slice(0, 8).map(g => ({
+  return gaps.filter(g => g.bucket === 'gap').slice(0, 8).map(g => ({
     id: `skill:${g.skill.toLowerCase()}`, severity: g.required ? 'major' : 'minor', category: 'skill', status: 'open',
-    title: g.bucket === 'gap' ? `${g.skill} is ${g.required ? 'required' : 'preferred'} and missing` : `${g.skill} is only covered by a related skill`,
+    title: `${g.skill} is ${g.required ? 'required' : 'preferred'} and missing`,
     detail: g.howToAdd,
     apply: { op: 'append', target: 'Skills', after: `- **Additional:** ${g.skill}`, requires_answers: [haveId(g.skill)] },
   }))
@@ -64,7 +67,10 @@ export function mergeFindings(deterministic: AtsFinding[], agent: AtsFinding[], 
   const status = new Map(prior.map(f => [f.id, f.status]))
   const seen = new Set<string>()
   const out: AtsFinding[] = []
-  for (const f of [...agent.map(a => checked(a, cv)), ...deterministic]) {
+  const agentText = agent.map(a => `${a.title} ${a.detail}`.toLowerCase())
+  // The agent already covered this skill in its own words: keep its (richer) finding, not ours.
+  const covered = (f: AtsFinding) => /^(skill|evidence):/.test(f.id) && agentText.some(t => t.includes(f.id.replace(/^[a-z]+:/, '')))
+  for (const f of [...agent.map(a => checked(a, cv)), ...deterministic.filter(d => !covered(d))]) {
     if (seen.has(f.id)) continue
     seen.add(f.id)
     const prev = status.get(f.id)

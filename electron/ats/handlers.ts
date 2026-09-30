@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { broadcast, dataRoot, Handler, readSettings, startAgentPrompt, str, userFile } from '../context'
 import type { AtsAnalyzeInput, AtsAnswer } from '../contract'
 import { readCv, readProfile, writeCv } from '../resume-agent'
 import { renderTemplatePdf } from '../resume-pdf'
-import { rebuildProfile } from '../resume-profile'
+import { mergeProfileJson, rebuildProfile } from '../resume-profile'
 import { readProfileYaml } from '../resume'
 import { answerAnalysis, startAnalysis, type Deps } from './analyze'
 import { applyFinding, dismissFinding, previewFinding, undoApply } from './applyFlow'
@@ -50,7 +50,10 @@ function deps(): Deps {
       if (!p) return false
       const file = join(dataRoot(), PROFILE_JSON)
       mkdirSync(join(file, '..'), { recursive: true })
-      writeFileSync(file, JSON.stringify(p, null, 2))
+      let raw: unknown = null
+      try { raw = JSON.parse(readFileSync(file, 'utf8')) } catch { /* no profile JSON yet */ }
+      if (existsSync(file)) copyFileSync(file, `${file}.bak`)
+      writeFileSync(file, JSON.stringify(mergeProfileJson(raw, p), null, 2))
       return true
     },
     defaultTemplate: () => readProfileYaml(dataRoot()).template ?? 'standard',
