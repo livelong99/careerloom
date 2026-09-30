@@ -14,6 +14,7 @@ Re-render a shot: `prototype/shoot.sh <out.png> <W,H> "<page>?theme=dark#<id>"` 
 | Motion | Only: chip dot pulse (2.2 s), level bars, streaming caret, card fade-in (180 ms). Off under `prefers-reduced-motion` | Calm, never competes with the call |
 | Type | 13.5 px body (user-scalable 12–18), 15 px "Say first" line, mono for timers/keys | One glance reads the headline line |
 | Kept plain | No gradients, glow, glass decoration; blur only as legibility aid | |
+| Privacy mode | One opt-in group on the Privacy page, OFF by default, guarded by a one-time notice; every option is a plain switch, nothing is hidden in the UI about what it does | Low-profile use is a user choice; honesty about its limits is part of the control |
 
 Skills applied: ui-ux-pro-max (accessibility/touch/forms/animation priorities, desktop-only subset) and frontend-design (design plan → review against brief → build → screenshot critique). Plan review found two generic defaults and changed them: (1) a cream-and-terracotta look — replaced by the app's existing teal/amber tokens; (2) identical rounded cards everywhere — overlay panel is one continuous surface with hairline dividers, cards are used only in the config screen.
 
@@ -41,7 +42,7 @@ Header actions (always visible): **Preview overlay**, **Start live session…** 
 | Coaching style | Cues / Cues+STAR / Full script, length, tone, one-line persona, quote résumé, never invent numbers; live preview | prompt builder |
 | Appearance | Layout, 3×3 position, width, text size, opacity (≥60 %), theme, click-through, above full-screen, reduced motion; live preview | overlay window manager |
 | Hotkeys | Table with conflict status, "Stop everything now" fixed | `globalShortcut` |
-| Privacy & consent | Always-on items (consent per session, Listening chip), retention, local-only, redaction, hide-from-capture **not offered** | session store |
+| Privacy & consent | Consent per session (locked), retention, local-only, redaction; **Privacy mode group (off by default):** hide from screen sharing, no Dock icon, neutral window title, click-through, quick hide, recording indicator (full / small dot / off) | session store, overlay window manager |
 | Sessions & debrief | Sessions table, scorecard, improve-this-answer, push to résumé bullets / job notes | session store, Resume/Job pages |
 
 ## 3. Flows
@@ -60,7 +61,7 @@ Two densities of one component (`renderOverlay(el, state, opts)` in the prototyp
 - **Panel** 440 px default (360–560): header (chip, mini meter, `1.1 s · $0.02`, collapse, stop) → question banner → scrolling suggestion card (max ≈ 420 px, bottom fade) → action row (Answer, Follow-up, Clarify, Screenshot, Summarise, each with key hint) → last 2–3 transcript lines with speaker labels (Interviewer blue / You teal) → footer meters + engine/model.
 - **States** (all in `overlay.html?view=gallery`): idle, listening, question detected, answering (streamed caret + shimmer rows), answered, permission missing, error, stopped; plus click-through (55 % opacity + dashed outline, hold ⌃⌥ to interact) and Practice chip.
 - **Suggestion card:** *Say first* (one sentence) · *Then cover* (3 bullets) · *STAR skeleton* (disclosure, only real steps) · *Proof from your résumé* (quote + `cv.md · employer, year`) · fact-check line.
-- **Status honesty:** the chip is driven by capture state, never by UI state; red dot whenever audio is being captured, "mic only" text when system audio is off; it is not hideable in live mode.
+- **Status honesty:** the chip is driven by capture state, never by UI state; red dot whenever audio is being captured, "mic only" text when system audio is off; by default it is the full chip. Inside Privacy mode the user may choose a small dot or no on-screen indicator; the menu-bar/tray icon always shows capture state and carries "Stop now" (prototype: strip view, "Privacy mode" cell).
 - **Window behaviour** (verify on signed builds; see research §D): frameless transparent, level `floating`/`status` (raise only if the user opts in), `showInactive`, non-focusable panel so hotkeys, not clicks, drive it; click-through with hover-region IPC; fixed-size window with inner resize; per-display bounds.
 
 ## 5. Component mapping
@@ -91,7 +92,22 @@ Prototype uses none of the libraries; it reproduces the look with plain CSS so t
 
 ## 7. Deliberately left out
 
-Hide-from-screen-share toggle (research §D/§E); any stealth/"undetectable" wording; mobile companion; voice identification/diarisation; auto-typing answers into other apps; storing raw audio; team/sharing features; live coaching on the user's own speech (pace/filler words) — candidate for later.
+Not included (scope limit): process-name masquerading, fake system-app/browser identities, disguised installers or icons, near-invisible opacity and cursor tricks, anything aimed at defeating proctoring or anti-cheat software; "undetectable" wording in UI or marketing. Also out: mobile companion; voice identification/diarisation; auto-typing answers into other apps; storing raw audio; team/sharing features; live coaching on the user's own speech (pace/filler words) — candidate for later.
+
+## 7b. Privacy mode (opt-in, OFF by default)
+
+Group on the Privacy & consent page (`config.html#privacy`; `?pm=1` shows it on, `?notice=1` the notice). Turning the master switch on shows a one-time plain notice (version stored); turning it off needs no confirmation.
+
+| Option | Behaviour | Window/OS mechanism (WP1) | Caveat shown in UI |
+|---|---|---|---|
+| Hide overlay from screen sharing | Overlay left out of screen capture | `setContentProtection(true)` on every overlay window | Unreliable on macOS 15+; does nothing against cameras, proctoring tools, people |
+| No Dock icon while listening | Dock icon hidden during a live session, restored on stop | `app.dock.hide()/show()` | Menu bar icon stays |
+| Neutral window title | Window lists show "Careerloom" only | fixed `title`, never job/company/question text | — |
+| Click through when idle | Clicks pass to the call; hold ⌃⌥ to interact | `setIgnoreMouseEvents(true,{forward:true})` + hover IPC | Same setting as Appearance |
+| Quick hide ⌃⌥⇧H | Hides overlay and clears its text; press again to restore; capture continues | hide + renderer text wipe | Tray icon shows state |
+| Recording indicator | Full chip (default) / small dot / off | renderer variant driven by main capture state | Menu-bar icon always on |
+
+The one-time notice says: some interviewers and employers prohibit AI assistance; hide-from-capture is unreliable on macOS 15+ and useless against cameras/proctoring/screen watchers; per-session consent and the menu-bar icon still apply. Per-session consent is **not** part of Privacy mode and cannot be turned off.
 
 ## 8. Prototype map
 
@@ -101,4 +117,4 @@ Hide-from-screen-share toggle (research §D/§E); any stealth/"undetectable" wor
 | `overlay.html?view=stage` | Overlay above a fake call, state + layout switcher |
 | `overlay.html?view=gallery` / `strips` | All panel / strip states |
 | `css/tokens.css` | Careerloom tokens (values only) |
-| `shots/*.png` | 22 screenshots (dark + light) |
+| `shots/*.png` | 26 screenshots (dark + light), incl. `config-privacy-*` (default off, Privacy mode on, first-use notice) |

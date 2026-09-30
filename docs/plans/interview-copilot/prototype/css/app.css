@@ -116,3 +116,4 @@
 .row .lab { flex:1 1 220px; }
 .seg button { white-space:nowrap; }
 .tbl .kbd { font-size:13px; padding:2px 7px; }
+.row .lab .badge { display:inline-flex; margin:0 0 0 4px; } .row .lab .kbd { display:inline-block; margin:0; font-size:12px; }

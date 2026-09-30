@@ -203,6 +203,7 @@
     <tr><td>Expand or collapse</td><td><span class="kbd">⌃⌥E</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
     <tr><td>Start or pause listening</td><td><span class="kbd">⌃⌥L</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
     <tr><td>Show or hide overlay</td><td><span class="kbd">⌃⌥H</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
+    <tr><td>Quick hide (clears text) <span class="badge" style="margin-left:6px">Privacy mode</span></td><td><span class="kbd">⌃⌥⇧H</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
     <tr><td><b style="color:var(--bad)">Stop everything now</b></td><td><span class="kbd">⌃⌥⇧X</span></td><td><span class="badge ok">Ready</span></td><td><span class="badge">Always on</span></td></tr>
   </table></div></div>
   <div class="notice"><i data-i="info" data-s="16"></i><div><b>Stop everything now</b> turns off the microphone and system audio, cancels any request in progress and hides the overlay. The tray menu has the same button. On Windows, shortcuts use Ctrl+Alt.</div></div>
@@ -210,10 +211,9 @@
 
 <!-- PRIVACY -->
 <section class="page" id="p-privacy">
-  <header><h2>Privacy &amp; consent</h2><p>Responsible defaults. You confirm the rules before every live session, and the overlay always shows when it is listening.</p></header>
-  <div class="card"><div class="ch"><b>Always on</b><div class="r"><span class="badge brand"><i data-i="lock" data-s="12"></i>Can't be turned off</span></div></div><div class="cb">
+  <header><h2>Privacy &amp; consent</h2><p>Responsible defaults. You confirm the rules before every live session. Low-profile options live in Privacy mode, which is off until you turn it on.</p></header>
+  <div class="card"><div class="ch"><b>Consent</b><div class="r"><span class="badge brand"><i data-i="lock" data-s="12"></i>Can't be turned off</span></div></div><div class="cb">
     <div class="row"><div class="lab"><b>Ask before every live session</b><span>A short check on the employer's rules and on consent from everyone on the call.</span></div><button class="sw" role="switch" aria-checked="true" aria-disabled="true" aria-label="Consent each session"></button></div>
-    <div class="row"><div class="lab"><b>Show the Listening indicator</b><span>A visible chip with a timer stays on the overlay for the whole live session.</span></div><button class="sw" role="switch" aria-checked="true" aria-disabled="true" aria-label="Listening indicator"></button></div>
   </div></div>
   <div class="card"><div class="ch"><b>What is kept</b></div><div class="cb">
     <div class="row"><div class="lab"><b>Audio recordings</b><span>Audio is turned into text and discarded straight away.</span></div><span class="badge">Never saved</span></div>
@@ -223,12 +223,22 @@
   <div class="card"><div class="ch"><b>What leaves your computer</b></div><div class="cb">
     <div class="row"><div class="lab"><b>Local only</b><span>Uses on-device speech and a local model. Nothing is sent anywhere. Answers are weaker on design and coding.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Local only"></button></div>
     <div class="row"><div class="lab"><b>Hide names and emails before sending to the model</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Redact"></button></div>
-    <div class="row"><div class="lab"><b>Hide overlay from screen sharing</b><span>Not offered in this version. On recent macOS versions the system ignores it, so it can give a false sense of privacy.</span></div><button class="sw" role="switch" aria-checked="false" aria-disabled="true" aria-label="Hide from sharing"></button></div>
+  </div></div>
+  <div class="card" id="pmcard"><div class="ch"><b>Privacy mode</b><span class="badge" id="pmbadge">Off by default</span><div class="r"><button class="sw" id="pm" role="switch" aria-checked="false" aria-label="Privacy mode"></button></div></div><div class="cb">
+    <p class="desc" style="margin:0 0 10px">Low-profile options for when you don't want the overlay to draw attention on your own screen. They don't change who can hear the call, and some interviewers and employers don't allow AI help.</p>
+    <div class="pmopts" aria-disabled="true">
+    <div class="row"><div class="lab"><b>Hide overlay from screen sharing</b><span>Asks the system to leave the overlay out of screen capture. <span class="badge warn" style="margin-left:4px">Unreliable on macOS 15+</span> It does nothing against cameras, proctoring tools or someone watching your screen.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Hide from screen sharing"></button></div>
+    <div class="row"><div class="lab"><b>No Dock icon while listening</b><span>The menu bar icon stays so you can always stop.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="No dock icon"></button></div>
+    <div class="row"><div class="lab"><b>Neutral window title</b><span>Window lists show “Careerloom” only, never a job, company or question.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Neutral title"></button></div>
+    <div class="row"><div class="lab"><b>Click through when idle</b><span>Same setting as Appearance. Clicks pass to the call.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Click-through"></button></div>
+    <div class="row"><div class="lab"><b>Quick hide <span class="kbd" style="margin-left:6px">⌃⌥⇧H</span></b><span>Hides the overlay and clears its text at once. Press again to bring it back.</span></div><span class="badge">Hotkey</span></div>
+    <div class="row"><div class="lab"><b>Recording indicator</b><span>The menu bar icon always shows when audio is being captured, whatever you choose here.</span></div><div class="seg"><button aria-pressed="true">Full</button><button aria-pressed="false">Small dot</button><button aria-pressed="false">Off</button></div></div>
+    </div>
   </div></div>
   <div class="notice warn"><i data-i="warn" data-s="16"></i><div><b>Check the rules first.</b> Many employers don't allow AI help in live interviews. Using it where it is banned can cost you the offer. Practice mode is always fine.</div></div>
 </section>
 
-<!-- SESSIONS -->
+    <!-- SESSIONS -->
 <section class="page" id="p-sessions">
   <header><h2>Sessions &amp; debrief</h2><p>Review how an answer landed and move the good parts into your résumé and job notes.</p></header>
   <div class="card"><div class="cb" style="padding:4px 16px 8px"><table class="tbl">
@@ -271,6 +281,16 @@
   <footer><button class="btn quiet" id="closeGate">Cancel</button><button class="btn" id="goPractice"><i data-i="target" data-s="14"></i>Practice instead</button><button class="btn primary dis" id="goLive" disabled><i data-i="play" data-s="14"></i>Start live session</button></footer>
 </div></div>
 
+<div class="scrim" id="pmnotice" role="dialog" aria-modal="true" aria-labelledby="pnt"><div class="dlg">
+  <header><h3 id="pnt">Before you turn on Privacy mode</h3><p>These options make the overlay less visible on your own screen. Read this once.</p></header>
+  <div class="body">
+    <div class="notice warn"><i data-i="warn" data-s="16"></i><div>Some interviewers and employers <b>don't allow AI assistance</b>. Using Careerloom where it is banned may break their rules, whatever the overlay looks like.</div></div>
+    <div class="notice"><i data-i="info" data-s="16"></i><div><b>Hiding from screen sharing is unreliable on macOS 15 and later.</b> The system can ignore it. It also does nothing against cameras, proctoring software or someone watching your screen.</div></div>
+    <div class="notice"><i data-i="shield" data-s="16"></i><div>You still confirm consent before every live session, and the menu bar icon always shows when audio is being captured.</div></div>
+  </div>
+  <footer><button class="btn quiet" id="pmCancel">Cancel</button><button class="btn primary" id="pmOk">I understand, turn on</button></footer>
+</div></div>
+
 <script src="js/icons.js"></script><script src="js/overlay.js"></script>
 <script>
 const q = new URLSearchParams(location.search);
@@ -283,7 +303,7 @@ function show() {
   links.forEach(a => { const cur = a.getAttribute('href') === '#' + on; a.classList.toggle('on', cur); cur ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
 }
 addEventListener('hashchange', show); show();
-document.querySelectorAll('.sw').forEach(b => b.onclick = () => { if (b.getAttribute('aria-disabled') !== 'true') b.setAttribute('aria-checked', b.getAttribute('aria-checked') !== 'true'); });
+document.querySelectorAll('.sw:not(#pm)').forEach(b => b.onclick = () => { if (b.getAttribute('aria-disabled') !== 'true') b.setAttribute('aria-checked', b.getAttribute('aria-checked') !== 'true'); });
 document.querySelectorAll('.seg').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); }));
 document.querySelectorAll('.grid2 > .mode, .grid3 > .mode').forEach(m => m.onclick = () => { m.parentElement.querySelectorAll('.mode').forEach(x => x.setAttribute('aria-pressed', x === m)); });
 const gate = document.getElementById('gate'), go = document.getElementById('goLive'), c1 = document.getElementById('c1'), c2 = document.getElementById('c2');
@@ -292,8 +312,17 @@ c1.onchange = c2.onchange = upd;
 document.getElementById('openGate').onclick = () => { gate.classList.add('on'); c1.focus(); };
 const close = () => gate.classList.remove('on');
 document.getElementById('closeGate').onclick = close; document.getElementById('goPractice').onclick = () => { close(); location.hash = 'practice'; };
-addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+addEventListener('keydown', e => { if (e.key === 'Escape') { close(); document.getElementById('pmnotice').classList.remove('on'); } });
 if (q.get('gate') === '1') { gate.classList.add('on'); if (q.get('checked')) { c1.checked = c2.checked = true; upd(); } }
+
+// Privacy mode master switch (off by default). First enable shows the one-time notice.
+const pm = document.getElementById('pm'), pmo = document.querySelector('.pmopts'), pmn = document.getElementById('pmnotice'), pmb = document.getElementById('pmbadge');
+const setPm = on => { pm.setAttribute('aria-checked', on); pmo.setAttribute('aria-disabled', !on); pmo.style.opacity = on ? 1 : .5; pmo.style.pointerEvents = on ? '' : 'none'; pmb.textContent = on ? 'On' : 'Off by default'; pmb.className = 'badge' + (on ? ' warn' : ''); };
+setPm(false);
+pm.onclick = e => { e.stopImmediatePropagation(); if (pm.getAttribute('aria-checked') === 'true') setPm(false); else pmn.classList.add('on'); };
+document.getElementById('pmCancel').onclick = () => pmn.classList.remove('on');
+document.getElementById('pmOk').onclick = () => { pmn.classList.remove('on'); setPm(true); };
+if (q.get('pm') === '1') setPm(true); if (q.get('notice') === '1') pmn.classList.add('on');
 // range value labels
 document.querySelectorAll('.rng').forEach(r => r.oninput = () => { const v = r.nextElementSibling; if (!v) return; const t = v.textContent; v.textContent = /ms/.test(t) ? r.value + ' ms' : /px/.test(t) ? r.value + ' px' : /%/.test(t) ? r.value + '%' : /min/.test(t) ? r.value + ' min' : t; });
 </script>

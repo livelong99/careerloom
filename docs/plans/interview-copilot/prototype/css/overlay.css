@@ -82,3 +82,4 @@
 .ov[data-mode="strip"] .stripq .q:not(.mute) { white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.3; font-size:13px; }
 .ov[data-mode="strip"] .ov-h { min-height:50px; }
 .sug { -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent); mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent); padding-bottom:18px; }
+.chipL.dotonly { padding:0 8px; gap:6px; background:transparent; }

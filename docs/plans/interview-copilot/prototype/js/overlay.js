@@ -20,6 +20,8 @@ const bars = (n, on, cls = '') => `<span class="meter ${cls}" aria-hidden="true"
 const kbd = k => `<span class="kbd">${k}</span>`;
 const btn = (ic, label, k, pri) => `<button class="ab ${pri ? 'pri' : ''}">${icon(ic, 14)}${label}${k ? kbd(k) : ''}</button>`;
 const chip = (state, o) => {
+  if (o.indicator === 'off' && state !== 'idle' && state !== 'stopped') return '';
+  if (o.indicator === 'dot' && state !== 'idle' && state !== 'stopped') return `<span class="chipL dotonly ${o.sys ? '' : 'mic'}" role="status" aria-label="Listening"><span class="d"></span><span class="t">${o.time}</span></span>`;
   const src = o.sys ? 'Mic + system' : 'Mic only';
   if (state === 'idle') return `<span class="chipL idle"><span class="d"></span>Not listening</span>`;
   if (state === 'stopped') return `<span class="chipL stopped"><span class="d"></span>Stopped</span>`;
@@ -76,4 +78,4 @@ window.renderOverlay = function (el, state = 'listening', o = {}) {
   if (o.op != null) el.style.opacity = o.op;
   el.innerHTML = `<div class="thread"></div>${head(state, opt, strip)}${strip ? '' : panelBody(state, opt)}${strip || ['idle', 'stopped', 'error', 'permission'].includes(state) ? '' : foot(opt)}`;
 };
-document.querySelectorAll('[data-overlay]').forEach(el => renderOverlay(el, el.dataset.overlay, { mode: el.dataset.mode, star: 'star' in el.dataset, practice: 'practice' in el.dataset, passive: 'passive' in el.dataset }));
+document.querySelectorAll('[data-overlay]').forEach(el => renderOverlay(el, el.dataset.overlay, { mode: el.dataset.mode, indicator: el.dataset.indicator, star: 'star' in el.dataset, practice: 'practice' in el.dataset, passive: 'passive' in el.dataset }));

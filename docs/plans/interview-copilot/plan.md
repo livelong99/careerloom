@@ -8,7 +8,9 @@ Target: Careerloom v0.3.0 · macOS first, Windows second · Electron ^43.7.0 (in
 Add a **Copilot** section (config workspace, 10 pages) and an **overlay window** that listens (mic, later system audio), detects interviewer questions, and streams grounded suggestions built from the job posting, evaluation report, `cv.md` facts and STAR stories.
 
 **MVP (M1):** Practice mode + mic-only live + streaming API runner + consent gate + kill switch. **M2:** system audio (after spike gate). **M3:** screenshot → vision. **M4:** local-only STT/LLM, Windows hardening, extras.
-**Out of scope:** hide-from-capture, stealth wording, LAN companion, diarisation, auto-typing into other apps, raw-audio retention (design.md §7).
+**Included as opt-in, OFF by default — Privacy mode** (user decision): hide overlay from screen sharing (`setContentProtection`), no Dock icon while listening, neutral window title, click-through, quick-hide hotkey, configurable recording indicator. Guarded by a one-time plain notice (some interviewers/employers prohibit AI help; hide-from-capture unreliable on macOS 15+ ScreenCaptureKit). Per-session consent is **not** part of it.
+**Not included:** process-name masquerading, fake system-app/browser identities, disguised installers/icons, near-invisible opacity or cursor tricks, or anything aimed at defeating proctoring/anti-cheat software. Also out: the unauthenticated LAN companion, diarisation, auto-typing into other apps, raw-audio retention (design.md §7).
+**Reuse:** Open-Cluely is the user's own project, so code/prompts are **ported** (TS/React adaptation, keys via `safeStorage`). Per-package port map in §11.
 
 ## 2. Dependencies on other branches
 
@@ -65,6 +67,9 @@ Interface in §6. MVP adapters: one of Soniox / AssemblyAI (choose at G-C after 
 - **Escalation:** `system-design|coding` → Deep tier when enabled.
 - **Cost meter:** per request tokens × configured price table (editable JSON, dated) → overlay `lat` + `cost`.
 
+### 3.5 Privacy mode (WP1; opt-in, OFF by default)
+`electron/copilot/privacy-mode.ts` owns every low-profile flag so it is one reviewable file: `applyPrivacyMode(win, cfg, live)` sets `setContentProtection`, `app.dock.hide()/show()` for the live session only, fixed neutral title (`"Careerloom"`), idle click-through, and the indicator variant. Options are honoured only when `privacy.mode.enabled && noticeVersion === CURRENT_NOTICE`; otherwise main ignores them (the renderer cannot bypass). Quick hide (`⌃⌥⇧H`): hide overlay + tell renderer to wipe on-screen text; capture continues; second press restores. The tray/menu-bar icon always reflects capture state and keeps "Stop now" regardless of the indicator setting. A vitest guard (`no-masquerade.test.ts`) greps `electron/**` for `process.title`, `setAppUserModelId`, `app.setName(` and fails if any appear, so disguise features cannot slip in from a port.
+
 ## 4. IPC contract (TypeScript)
 
 New file `electron/copilot/types.ts`, re-exported from `electron/contract.ts` by one line (WP0). Handlers register via a new `copilotHandlers` entry in `FEATURES` (`main.ts:112`); push events via `broadcast`.
@@ -91,6 +96,7 @@ export type ConsentRecord = {
   id: string; sessionId: string; at: number; textVersion: string
   aiAllowedConfirmed: boolean; everyoneInformedConfirmed: boolean; jurisdiction: string | null
   sources: SourceId[]; sttProvider: string | null; llmProvider: string | null; transcriptSaved: boolean
+  privacyMode: boolean; indicator: 'chip' | 'dot' | 'off'
 }
 export type SessionSummary = { id: string; startedAt: number; endedAt: number | null; mode: CopilotMode; jobId: string | null; questions: number; durationSec: number; score: number | null }
 export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; questionsList: DetectedQuestion[]; suggestions: Suggestion[]; scorecard: Scorecard | null }
@@ -111,7 +117,8 @@ export interface CopilotApi {
   copilotStop(reason: 'user' | 'panic' | 'error'): void                   // idempotent, capture off first
   copilotAnswer(kind: 'answer' | 'followup' | 'clarify' | 'summarise', questionId?: string): void
   copilotScreenshot(): void                                               // M3
-  copilotOverlay(cmd: { collapse?: boolean; hide?: boolean; passive?: boolean; moveTo?: Anchor }): void
+  copilotOverlay(cmd: { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor }): void
+  copilotAckPrivacyNotice(version: string): { ok: boolean }                // stores the ack; Privacy mode flags apply only after it
   copilotListSessions(): SessionSummary[]
   copilotGetSession(id: string): SessionDetail | null
   copilotDeleteSession(id: string | 'all'): number
@@ -178,12 +185,15 @@ export type CopilotConfig = {
   engine: { tier: 'fast' | 'balanced' | 'deep'; escalateForDesignCoding: boolean; provider: 'zen' | 'openrouter' | 'api'; models: Record<'fast' | 'balanced' | 'deep', string | null>; factCheck: boolean; vision: 'vision' | 'ocr'; autoAnswer: boolean }
   coaching: { shape: 'cues' | 'cues+star' | 'script'; length: 1 | 2 | 3; tone: 'direct' | 'warm' | 'formal'; persona: string; quoteResume: boolean }   // never-invent-numbers is not configurable
   overlay: { layout: 'strip' | 'panel'; anchor: Anchor; displayId: number | null; width: number; fontPx: number; opacity: number /*0.6–1*/; theme: 'app' | 'dark' | 'light'; clickThroughIdle: boolean; aboveFullscreen: boolean }
-  hotkeys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'expand' | 'listen' | 'toggle' , string> & { panic: string /* fixed default */ }
-  privacy: { retention: 'none' | '7d' | 'keep'; localOnly: boolean; redact: boolean }    // consent-per-session and Listening chip are constants, not settings
+  hotkeys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'expand' | 'listen' | 'toggle' | 'quickHide', string> & { panic: string /* fixed default */ }
+  privacy: {
+    retention: 'none' | '7d' | 'keep'; localOnly: boolean; redact: boolean      // per-session consent is a constant, not a setting
+    mode: { enabled: boolean; noticeVersion: string | null; hideFromCapture: boolean; noDockIcon: boolean; neutralTitle: boolean; indicator: 'chip' | 'dot' | 'off' }   // all false / 'chip' by default; ignored unless enabled + notice acked
+  }
   practice: { followups: boolean; readAloud: boolean; answerMinutes: number }
 }
 ```
-Defaults: tier `fast`, escalate on, provider `zen`, shape `cues+star`, retention `7d`, redact on, opacity 0.94, anchor `tr`, width 440, hotkeys `⌃⌥A/F/C/S/M/E/L/H`, panic `⌃⌥⇧X` (Windows: Ctrl+Alt). Model ids are **not** hard-coded: resolved from a dated `recommended-models.json` (prices and ids change) and shown in the UI.
+Defaults: tier `fast`, escalate on, provider `zen`, shape `cues+star`, retention `7d`, redact on, opacity 0.94, anchor `tr`, width 440, hotkeys `⌃⌥A/F/C/S/M/E/L/H`, quick hide `⌃⌥⇧H`, panic `⌃⌥⇧X` (Windows: Ctrl+Alt). Model ids are **not** hard-coded: resolved from a dated `recommended-models.json` (prices and ids change) and shown in the UI.
 
 ## 8. Renderer structure
 
@@ -208,7 +218,8 @@ UI kit adds (M1): shadcn `message bubble marker message-scroller`; prompt-kit `r
 | Permissions | Mic via `askForMediaAccess`; system audio via OS prompt (macOS `NSAudioCaptureUsageDescription`); screenshots need Screen Recording. Add `setPermissionRequestHandler` allowing only `media` for the app's own windows |
 | Where data goes | Audio → STT provider (cloud) or stays local; text (transcript window, grounding prefix, question) → LLM provider. Shown in the consent gate and Transcription page in plain words. Local-only mode blocks all copilot network calls (enforced in main: providers refuse to construct) |
 | Consent | Per-session gate; `copilotStart(live)` refuses without a fresh `ConsentRecord`; system audio off by default; jurisdiction picker adds stronger text for all-party places |
-| Indicator | Listening chip is part of the overlay's fixed header and is rendered from main-process capture state, not renderer state; overlay cannot be configured to hide it in live mode |
+| Indicator | Listening chip (default) is rendered from main-process capture state, not renderer state. Privacy mode may switch it to a small dot or off on the overlay; the **tray/menu-bar icon always shows capture state** and carries "Stop now". The chosen indicator is recorded in the session's consent record |
+| Privacy mode | Opt-in, OFF by default, honoured only after a versioned notice ack (validated in main). Flags live in one file (`privacy-mode.ts`); a grep test forbids process-title/app-id/name changes. Hide-from-capture is labelled unreliable on macOS 15+ and useless against cameras/proctoring |
 | Kill switch | Panic hotkey + tray "Stop now" + red stop button → `copilotStop('panic')`: stop capture tracks, close STT sockets, abort engine requests, hide overlay, then notify renderers. Also on `before-quit`, `render-process-gone`, `uncaughtException`, renderer heartbeat loss (5 s) |
 | Redaction | Names/emails/phones in transcript text replaced with tokens before LLM calls when enabled (regex MVP) |
 | Secrets | `safeStorage` only; never sent to renderers; never logged; provider errors scrubbed of headers |
@@ -236,6 +247,8 @@ Stage budget: STT finalise ≈ 0.3 s + detector ≤ 50 ms + request ≈ 0.1 s + 
 
 Mirror the Resume/Browser/Job-page runs: one supervised worktree per package, branch `livelong99/copilot-wpN-<slug>` off the integration branch, milestone gates to the lead, cloned-profile QA, capped live runs. **One writer per worktree; each package owns its files; shared files are WP0's.** Live API budget per package: ≤ $2 (stated in each dispatch).
 
+**Porting rule (Open-Cluely is the owner's project):** each ported file gets a header comment `// Ported from Open-Cluely (owner's project), adapted for Careerloom`, is converted to strict TS with typed errors, and never stores keys in plaintext (`safeStorage` via `readSecret/writeSecret`). **Never ported:** Chrome/system-process disguise (process title, fake app id/publisher/icon), 0.02-opacity stealth and cursor-shape tricks, `webSecurity:false`/ignored certificate errors, plaintext key file, LAN companion (`features/mobile-server/*`), `windows/legacy/*`, `logs.txt`. Source root: `Open-Cluely/src/`.
+
 ### WP0 — Contract, shell, nav (integration owner; small; first)
 Files: `electron/copilot/types.ts`, `electron/contract.ts` (+1 line), `electron/copilot/handlers.ts` (stubs returning `not-implemented`), `electron/main.ts` (FEATURES entry), `electron/preload.ts`, `renderer/lib/types.ts` (`CareerloomBridge` additions), `renderer/components/Sidebar.tsx`, `renderer/App.tsx`, `renderer/components/icons.tsx`, `renderer/sections/Copilot.tsx` (shell + page stubs), `electron/copilot/config.ts` (+test).
 Accept: `npm run typecheck && npm test` green; Copilot appears in sidebar with stub pages; config read/write round-trips; contract frozen and tagged in the dispatch message.
@@ -243,29 +256,73 @@ Accept: `npm run typecheck && npm test` green; Copilot appears in sidebar with s
 
 ### WP1 — Overlay window, hotkeys, kill switch (parallel after G-A)
 Files: `electron/copilot/{overlay-window,hotkeys,tray,panic}.ts` (+tests with mocked electron), `renderer/overlay/**` (Overlay, chip, banner, card, actions, transcript, problem panel, `useCopilotEvents`), `renderer/lib/copilot.ts`, overlay entry wiring in `renderer/main.tsx` (branch only), `renderer/components/copilot/OverlayPreview.tsx`.
-Behaviour: states from design.md §4 driven by a **fake event generator** (no backend needed); click-through + hover regions; anchors per display; panic.
+Also: `electron/copilot/privacy-mode.ts` (+ `no-masquerade.test.ts`), `renderer/components/copilot/PrivacyModeNotice.tsx`.
+Behaviour: states from design.md §4 driven by a **fake event generator** (no backend needed); click-through + hover regions; anchors per display; panic; **Privacy mode** per §3.5 (content protection, no Dock icon, neutral title, quick hide, indicator variants).
+**Port from Open-Cluely (source → target, adaptation):**
+| Source | Target | Adaptation |
+|---|---|---|
+| `windows/assistant/window.js` | `electron/copilot/overlay-window.ts` | Keep frameless/transparent/alwaysOnTop level/skipTaskbar/`showInactive`/unresponsive recovery; drop process-title, app-id and disguise bits; per-display anchors |
+| `main-process/features/window/window-controller.js` | `overlay-window.ts`, `privacy-mode.ts`, `panic.ts` | size presets → width setting; move-to-edge → anchors; content protection → Privacy mode only; emergency hide → quick hide (hide + clear text, **no opacity trick**); hide window (not opacity) during screenshot capture |
+| `main-process/features/window/window-constants.js` | constants in `overlay-window.ts` | — |
+| `config.js` (shortcuts) | `electron/copilot/config.ts`, `hotkeys.ts` | new ⌃⌥ accelerators (Alt+Shift dropped: IME clash); register result checked, conflicts surfaced |
+| `main-process/shared/safe-send.js` | reuse `broadcast`; port only the destroyed-window guard if missing | — |
+| `renderer/features/layout/window-adjustments.js`, `features/settings/shortcut-manager.js` | overlay resize grip, `renderer/components/copilot/HotkeyRow.tsx` | React/TS; accelerator recorder UX |
+| `windows/assistant/styles.css`, `renderer.html` | reference only | new overlay follows `design.md` and Careerloom tokens |
 Accept: all 8 states + strip/panel + light/dark match `prototype/shots` within review; overlay never takes focus (manual macOS + Windows check); panic stops fake session in < 200 ms; vitest for state reducer, hotkey registration failure handling, anchor math.
+**Privacy mode acceptance (vitest with mocked electron + manual):**
+1. Defaults: Privacy mode off ⇒ `setContentProtection` never called with `true`, Dock icon untouched, normal title, indicator = chip.
+2. Enabling without a notice ack for `CURRENT_NOTICE` ⇒ flags not applied (main-side check); with ack ⇒ applied to every overlay window, including windows created later.
+3. `noDockIcon` hides the Dock icon only while a session is live and restores on stop, panic, `before-quit` and the crash path.
+4. Neutral title is the constant `"Careerloom"`; no job/company/question text ever reaches `win.setTitle`.
+5. Quick hide hides the overlay, wipes rendered text, leaves capture running, and the second press restores; tray state unaffected.
+6. Indicator `dot`/`off` honoured only when Privacy mode is enabled; the tray/menu-bar icon reflects capture state in every indicator setting (test drives capture state changes).
+7. `no-masquerade.test.ts` passes (no `process.title`, `setAppUserModelId`, `app.setName(` in `electron/**`).
+8. UI: Privacy page toggles match `prototype/shots/config-privacy-*`; the notice appears once per notice version; turning the master switch off restores all defaults without confirmation.
+9. Manual macOS 15+: toggle on, confirm the notice states the ScreenCaptureKit caveat; record whether capture exclusion works in the QA screen-share tool (evidence, not a promise).
 **Gate G-E1:** screenshot + screen recording review by lead on a cloned profile.
 
 ### WP2 — Context builder, detector, streaming answer engine (parallel after G-A)
 Files: `electron/copilot/{context,detector,engine,prompts,guard,cost,redact}.ts`, `electron/copilot/providers/{zen,openrouter,api}.ts`, `electron/copilot/prices.json`, `recommended-models.json`, tests + `electron/copilot/fixtures/**`, `scripts/copilot-latency.mjs` (harness).
+**Port from Open-Cluely:**
+| Source | Target | Adaptation |
+|---|---|---|
+| `services/ai/prompts.js` | `electron/copilot/prompts.ts` | keep the Ask/Screen/Suggest/Notes action split; rewrite prompts with grounding, STAR shape, never-invent rule, injection fence |
+| `services/ai/gemini-service.js` | `electron/copilot/providers/gemini.ts` (+ queue/backoff/history in `engine.ts`) | request queue, backoff, rolling history, chunk streaming; main path is SSE providers |
+| `main-process/features/assistant/gemini-runtime.js` | `electron/copilot/failover.ts` | key rotation with **typed error codes** (no substring matching); keys from `safeStorage` |
+| `services/ai/ollama-service.js` | `electron/copilot/providers/ollama.ts` | M4 local-only |
+| `renderer/features/ai-context/{context-bundle,message-store,message-types,toggle-ui}.js` | `electron/copilot/context.ts` (budgeted bundle, newest-first) + per-line "AI on/off" in `renderer/overlay/Transcript.tsx` | TS types, char/token budget from config |
+| `main-process/features/assistant/ipc.js` | `electron/copilot/handlers.ts` (action lock, flush pending STT text before answering) | `careerloom:copilot*` envelopes |
+
 Accept: SSE parser unit tests (fragmented chunks, `[DONE]`, errors, abort); detector precision/recall on a 60-utterance labelled fixture ≥ 0.9 / 0.85; `proof[]` items are substrings of `cv.md` (property test); `factCheck` flags injected fake numbers; harness prints p50/p95 first-token for 3 providers with a $2 cap.
 **Gate G-C:** latency numbers reviewed; provider/model defaults chosen.
 
 ### WP3 — Capture + STT (mic first; system audio behind a spike)
 Files: `renderer/overlay/capture/**` (worklet, mic, system), `electron/copilot/stt/{adapter,soniox,assemblyai,fake,ring}.ts`, `electron/copilot/audio-perms.ts`, `build/entitlements.mac.plist`, `package.json` `build.mac` (**only this package edits the mac block; integration owner merges**), `electron/copilot/session.ts` (capture+STT orchestration only).
+**Port from Open-Cluely:**
+| Source | Target | Adaptation |
+|---|---|---|
+| `services/assembly-ai/service.js` | `electron/copilot/stt/assemblyai.ts` | implement `SttAdapter`; reconnect + ring buffer; key from `safeStorage` |
+| `services/assembly-ai/stt-history.js` | `electron/copilot/stt/merge.ts` | merge finals per source inside ~2.4 s |
+| `services/assembly-ai/ipc.js` | `handlers.ts` | audio chunks over `send`, not invoke |
+| `windows/assistant/pcm-capture-worklet.js` | `renderer/overlay/capture/worklet.js` | as-is, 16 kHz PCM16 frames |
+| `renderer/features/assembly-ai/audio-pipeline.js` | `renderer/overlay/capture/{mic,system,pipeline}.ts` | replace naive averaging downsample with a proper resampler; add 3 s silent-source detector; system path via `setDisplayMediaRequestHandler` (new; spike S1) |
+| `renderer/features/assembly-ai/{source-state,transcript-buffer}.js` | `capture/source-state.ts`, `stt/buffer.ts` | TS |
+| `renderer/features/transcription/transcription-manager.js` | `renderer/overlay/useCopilotEvents.ts` (partial/final transcript state) | React hook |
+macOS system audio has no source to port (Open-Cluely relies on Windows loopback): new work behind S1.
+
 Steps: (1) mic → 16 kHz PCM → fake STT replay parity test; (2) first real adapter; reconnect/ring buffer; (3) **spike S1 (time-boxed 1 day)** on a signed or ad-hoc-signed build on macOS: loopback vs system-picker vs BlackHole, record which work, silent-track detector, TCC prompt behaviour across updates; (4) Windows loopback check.
 Accept: mic-only end-to-end in a dev build; `silent` health fires within 3 s of a dead track; adapter contract tests pass for fake + real (real behind `CL_LIVE_STT=1`, ≤ $0.50 cap); spike report committed.
 **Gate G-B:** go/no-go on system audio per platform, written from S1 evidence.
 
 ### WP4 — Config UI, practice, sessions & debrief (parallel after G-A; consumes WP1–3 via contract)
 Files: `renderer/sections/copilot/**`, `renderer/components/copilot/**` (except OverlayPreview), `electron/copilot/{store,practice,debrief,handlers}.ts`, THIRD_PARTY_NOTICES additions.
-Scope: all 10 pages to match `prototype/shots`; consent gate dialog (+ server-side validation in `handlers.ts`); practice runner (mock interviewer question queue from report interview plan; follow-ups via engine); sessions table, scorecard (LLM-scored via the **text-only** neutral run, cheap model), Apply to résumé bullets / job notes.
-Accept: pages pass a11y checks (labels, focus order, Esc on dialog); `copilotStart(live)` without consent rejected (test); retention sweep tests; practice session end-to-end on fake STT + fake provider.
-**Gate G-D (legal/policy):** lead/user reviews consent text, employer-policy link text, default provider, retention defaults before Live is enabled in a release build.
+**Port from Open-Cluely:** `services/state/app-state.js` → `electron/copilot/store.ts` (sessions JSON; **keys removed**, moved to `safeStorage`); `main-process/features/settings/ipc.js` → config handlers (return `hasKey` booleans only); `renderer/features/settings/settings-panel-manager.js` and `features/chat/chat-ui-manager.js` → reference only for the React pages and transcript.
+Scope: all 10 pages to match `prototype/shots` (incl. Privacy mode group + notice); consent gate dialog (+ server-side validation in `handlers.ts`); practice runner (mock interviewer question queue from report interview plan; follow-ups via engine); sessions table, scorecard (LLM-scored via the **text-only** neutral run, cheap model), Apply to résumé bullets / job notes.
+Accept: pages pass a11y checks (labels, focus order, Esc on dialog; the Privacy mode switch announces its state and opens the notice dialog first); `copilotStart(live)` without consent rejected (test); retention sweep tests; practice session end-to-end on fake STT + fake provider.
+**Gate G-D (legal/policy):** lead/user reviews consent text, **Privacy mode notice text**, employer-policy link text, default provider, retention defaults before Live is enabled in a release build.
 
 ### WP5 — Later milestones (separate dispatches, not started now)
-M3 screenshot→vision (`desktopCapturer`, image to vision model, FIFO cap + crash sweep, Screen Recording guidance); M4 local STT (Apple SpeechAnalyzer helper on macOS 26+, else whisper.cpp; install flow like `prescreen-model.ts`; long-lived child process + cleanup) and local LLM; Windows hardening and installer tests; notarization.
+M3 screenshot→vision (`desktopCapturer`, image to vision model, FIFO cap + crash sweep, Screen Recording guidance). **Port:** `main-process/features/assistant/screenshot-manager.js` → `electron/copilot/screenshots.ts` (FIFO cap, cleanup on clear/quit, add crash-recovery sweep, temp dir), `services/ocr/service.js` → `electron/copilot/ocr.ts` (tesseract.js, fallback only); M4 local STT (Apple SpeechAnalyzer helper on macOS 26+, else whisper.cpp; install flow like `prescreen-model.ts`; long-lived child process + cleanup) and local LLM; Windows hardening and installer tests; notarization.
 
 ### Sequencing
 ```
@@ -312,8 +369,8 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 
 | Decision | Current default | Where it bites |
 |---|---|---|
-| Responsible-use option | **B**: practice first; live = visible chip + per-session consent; no stealth | §9, WP4 consent gate, design §7 |
-| Hide-from-capture | Not offered (macOS 15+ ScreenCaptureKit ignores the flag) | overlay-window.ts; Privacy page row is a disabled explainer |
+| Responsible-use option | **B** + opt-in Privacy mode: practice first; live = per-session consent; no disguise features | §9, WP4 consent gate, design §7 |
+| Privacy mode (hide-from-capture, no Dock icon, neutral title, click-through, quick hide, indicator) | **Opt-in, OFF**; notice on first enable; indicator default = chip | `privacy-mode.ts`, Privacy page group |
 | MVP scope | Practice + mic-only + streaming API runner | §14 |
 | Platforms | macOS first, Windows second | WP3 S1, §12 |
 | Budget | ≈ $0.30 per interview; per-session ceiling $1.00 | §10, `engine.ts` |
@@ -323,7 +380,7 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 
 ## 16. Licence and notice obligations
 
-- **Open-Cluely:** no licence ⇒ all rights reserved. Clean-room only; no code, prompts, text or assets. Add a "not used" line to `THIRD_PARTY_NOTICES.md`. Optional: ask the authors to add MIT/Apache-2.0 if we ever want more than ideas.
+- **Open-Cluely:** the user's own project ⇒ ports allowed. Keep the per-file "Ported from Open-Cluely" header and one attribution line in `THIRD_PARTY_NOTICES.md`. Adding a `LICENSE` to Open-Cluely is the owner's call. Git history shows other contributors; see open question 10.
 - **shadcn/ui** (MIT) and **prompt-kit** (MIT): keep notices for copied files; list in `THIRD_PARTY_NOTICES.md`.
 - **Do not add:** coss ui / Origin UI (AGPL-3.0), Aceternity (licence unverifiable), AI Elements `message`/`reasoning`/`persona`.
 - STT/LLM providers: user-supplied keys, provider terms linked in UI; no vendor credit in public-facing text (repo rule: vendor-neutral wording; runners listed neutrally).
@@ -338,7 +395,9 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 | False question triggers / missed questions | distraction | rules + classify; on-demand default; user hotkey always available |
 | Unsupported claims in suggestions | user says something false | proof must be a substring of résumé; `factCheck` flag; never-invent rule not configurable |
 | Consent/legal: recording the other party | user harm, product reputation | per-session gate, system audio off by default, jurisdiction text, practice-first, legal review at G-D |
-| Employer policy bans AI in interviews | candidate penalised | gate text + policy link; Practice path promoted; no stealth |
+| Employer policy bans AI in interviews | candidate penalised | gate text + policy link; Practice path promoted; Privacy mode notice repeats it; no "undetectable" wording anywhere |
+| Privacy mode gives false assurance (macOS 15+ ScreenCaptureKit ignores content protection; cameras/proctoring unaffected) | user relies on it | off by default, notice says so, row badge "Unreliable on macOS 15+", QA evidence recorded, no marketing claims |
+| Low-profile features drift toward evasion | reputational/ethical | scope limit in §1, `no-masquerade.test.ts`, review checklist at each gate |
 | Overlay steals focus / blocks the call | trust | non-focusable panel, hotkeys, click-through, manual QA checklist; `type:'panel'` semantics verified on signed build |
 | Ad-hoc signed updates reset TCC permissions | repeated permission prompts | record in S1; signing/notarization (M4) |
 | Provider retention/training of prompts | privacy | provider notes in UI, redaction, local-only mode, default chosen at G-D |
@@ -348,7 +407,7 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 
 ## 18. Open questions for the user
 
-1. **Confirm responsible-use option B** and that hide-from-capture stays out of v0.3.0 (macOS 15+ ScreenCaptureKit caveat). Is an opt-in "hide from my own screen share" worth building later?
+1. **Confirm the defaults:** option B (per-session consent, practice first) plus Privacy mode OFF by default with the one-time notice (macOS 15+ ScreenCaptureKit caveat), quick-hide hotkey `⌃⌥⇧H`, indicator choices full / small dot / off (tray icon always on). Anything to add or cut from the Privacy mode list?
 2. **Legal/policy review:** who signs off the consent text and the "check the employer's rules" copy (gate G-D)? Any jurisdictions to call out beyond the generic all-party note?
 3. **STT provider:** Soniox vs AssemblyAI vs Deepgram Flux — bring-your-own key only, or should Careerloom offer a bundled/trial key (cost and abuse implications)?
 4. **Default LLM provider/model tier** and whether interview text may go to hosted models with 30-day retention (or require local/zero-retention providers by default).
@@ -357,5 +416,5 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 7. **Windows timing** and whether Windows gets the same Live mode or practice-only first.
 8. **Transcript retention default** (7 days proposed) and whether saved sessions may feed the Resume/Job pages automatically or only on explicit Apply.
 9. **Apple signing/notarization** budget: ad-hoc builds may keep re-prompting for permissions.
-10. **Open-Cluely:** do you want us to contact the authors about a licence, or leave it as reference-only?
+10. **Open-Cluely ownership:** you own it; adding a `LICENSE` is your call. Git history lists other contributors: confirm their contributions may be ported, or limit ports to files you wrote.
 11. Is `feat-job-page`'s `reportParse` contract final (Interview Plan STAR stories), and who owns changes to it?

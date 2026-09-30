@@ -8,18 +8,19 @@ Caveat on sources: the fetch tool summarises pages with a small model; prices/ve
 
 | # | Decision | Recommended |
 |---|---|---|
-| 1 | Open-Cluely reuse | Ideas only, clean-room. Ask authors for a licence if we ever want more |
-| 2 | Responsible-use default | **Option B**: Practice mode first; Live mode = visible "Listening" chip + per-session consent + policy acknowledgement; no stealth |
-| 3 | Hide-from-capture | Not shipped in MVP (unreliable on macOS 15+, reads as cheating); revisit as off-by-default "hide from *my own* screen share" |
+| 1 | Open-Cluely reuse | **Port** (user confirmed it is their own project; supersedes the clean-room rule). Do not port disguise/stealth-identity features or plaintext keys. Port map in `plan.md` §11 |
+| 2 | Responsible-use default | **Option B** (practice first; live = per-session consent + policy acknowledgement; Listening indicator on by default) **plus an opt-in Privacy mode group, OFF by default** (option C) |
+| 3 | Hide-from-capture | Included **only inside Privacy mode** (OFF by default, one-time plain notice, labelled unreliable on macOS 15+). Not included: process-name masquerading, fake system-app identities, anything aimed at defeating proctoring or anti-cheat |
 | 4 | STT | MVP: cloud streaming, two channels (Soniox or AssemblyAI; Deepgram Flux if endpointing matters). Local-only later: Apple SpeechAnalyzer (macOS 26+) else whisper.cpp |
 | 5 | Answer runner | New in-process **streaming** runner (SSE) on API/Zen/OpenRouter-style endpoints; default small fast model; "deep" escalates. Agent CLIs are not viable for live |
 | 6 | Components | shadcn core (`message bubble marker message-scroller`) + prompt-kit (`response-stream text-shimmer loader`); hand-build meter/stepper/suggestion card; avoid AI Elements heavy parts, coss ui (AGPL), Aceternity |
 
-## A. Open-Cluely analysis (clean-room reference only)
+## A. Open-Cluely analysis (owner's own project: port allowed)
 
 Detail: `research-notes/A-open-cluely.md`.
 
-**Licence finding (plain):** no `LICENSE` file, `package.json` licence field is null ⇒ all rights reserved by default. We may study ideas; we may **not** copy code, prompts, UI text or assets. Everything we build is a clean-room rewrite from behaviour. If we want to do more than ideas, ask the authors to add MIT/Apache-2.0; until then log it in `THIRD_PARTY_NOTICES.md` as "reference only, not used".
+**Licence finding (updated after user confirmation):** the repo has no `LICENSE` file and `package.json` licence is null (all rights reserved by default), **but the user confirmed Open-Cluely is their own project**, so its code, prompts and assets may be ported into Careerloom. This supersedes the earlier clean-room conclusion (kept in `research-notes/A-open-cluely.md` as the original analysis). Adding a `LICENSE` to Open-Cluely is the owner's call. Keep a short attribution line in `THIRD_PARTY_NOTICES.md` ("ported from the owner's Open-Cluely"). Git history lists contributors besides the owner; see the plan's open question on confirming those contributions are covered.
+Still **not ported**, regardless of ownership: browser/system-process disguise (fake publisher, app id, icon, process title), plaintext API-key storage, disabled web security / ignored certificate errors, the unauthenticated LAN companion.
 
 **What it is:** Electron 28, plain JS, vanilla renderer. Main process wires services: AI (Gemini, request queue/backoff, rolling history, undocumented Ollama option), AssemblyAI streaming STT (one websocket per source), tesseract.js OCR + screenshot-desktop, JSON-persisted state.
 
@@ -32,23 +33,28 @@ Detail: `research-notes/A-open-cluely.md`.
 **Works well:** per-message context toggles + budget; per-source STT; no-focus show; emergency hide; key failover.
 **Weaknesses:** plaintext keys sent to renderer, open LAN server, web security/cert checks disabled, full-screen captures sent to a cloud model, disguise as a browser/system process, stealth-first marketing with a one-line disclaimer, one test file, mac host audio missing.
 
-### Reuse matrix
+### Reuse matrix (updated: owner-confirmed, so port where it saves work)
 
-| Item | Verdict |
-|---|---|
-| Transparent always-on-top overlay, no-focus show, all-workspaces | Idea → clean-room from Electron docs |
-| Per-message context toggles + char budget | Idea → clean-room (strong UX) |
-| Four-action split with different context slices | Idea → our own prompts/actions |
-| Dual-source STT, label by channel, merge finals in a short window | Idea → clean-room |
-| Key failover (rotate on quota, restore index) | Idea → clean-room with typed errors |
-| Screenshot FIFO cap + cleanup | Idea → add crash sweep, temp dir |
-| Emergency hide / unresponsive recovery | Idea → clean-room |
-| OCR-as-text grounding | Idea; prefer vision model or native OCR |
-| Content protection / stealth opacity / cursor trick | Skip (see §E) |
-| Browser/system-process disguise, fake publisher | Skip (impersonation) |
-| Mobile LAN companion | Skip (if ever: pairing token, TLS/tunnel) |
-| Plaintext key file, disabled web security | Skip (we use `safeStorage`) |
-| Code, prompts, copy, icons | Skip (copyright) |
+| Item (Open-Cluely source) | Verdict | Note |
+|---|---|---|
+| Overlay window flags, no-focus show, all-workspaces (`windows/assistant/window.js`, `features/window/window-controller.js`) | **Port** (TS) | Drop disguise parts; add anchors per display |
+| Content protection toggle | **Port**, opt-in Privacy mode only | Off by default; notice; unreliable on macOS 15+ |
+| Dock-icon hide, neutral window title, click-through, emergency hide | **Port/adapt** as Privacy mode options | Title fixed to "Careerloom", no job/company text; quick hide hides and clears text |
+| Near-zero-opacity "stealth", cursor-shape trick, fake system-process/browser identity, Chrome-style packaging | **Skip** | Detection-evasion / impersonation; not included |
+| Global hotkey set (`src/config.js`) | **Port** with new keys | Replace Alt+Shift (IME clash) with the ⌃⌥ set |
+| Per-message AI on/off + newest-first char budget (`features/ai-context/*`) | **Port** | Into context builder + transcript line toggle |
+| Action split (Ask / Screen / Suggest / Notes) and prompts (`services/ai/prompts.js`) | **Port + rewrite** | Add grounding, STAR, never-invent rules |
+| Gemini service: queue, backoff, streaming chunks, history (`services/ai/gemini-service.js`) | **Port** as one provider | Main path becomes SSE providers (Zen/OpenRouter/API) |
+| Key failover (`features/assistant/gemini-runtime.js`) | **Port** with typed errors | Keys via `safeStorage`, never plaintext |
+| Ollama provider (`services/ai/ollama-service.js`) | **Port** for M4 local-only | |
+| AssemblyAI streaming + per-source merge (`services/assembly-ai/*`) | **Port** as an `SttAdapter` | Fix naive downsample, add silent-source detector |
+| Mic / host capture pipeline + worklet (`features/assembly-ai/audio-pipeline.js`, `pcm-capture-worklet.js`) | **Port** (mic, Windows loopback) | macOS system audio not in source: new spike |
+| Screenshot FIFO + cleanup (`screenshot-manager.js`) | **Port** + crash sweep | Prefer `desktopCapturer` over an extra dependency |
+| OCR service (`services/ocr/service.js`) | **Port**, fallback only | Vision model is the default for code |
+| Persisted state (`services/state/app-state.js`) | **Adapt** | Sessions store; keys move to `safeStorage` |
+| Renderer (`renderer.js`, `styles.css`, `renderer.html`) | **Reference only** | New React overlay follows `design.md`; port behaviours, not markup |
+| Mobile LAN companion (`features/mobile-server/*`) | **Skip** | Unauthenticated; revisit only with pairing token + TLS |
+| Legacy whisper/webspeech/vosk files, `logs.txt` | **Skip** | Dead code |
 
 ## B. Careerloom building blocks (verified in repo)
 
@@ -147,11 +153,15 @@ See C4 table. Local-only (16 GB Apple Silicon): SpeechAnalyzer or whisper.cpp (s
 | | Description | Pros | Cons |
 |---|---|---|---|
 | A Practice-only | Mock interviews from the job's report, local | No third-party consent/policy issue; simplest | Less differentiated |
-| **B Live + visible + consent (recommended default)** | Overlay on real calls; non-hideable "Listening" chip; per-session consent + policy acknowledgement; system audio off by default | Strong legal/ethical posture; useful for permitted uses (prep, calls the user hosts, AI-allowed interviews) | Friction; unusable where AI is banned |
-| C Live + optional hide-from-capture | B + `setContentProtection` toggle | Privacy of own notes while presenting | Reads as cheating; unreliable on macOS 15+ ⇒ false assurance |
+| **B Live + visible + consent (recommended default)** | Overlay on real calls; Listening indicator (on by default, configurable only in Privacy mode); per-session consent + policy acknowledgement; system audio off by default | Strong legal/ethical posture; useful for permitted uses (prep, calls the user hosts, AI-allowed interviews) | Friction; unusable where AI is banned |
+| C Live + opt-in Privacy mode (**included, OFF by default**) | B + `setContentProtection` toggle, no Dock icon, neutral window title, click-through, quick hide, configurable indicator | Serves users who want a low-profile overlay on their own screen | Unreliable on macOS 15+ ⇒ false assurance; some employers prohibit AI help; reputational risk. Mitigated by off-by-default, a one-time plain notice, and the scope limits below |
 | D Stealth default | Hidden, no indicator | "Undetectable" marketing | Highest legal/ethical/reputation risk; contradicts vendor-neutral, trust-first positioning |
 
-**Recommendation: B**, with A as the onboarding path; C omitted initially (later: per-session, off by default, worded "hide my overlay from *my own* screen share while I present", never marketed as undetectable). Additional defaults: raw audio deleted after transcription, transcript text kept 7 days unless saved, local-only option, provider data-flow disclosed on screen, no stealth wording in UI/marketing.
+**Recommendation (updated after the user's scope decision): B as the default, A as the onboarding path, and C's options grouped under an explicit opt-in Privacy mode that is OFF by default**, with a one-time notice (some interviewers/employers prohibit AI assistance; hide-from-capture is unreliable on macOS 15+ and does nothing against cameras, proctoring tools or shoulder-surfing). The per-session consent gate stays. The recording indicator is configurable (full chip / small dot / off, non-full only inside Privacy mode); the menu-bar/tray icon always shows capture state and keeps "Stop now".
+
+**Not included (scope limit):** process-name masquerading, fake system-app or browser identities, disguised installers/icons, near-invisible opacity or cursor tricks, or anything whose purpose is defeating proctoring, monitoring or anti-cheat software.
+
+Additional defaults: raw audio deleted after transcription, transcript text kept 7 days unless saved, local-only option, provider data-flow disclosed on screen, no "undetectable" wording in UI or marketing.
 
 **Consent UX (per session, not once):** title "Before you start a live session"; two required checkboxes (AI assistance allowed here; everyone informed or law confirmed); optional jurisdiction picker with stronger note + copyable consent script for all-party places; system audio OFF by default with a one-line explanation; "Start live session" (disabled until both checked) and "Practice instead"; stored locally: session id, timestamps, acknowledgement text version, checkbox states, jurisdiction, sources, provider, whether transcript saved (no raw audio); export + delete-all. Full spec in notes DE §E5.
 

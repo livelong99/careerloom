@@ -1,5 +1,7 @@
 # Open-Cluely analysis (behaviour only, no code/prompt text quoted)
 
+> **Update:** the user confirmed Open-Cluely is their own project, so porting is allowed (see `research.md` §A and `plan.md` §11). The clean-room wording below is the original analysis and is superseded; the disguise/stealth-identity, plaintext-key and open-LAN items are still not ported.
+
 Repo: `/Users/perkypanda/Documents/Obsidian/Vault/10_Projects/10-projects/Open-Cluely`
 Contributors (git): Akash Singh, Shubham Shinde, HaryiankKumra. Electron 28, plain JS, no bundler, no TS.
 
