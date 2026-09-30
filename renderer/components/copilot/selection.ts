@@ -24,3 +24,15 @@ export function setSelection(patch: Partial<Selection>): void {
 }
 export const getSelection = (): Selection => current
 export const useSelection = (): Selection => useSyncExternalStore(cb => { listeners.add(cb); return () => { listeners.delete(cb) } }, getSelection)
+
+export const GOTO_EVENT = 'careerloom:copilot-goto'
+/** Switch the Copilot workspace to another page (links such as "Fix system audio" or "View sessions"). */
+export const gotoPage = (id: string): void => { window.dispatchEvent(new CustomEvent(GOTO_EVENT, { detail: id })) }
+
+// Which practice questions are ticked, plus your own (session-only, not persisted): shared by the Practice page and the header's Start practice.
+export type PracticePick = { ids: string[] | null; custom: string[] }
+let pick: PracticePick = { ids: null, custom: [] }
+const pickListeners = new Set<() => void>()
+export const getPracticePick = (): PracticePick => pick
+export function setPracticePick(next: PracticePick): void { pick = next; pickListeners.forEach(l => l()) }
+export const usePracticePick = (): PracticePick => useSyncExternalStore(cb => { pickListeners.add(cb); return () => { pickListeners.delete(cb) } }, getPracticePick)
