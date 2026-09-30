@@ -89,6 +89,8 @@ export type PromptOptions = {
   model?: string
   /** agy project holding Careerloom's permission grants (see agy-project.ts). */
   agyProject?: string
+  /** No file or shell tools: the task is answered from the prompt alone (web search/fetch stay). */
+  textOnly?: boolean
 }
 
 /** Model ids are passed as argv values; keep them to a safe charset so they can't read as flags. */
@@ -97,6 +99,10 @@ export const isModelId = (v: unknown): v is string => typeof v === 'string' && /
 export function argsForPrompt(runner: CliRunner, prompt: string, opts: PromptOptions = {}): { bin: string; args: string[] } {
   switch (runner) {
     case 'claude': {
+      if (opts.textOnly) {
+        // `--tools` narrows the built-in set; `--allowedTools` lets those two run without a prompt. Both variadic, so last.
+        return { bin: BINS.claude, args: ['-p', prompt, '--output-format', 'stream-json', '--verbose', ...(opts.resume && /^[\w-]{8,64}$/.test(opts.resume) ? ['--resume', opts.resume] : []), ...(isModelId(opts.model) ? ['--model', opts.model] : []), '--tools', 'WebSearch,WebFetch', '--allowedTools', 'WebSearch', 'WebFetch'] }
+      }
       const extra = [
         ...(opts.resume && /^[\w-]{8,64}$/.test(opts.resume) ? ['--resume', opts.resume] : []),
         ...(opts.addDirs?.length ? ['--add-dir', ...opts.addDirs] : []),
@@ -108,7 +114,7 @@ export function argsForPrompt(runner: CliRunner, prompt: string, opts: PromptOpt
     }
     case 'codex':
       // Codex has no slash-skill routing in exec mode; career-ops documents plain text.
-      return { bin: BINS.codex, args: ['exec', '--sandbox', 'workspace-write', ...(isModelId(opts.model) ? ['--model', opts.model] : []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.`] }
+      return { bin: BINS.codex, args: ['exec', '--sandbox', opts.textOnly ? 'read-only' : 'workspace-write', ...(isModelId(opts.model) ? ['--model', opts.model] : []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.`] }
     case 'antigravity':
       // agy's --add-dir is repeatable (one dir per flag); it has no system-prompt flag.
       return {

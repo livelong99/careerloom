@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { broadcast, dataRoot, Handler, readSettings, startAgentPrompt, str, userFile } from '../context'
@@ -16,8 +16,6 @@ import { extractPdfPages } from './pdfText'
 import { openStore } from './store'
 
 const PROFILE_JSON = join('data', 'careerloom-profile.json')
-const ID = /^[0-9a-f-]{36}$/
-const fileFor = (id: string) => { if (!ID.test(id)) throw new Error('Invalid analysis id'); return join(dataRoot(), 'data', `careerloom-ats-${id}.json`) }
 
 /** Everything the lifecycle needs from the app, wired to the real thing. */
 function deps(): Deps {
@@ -35,12 +33,7 @@ function deps(): Deps {
     pages: extractPdfPages,
     runner: () => readSettings().runner,
     startAgent(prompt, o) {
-      startAgentPrompt('ATS analysis', 'ats', prompt, null, { resume: o.resume, onExit: r => o.onExit({ status: r.status, log: r.log, sessionId: r.sessionId ?? null }) })
-    },
-    agentFile: {
-      path: fileFor,
-      read: id => { try { return readFileSync(fileFor(id), 'utf8') } catch { return null } },
-      remove: id => rmSync(fileFor(id), { force: true }),
+      startAgentPrompt('ATS analysis', 'ats', prompt, null, { resume: o.resume, textOnly: true, onExit: r => o.onExit({ status: r.status, log: r.log, sessionId: r.sessionId ?? null }) })
     },
     get sim() { return localSimCall() },
     fetcher: netFetcher,

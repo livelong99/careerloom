@@ -10,7 +10,7 @@ import path from 'node:path'
 import { agyDenied, ensureAgyProject } from './agy-project'
 import { checkRoot } from './careerops'
 import { logTail } from './scan-history'
-import { NEEDS_ZEN_KEY, opencodeConfig, opencodeEnv, zenModel } from './opencode'
+import { NEEDS_ZEN_KEY, opencodeConfig, opencodeEnv, opencodeTextConfig, zenModel } from './opencode'
 import { agyFormatter, agyResultOk, agySessionId, agyUsage, argsFor, argsForPrompt, claudeSessionId, formatOpencodeLine, isModelId, claudeUsage, formatClaudeLine, isRunner, MODES, opencodeResultOk, opencodeSessionId, opencodeUsage, promptFor, resolveBin, RUNNERS, spawnSpec, startRun, type CliRunner, type ModeId, type PromptOptions, type RunnerId, type RunUsage, type SpawnSpec } from './runner'
 import { BROWSER_SYSTEM, runZen, zenPrompt, zenSystem, type BrowserTools } from './zen-agent'
 
@@ -331,10 +331,11 @@ export function startAgent(mode: ModeId, input?: string, extraEnv: NodeJS.Proces
 }
 
 /** Per-runner env for a CLI spawn: opencode gets its permission config and optional Zen key. */
-function cliEnv(runner: CliRunner): { env: NodeJS.ProcessEnv; secret?: string } {
+function cliEnv(runner: CliRunner, textOnly = false): { env: NodeJS.ProcessEnv; secret?: string } {
   if (runner !== 'opencode') return { env: {} }
   const key = readOpencodeKey()
-  return { env: opencodeEnv(opencodeConfig(skillContext().dirs), key), secret: key ?? undefined }
+  const dirs = skillContext().dirs
+  return { env: opencodeEnv(textOnly ? opencodeTextConfig(dirs) : opencodeConfig(dirs), key), secret: key ?? undefined }
 }
 
 /** A zen (in-process OpenCode Zen) run: career-ops file tools by default, or `browser` tools only. */
@@ -357,7 +358,7 @@ export function startZen(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | '
 
 /** Launch a server-built prompt (must start with a fixed literal, e.g. "/career-ops …").
  *  Needs an agent (CLI or zen); the OpenRouter API runner only implements fixed commands. */
-export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void }
+export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean }
 
 export function startAgentPrompt(label: string, mode: string, prompt: string, input: string | null = null, opts: AgentPromptOptions = {}): RunSummary {
   const { runner } = readSettings()
@@ -366,7 +367,9 @@ export function startAgentPrompt(label: string, mode: string, prompt: string, in
   if (runner === 'zen') return startZen({ runner, mode, label, input }, prompt, opts)
   const root = careerOpsRoot()
   // claude (--resume), agy (--conversation) and opencode (--session) continue sessions; codex starts fresh each message.
-  const { bin, args } = argsForPrompt(runner, prompt, promptOptions(runner === 'codex' ? {} : { resume: opts.resume }))
-  const cli = cliEnv(runner)
+  const base = promptOptions(runner === 'codex' ? {} : { resume: opts.resume })
+  // A text-only run needs neither the installed-skill folders nor their system-prompt note.
+  const { bin, args } = argsForPrompt(runner, prompt, opts.textOnly ? { ...base, addDirs: [], systemAppend: undefined, textOnly: true } : base)
+  const cli = cliEnv(runner, opts.textOnly)
   return summary(launch({ runner, mode, label, input }, [{ spec: spawnSpec(bin, args, { ...opts.env, ...cli.env }), cwd: root }], { format: streamFormat(runner, root), onExit: opts.onExit, secret: cli.secret }))
 }

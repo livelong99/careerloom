@@ -24,7 +24,6 @@ export type Deps = {
   runner(): string
   /** Starts the run; throws when no agent is configured. */
   startAgent(prompt: string, o: { resume?: string; onExit: (r: AgentRun) => void }): void
-  agentFile: { path(id: string): string; read(id: string): string | null; remove(id: string): void }
   sim: SimCall | null
   fetcher: Fetcher
   emit(e: AtsEvent): void
@@ -111,7 +110,7 @@ export async function startAnalysis(deps: Deps, input: AtsAnalyzeInput): Promise
   }
   const session = { runner: deps.runner(), sessionId: null, round: 1, asked: 0, questions: [], answers: [] }
   try {
-    launch(deps, { ...first, session }, buildPrompt({ cv, jd, outPath: deps.agentFile.path(id), canSearch: canSearch(session.runner) }))
+    launch(deps, { ...first, session }, buildPrompt({ cv, jd, canSearch: canSearch(session.runner) }))
   } catch (e) {
     await finishLocal(deps, { ...first, session }, cv, (e as Error).message)
     return { runId: id }
@@ -122,7 +121,6 @@ export async function startAnalysis(deps: Deps, input: AtsAnalyzeInput): Promise
 
 function launch(deps: Deps, a: Analysis, prompt: string, resume?: string): void {
   deps.store.save(a)
-  deps.agentFile.remove(a.id)
   deps.startAgent(prompt, { resume, onExit: r => { void afterRun(deps, a.id, r).catch(err => failed(deps, a.id, err)) } })
 }
 
@@ -147,14 +145,14 @@ async function afterRun(deps: Deps, id: string, run: AgentRun): Promise<void> {
   if (!a || a.id !== id || !a.session || !cv) return
   const session = { ...a.session, sessionId: run.sessionId ?? a.session.sessionId }
   if (run.status !== 'done') return finishLocal(deps, { ...a, session }, cv, `The agent run ${run.status}`)
-  const text = deps.agentFile.read(id) ?? extractJson(run.log)
-  const v = text ? validateAgentOutput(text, { needJd: !!a.jd }) : { ok: false as const, errors: ['no JSON was written to the output file'] }
+  const text = extractJson(run.log)
+  const v = text ? validateAgentOutput(text, { needJd: !!a.jd }) : { ok: false as const, errors: ['no JSON object was found in your reply'] }
   if (!v.ok) {
     if (session.repaired) return finishLocal(deps, { ...a, session }, cv, 'The agent did not return a readable result')
     deps.emit({ runId: id, phase: 'agent', message: 'Asking the agent to fix its answer' })
     const next = { ...a, session: { ...session, repaired: true } }
     const resume = RESUMABLE.has(session.runner) && session.sessionId ? session.sessionId : undefined
-    return launch(deps, next, resume ? repairPrompt(v.errors, deps.agentFile.path(id)) : buildPrompt({ cv, jd: a.jd, outPath: deps.agentFile.path(id), canSearch: canSearch(session.runner), partial: `Validation errors to fix: ${v.errors.join('; ')}` }), resume)
+    return launch(deps, next, resume ? repairPrompt(v.errors) : buildPrompt({ cv, jd: a.jd, canSearch: canSearch(session.runner), partial: `Validation errors to fix: ${v.errors.join('; ')}` }), resume)
   }
   const out = v.out
   const asked = session.asked + out.questions.length
@@ -181,7 +179,6 @@ async function finalize(deps: Deps, a: Analysis, out: AgentOutput, cv: string): 
   }
   const next = await save(deps, { ...a, extraction: out.extraction, agentFindings: out.findings, hints: out.skillHints, courses, plan: out.plan, notes, session: undefined }, cv)
   deps.store.cachePut(next)
-  deps.agentFile.remove(a.id)
   deps.emit({ runId: a.id, phase: 'done', message: 'Analysis ready' })
 }
 
@@ -198,9 +195,9 @@ export async function answerAnalysis(deps: Deps, runId: string, answers: AtsAnsw
   const runner = deps.runner()
   const resume = RESUMABLE.has(runner) && runner === s.runner && s.sessionId ? s.sessionId : undefined
   const prompt = resume
-    ? resumePrompt(answers, deps.agentFile.path(runId), finalRound)
+    ? resumePrompt(answers, finalRound)
     // Stateless path (codex, or a different runner than the one that asked): everything is re-sent with the answers injected.
-    : buildPrompt({ cv, jd: a.jd, outPath: deps.agentFile.path(runId), canSearch: canSearch(runner), answers: all, partial: s.partial, finalRound })
+    : buildPrompt({ cv, jd: a.jd, canSearch: canSearch(runner), answers: all, partial: s.partial, finalRound })
   deps.emit({ runId, phase: 'agent', message: 'The agent is using your answers' })
   launch(deps, { ...a, session: { ...s, runner, round, answers: all, questions: [] } }, prompt, resume)
   return { runId }

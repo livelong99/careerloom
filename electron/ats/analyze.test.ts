@@ -23,7 +23,6 @@ function harness(opts: { runner?: string; cv?: string } = {}) {
   let n = 0
   const events: AtsEvent[] = []
   const prompts: Array<{ prompt: string; resume?: string }> = []
-  const files = new Map<string, string>()
   let pending: ((r: AgentRun) => void) | null = null
   const store = memoryStore()
   let rebuilt = 0
@@ -32,16 +31,13 @@ function harness(opts: { runner?: string; cv?: string } = {}) {
     readCv: () => cv, writeCv: md => { cv = md },
     render: async () => ({ pdf: new Uint8Array(1), html: htmlOf(cv) }), pages: async () => onePagePdf(cv),
     runner() { return this.runnerName }, startAgent: (prompt, o) => { prompts.push({ prompt, resume: o.resume }); pending = o.onExit },
-    agentFile: { path: id => `/tmp/${id}.json`, read: id => files.get(id) ?? null, remove: id => void files.delete(id) },
     sim: null, fetcher: async url => ({ status: url.includes('dead') ? 404 : 200 }), emit: e => void events.push(e),
     rebuildProfile: () => { rebuilt++; return true }, defaultTemplate: () => 'standard',
   }
   const finish = async (json: string | null, run: Partial<AgentRun> = {}) => {
-    const id = store.current()!.id
-    if (json !== null) files.set(id, json)
     const cb = pending!
     pending = null
-    cb({ status: 'done', log: '', sessionId: 's-1', ...run })
+    cb({ status: 'done', log: json ?? '', sessionId: 's-1', ...run }) // the agent's reply is the run log
     await new Promise(r => setTimeout(r, 25)) // afterRun is async
   }
   return { deps, events, prompts, finish, getCv: () => cv, setCv: (c: string) => { cv = c }, rebuilt: () => rebuilt, store }
