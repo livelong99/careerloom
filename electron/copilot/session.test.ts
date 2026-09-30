@@ -71,4 +71,32 @@ describe('session controller (mic-only, fake STT)', () => {
     await expect(s.start(REQ)).rejects.toThrow(/already running/)
     await s.stop('panic'); await expect(s.start(REQ)).resolves.toBeTruthy()
   })
+
+  it('reports each adapter end-of-turn with its speaker', async () => {
+    const eot: string[] = []
+    const events: Array<[string, unknown]> = []
+    const fx = [{ atMs: 100, ev: 'final', text: 'Hi.', t0: 0, t1: 100 }, { atMs: 200, ev: 'endOfTurn', text: '', t0: 100, t1: 200 }].map(e => JSON.stringify(e)).join('\n')
+    const s = createSessionController({
+      createAdapter: () => createFakeAdapter(parseFixture(fx)), now: () => 0, newId: () => 'S', endOfTurn: sp => void eot.push(sp),
+      emit: (ev, p) => void events.push([ev, p]),
+      stt: () => ({ engine: 'moonshine', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 700, vocab: [] }),
+    })
+    await s.start(REQ)
+    for (let i = 0; i < 3; i++) s.audio({ source: 'mic', pcm16: chunk(100, 500), t: i })
+    expect(eot).toEqual(['you'])
+    await s.stop('user')
+  })
+
+  it('retry swaps in fresh adapters for the running session and keeps listening', async () => {
+    let made = 0
+    const { s, of } = setup(() => { made++; return createFakeAdapter(parseFixture(FIXTURE)) })
+    await s.start(REQ)
+    await s.retry()
+    expect(made).toBe(2)
+    expect(s.state()).toBe('listening')
+    s.audio({ source: 'mic', pcm16: chunk(1000, 500), t: 0 })
+    expect((of('copilotTranscript') as unknown[]).length).toBeGreaterThan(0)
+    await s.stop('user'); await s.retry() // a stopped session is not revived
+    expect(made).toBe(2)
+  })
 })

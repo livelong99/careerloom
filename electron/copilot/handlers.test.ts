@@ -41,8 +41,8 @@ beforeEach(() => { setPlatform('darwin'); sent.length = 0 })
 afterEach(() => setPlatform(real))
 
 describe('registration and platform guard', () => {
-  it('registers every CopilotApi method (22 + 2 config), all prefixed copilot', () => {
-    expect(Object.keys(copilotHandlers)).toHaveLength(24)
+  it('registers every CopilotApi method (23 + 2 config), all prefixed copilot', () => {
+    expect(Object.keys(copilotHandlers)).toHaveLength(25)
     expect(Object.keys(copilotHandlers).every(k => k.startsWith('copilot'))).toBe(true)
   })
   it('refuses every call off macOS', async () => {
@@ -252,3 +252,76 @@ describe('readiness, context and delegation', () => {
     expect(await c.handlers.copilotApplyDebrief('missing', 'q', 'job-note')).toEqual({ ok: false })
   })
 })
+
+describe('integration slots (WP1–3 bound through CopilotDeps)', () => {
+  const nextTick = () => new Promise(r => setTimeout(r, 0))
+
+  it('stop is memoised: a capture stop that raises its own stopped event does not re-enter', async () => {
+    let c!: ReturnType<typeof setup>['c']
+    const session = { start: vi.fn(async () => undefined), stop: vi.fn(async () => { void c.stop('user'); await nextTick() }) }
+    ;({ c } = setup({ session }))
+    await c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null })
+    await c.handlers.copilotStop('user')
+    expect(session.stop).toHaveBeenCalledTimes(1)
+    expect(c.recorder.active()).toBeNull()
+  })
+
+  it('copilotStop reaches the capture stop even when no session is recorded (kill switch)', async () => {
+    const session = { start: vi.fn(), stop: vi.fn(async () => undefined) }
+    const { c } = setup({ session })
+    await c.handlers.copilotStop('panic')
+    expect(session.stop).toHaveBeenCalledWith('panic')
+  })
+
+  it('overlay start restarts the last practice session; a live session needs confirmation in the app', async () => {
+    const session = { start: vi.fn(async () => undefined), stop: vi.fn(async () => undefined) }
+    const { c } = setup({ session })
+    await c.handlers.copilotOverlay({ start: true })
+    expect(session.start).not.toHaveBeenCalled()
+    expect(sent.find(([ch]) => ch === 'careerloom:copilotError')?.[1]).toMatchObject({ kind: 'capture' })
+    await c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null })
+    await c.handlers.copilotStop('user')
+    await c.handlers.copilotOverlay({ start: true })
+    expect(session.start).toHaveBeenCalledTimes(2)
+  })
+
+  it('overlay retry calls the retry slot; other commands reach the overlay slot', async () => {
+    const retry = vi.fn(), overlay = vi.fn()
+    const { c } = setup({ retry, overlay })
+    await c.handlers.copilotOverlay({ retry: true })
+    await c.handlers.copilotOverlay({ collapse: true })
+    expect(retry).toHaveBeenCalledTimes(1)
+    expect(overlay).toHaveBeenCalledWith(expect.objectContaining({ collapse: true }))
+  })
+
+  it('practice answers come from the capture session, so the runner does not duplicate the candidate line', async () => {
+    const session = { start: vi.fn(async () => undefined), stop: vi.fn(async () => undefined) }
+    const { c } = setup({ session })
+    await c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null })
+    await c.feed({ id: 'l1', speaker: 'you', text: 'I led the migration.', final: true, t0: 0, t1: 1 }, true)
+    expect(sent.filter(([ch, p]) => ch === 'careerloom:copilotTranscript' && (p as { speaker: string }).speaker === 'you')).toHaveLength(0)
+    expect(sent.some(([ch, p]) => ch === 'careerloom:copilotTranscript' && (p as { speaker: string }).speaker === 'interviewer')).toBe(true)
+  })
+
+  it('model list/test, STT install and answers go to their slots', async () => {
+    const listLlmModels = vi.fn(() => [{ id: 'm' }]), testLlmModel = vi.fn(() => ({ ok: true })), installStt = vi.fn(async () => ({ runId: 'r1' })), answer = vi.fn()
+    const { c } = setup({ listLlmModels, testLlmModel, installStt, answer })
+    expect(await c.handlers.copilotListLlmModels()).toEqual([{ id: 'm' }])
+    await c.handlers.copilotTestLlmModel('openai/x')
+    expect(testLlmModel).toHaveBeenCalledWith('openai/x')
+    expect(await c.handlers.copilotInstallStt('small')).toEqual({ runId: 'r1' })
+    expect(installStt).toHaveBeenCalledWith('small')
+    await c.handlers.copilotAnswer('answer', 'q1')
+    expect(answer).toHaveBeenCalledWith('answer', 'q1')
+  })
+
+  it('the privacy notice ack goes through the overlay host slot when bound, and setConfig cannot forge it', async () => {
+    const ackNotice = vi.fn(() => ({ ok: true }))
+    const { c } = setup({ ackNotice })
+    expect(await c.handlers.copilotAckPrivacyNotice('v1')).toEqual({ ok: true })
+    expect(ackNotice).toHaveBeenCalledWith('v1')
+    const cfg = await c.handlers.copilotSetConfig({ privacy: { mode: { noticeVersion: 'forged' } } }) as { privacy: { mode: { noticeVersion: string | null } } }
+    expect(cfg.privacy.mode.noticeVersion).not.toBe('forged') // config file is shared across tests: only the forged value matters
+  })
+})
+

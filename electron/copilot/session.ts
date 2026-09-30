@@ -8,6 +8,8 @@ import type { AudioChunkMsg, CopilotConfig, CopilotEvents, CopilotState, SourceI
 export interface SessionController {
   start(req: StartRequest): Promise<{ sessionId: string }>
   stop(reason: StopReason): Promise<void>
+  /** Reopen speech recognition for the running session (the overlay's Retry). */
+  retry(): Promise<void>
   state(): CopilotState
 }
 
@@ -17,6 +19,8 @@ export type SessionDeps = {
   /** Sources to open. System audio stays off until gate G-B says go. */
   sources?: (req: StartRequest) => SourceId[]
   emit: <K extends keyof CopilotEvents>(ev: K, payload: CopilotEvents[K]) => void
+  /** The STT engine closed a turn (silence after speech): lets practice/answers act on the finals collected so far. */
+  endOfTurn?: (speaker: Speaker) => void
   now?: () => number
   newId?: () => string
 }
@@ -33,6 +37,7 @@ export function createSessionController(deps: SessionDeps) {
   const adapters = new Map<SourceId, SttAdapter>()
   const health = new Map<SourceId, ReturnType<typeof createSourceHealth>>()
   const lastLevel = new Map<SourceId, number>()
+  let lineSeq = 0 // per session, so ids stay unique across an STT retry
 
   function publish(next: CopilotState) {
     state = next
@@ -40,15 +45,16 @@ export function createSessionController(deps: SessionDeps) {
   }
 
   function wire(source: SourceId, a: SttAdapter) {
-    let seq = 0, open: { id: string; t0: number } | null = null
+    let open: { id: string; t0: number } | null = null
     const line = (text: string, t0: number, t1: number, final: boolean): TranscriptLine => {
-      open ??= { id: `${source}-${sessionId}-${seq++}`, t0 }
+      open ??= { id: `${source}-${sessionId}-${lineSeq++}`, t0 }
       const l: TranscriptLine = { id: open.id, speaker: SPEAKER[source], text, final, t0: open.t0, t1: final ? t1 : null }
       if (final) open = null
       return l
     }
     a.on('partial', e => { if (e.text) deps.emit('copilotTranscript', line(e.text, e.t0, e.t1, false)) })
     a.on('final', e => { if (e.text) deps.emit('copilotTranscript', line(e.text, e.t0, e.t1, true)) })
+    a.on('endOfTurn', () => deps.endOfTurn?.(SPEAKER[source]))
     a.on('error', e => deps.emit('copilotError', { kind: 'stt', message: e.message ?? 'Speech recognition error', retrying: !!e.retrying }))
   }
 
@@ -56,6 +62,19 @@ export function createSessionController(deps: SessionDeps) {
     for (const h of health.values()) h.stop()
     await Promise.allSettled([...adapters.values()].map(a => a.stop()))
     adapters.clear(); health.clear(); lastLevel.clear()
+  }
+
+  async function openSources() {
+    await Promise.all(active.map(async source => {
+      const a = deps.createAdapter()
+      adapters.set(source, a)
+      wire(source, a)
+      const h = createSourceHealth(source, hl => deps.emit('copilotHealth', hl), now)
+      health.set(source, h)
+      const cfg = deps.stt()
+      await a.start({ source, language: cfg.language, vocab: cfg.vocab, endSilenceMs: cfg.endSilenceMs })
+      h.start()
+    }))
   }
 
   const controller: SessionController & { audio(msg: AudioChunkMsg): void } = {
@@ -67,16 +86,7 @@ export function createSessionController(deps: SessionDeps) {
       active = deps.sources?.(req) ?? ['mic']
       publish('armed')
       try {
-        await Promise.all(active.map(async source => {
-          const a = deps.createAdapter()
-          adapters.set(source, a)
-          wire(source, a)
-          const h = createSourceHealth(source, hl => deps.emit('copilotHealth', hl), now)
-          health.set(source, h)
-          const cfg = deps.stt()
-          await a.start({ source, language: cfg.language, vocab: cfg.vocab, endSilenceMs: cfg.endSilenceMs })
-          h.start()
-        }))
+        await openSources()
       } catch (err) {
         await teardown()
         deps.emit('copilotError', { kind: 'stt', message: (err as Error).message, retrying: false })
@@ -96,6 +106,15 @@ export function createSessionController(deps: SessionDeps) {
       h.feed(msg.pcm16)
       const t = now()
       if (t - (lastLevel.get(msg.source) ?? 0) >= LEVEL_EVERY_MS) { lastLevel.set(msg.source, t); deps.emit('copilotLevel', { source: msg.source, level: h.level }) }
+    },
+
+    async retry() {
+      if (state !== 'listening') return
+      await teardown()
+      try { await openSources() } catch (err) {
+        await teardown()
+        deps.emit('copilotError', { kind: 'stt', message: (err as Error).message, retrying: false })
+      }
     },
 
     async stop() {

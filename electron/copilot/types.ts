@@ -35,7 +35,10 @@ export type SessionSummary = { id: string; startedAt: number; endedAt: number | 
 export type Scorecard = { structure: number; specifics: number; evidence: number; concision: number; notes: Array<{ questionId: string; tip: string; suggestedLine: string | null }> }
 export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; questionsList: DetectedQuestion[]; suggestions: Suggestion[]; scorecard: Scorecard | null }
 
-export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */ }
+/** `questionIds`/`custom` (practice only): the chosen report questions and the user's own. Additive to the frozen contract. */
+export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[] }
+/** `start` restarts the last practice session, `retry` reopens speech recognition for the running one (overlay buttons). Additive. */
+export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean }
 export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper'
 export type SttDevice = 'auto' | 'cpu' | 'coreml' | 'cuda'
 export type SttBenchmark = { at: number; p50FinalMs: number; realTimeFactor: number; ramMb: number | null; wer: number | null }
@@ -80,7 +83,7 @@ export interface CopilotApi {
   copilotStop(reason: StopReason): void
   copilotAnswer(kind: 'answer' | 'followup' | 'clarify' | 'summarise', questionId?: string): void
   copilotScreenshot(): void
-  copilotOverlay(cmd: { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor }): void
+  copilotOverlay(cmd: OverlayCommand): void
   copilotAckPrivacyNotice(version: string): { ok: boolean }
   copilotListSessions(filter?: { jobId?: string }): SessionSummary[]
   copilotSessionsForJob(jobId: string): { sessions: SessionSummary[]; trend: Array<{ sessionId: string; at: number; score: number | null }> }
@@ -90,6 +93,8 @@ export interface CopilotApi {
   copilotPracticeQuestions(jobId: string): PracticeQuestion[]
   copilotListSttModels(): SttModelInfo[]
   copilotBenchmarkStt(sel: { engine: SttEngineId; model: string; device: SttDevice }): SttBenchmark
+  /** Starts the optional local speech-model install (a run in the run history). Additive. */
+  copilotInstallStt(model?: string): { runId: string }
   copilotListLlmModels(): LlmModelInfo[]
   copilotTestLlmModel(id: string): { firstTokenMs: number | null; ok: boolean; message?: string }
   copilotCheckHotkey(accel: string): { ok: boolean; reason?: 'in-use' | 'reserved' | 'invalid' }
