@@ -5,6 +5,12 @@ import { describe, expect, it, vi } from 'vitest'
 const mac = vi.hoisted(() => ({ value: true }))
 vi.mock('../lib/platform', async orig => ({ ...(await orig<typeof import('../lib/platform')>()), isMacPlatform: () => mac.value }))
 
+// Pages load from the bridge on mount: every call stays pending, every `on*` subscription is a no-op.
+vi.mock('@/lib/ipc', async orig => ({
+  ...(await orig<typeof import('@/lib/ipc')>()),
+  careerloom: new Proxy({}, { get: (_t, k) => (String(k).startsWith('on') ? () => () => {} : () => new Promise(() => {})) }),
+}))
+
 import { Copilot } from './Copilot'
 
 describe('Copilot shell', () => {
