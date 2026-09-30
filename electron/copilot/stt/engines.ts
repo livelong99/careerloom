@@ -1,6 +1,6 @@
 import type { CopilotConfig, SttModelInfo } from '../types'
 import type { SttAdapter } from './adapter'
-import { DEFAULT_MOONSHINE_MODEL, findSttRuntime, MOONSHINE_MODELS } from './install'
+import { DEFAULT_MOONSHINE_MODEL, findSttRuntime, MOONSHINE_MODELS } from './runtime'
 import { moonshineAdapter } from './moonshine'
 
 /** Adapter for the configured engine. Whisper MLX / faster-whisper stay behind this switch until the S2 bake-off picks them. */

@@ -16,6 +16,8 @@ export type SidecarSpec = {
   /** Sent as the first frame of every (re)start. */
   config: (o: SttStartOpts) => object
   readyTimeoutMs?: number
+  /** After the flush frame, how long the child may take to finish its open line and exit before it is killed. */
+  stopGraceMs?: number
 }
 
 type Line = { ev: string; text?: string; t0?: number; t1?: number; message?: string }
@@ -26,7 +28,7 @@ export function createSidecarAdapter(spec: SidecarSpec): SttAdapter {
   const ring = new PcmRing()
   let child: SidecarChild | null = null
   let ready = false, stopping = false, restarts = 0, opts: SttStartOpts | null = null
-  let onReady: (() => void) | null = null
+  let onReady: (() => void) | null = null, exited: Promise<void> = Promise.resolve()
 
   function handle(line: Line) {
     if (line.ev === 'ready') { ready = true; onReady?.(); return }
@@ -50,7 +52,7 @@ export function createSidecarAdapter(spec: SidecarSpec): SttAdapter {
         try { handle(JSON.parse(raw) as Line) } catch { /* ponytail: non-JSON chatter from native libs is ignored */ }
       }
     })
-    c.onExit(code => { if (child === c && !stopping) void crashed(code) })
+    exited = new Promise<void>(res => c.onExit(code => { res(); if (child === c && !stopping) void crashed(code) }))
     c.write(encodeFrame(FRAME.config, Buffer.from(JSON.stringify(spec.config(o)))))
     return new Promise<void>((resolve, reject) => {
       const t = setTimeout(() => reject(new Error(`${spec.id} did not become ready`)), spec.readyTimeoutMs ?? 60_000)
@@ -84,8 +86,10 @@ export function createSidecarAdapter(spec: SidecarSpec): SttAdapter {
     async stop() {
       if (stopping) return
       stopping = true
-      const c = child; child = null; ready = false
-      c?.write(encodeFrame(FRAME.flush, new Uint8Array(0)))
+      const c = child; ready = false
+      c?.write(encodeFrame(FRAME.flush, new Uint8Array(0))) // the child finishes its open line (a last 'final'), then exits
+      await Promise.race([exited, new Promise(r => setTimeout(r, spec.stopGraceMs ?? 1500))])
+      child = null
       c?.kill()
       ring.clear()
       emit('closed', EMPTY)

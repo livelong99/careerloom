@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 
 import type { SttDevice } from '../types'
 import type { SttAdapter } from './adapter'
-import { findSttRuntime, type SttRuntime } from './install'
+import { findSttRuntime, type SttRuntime } from './runtime'
 import { createSidecarAdapter } from './sidecar'
 
 const live = new Set<ChildProcess>()
