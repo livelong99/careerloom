@@ -26,8 +26,8 @@ export const str = (v: unknown, name: string): string => {
 export type { CliRunner }
 /** Runners with a model setting (every one but career-ops' OpenRouter script). */
 export type ModelRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>> }
-const DEFAULT_SETTINGS: Settings = { root: null, runner: 'claude', models: {} }
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; /** Cheap model per runner for structuring/humanizing calls (unset = built-in default). */ helperModels: Partial<Record<ModelRunner, string>> }
+const DEFAULT_SETTINGS: Settings = { root: null, runner: 'claude', models: {}, helperModels: {} }
 
 export const userFile = (name: string) => path.join(app.getPath('userData'), name)
 
@@ -38,6 +38,7 @@ export function readSettings(): Settings {
       root: typeof raw.root === 'string' ? raw.root : null,
       runner: isRunner(raw.runner) ? raw.runner : DEFAULT_SETTINGS.runner,
       models: Object.fromEntries(Object.entries(raw.models ?? {}).filter(([k, v]) => k !== 'api' && (RUNNERS as string[]).includes(k) && isModelId(v))),
+      helperModels: Object.fromEntries(Object.entries(raw.helperModels ?? {}).filter(([k, v]) => k !== 'api' && (RUNNERS as string[]).includes(k) && isModelId(v))),
     }
   } catch {
     return DEFAULT_SETTINGS
@@ -344,7 +345,7 @@ export function startZen(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | '
   if (!key) throw new Error(NEEDS_ZEN_KEY)
   const root = careerOpsRoot()
   const skills = skillContext()
-  const chosen = readSettings().models.zen
+  const chosen = opts.model ?? readSettings().models.zen
   const job = {
     key,
     resume: opts.resume,
@@ -358,7 +359,7 @@ export function startZen(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | '
 
 /** Launch a server-built prompt (must start with a fixed literal, e.g. "/career-ops …").
  *  Needs an agent (CLI or zen); the OpenRouter API runner only implements fixed commands. */
-export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean }
+export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean; /** Model for this run only (helper-tier calls); unset = the runner's configured model. */ model?: string }
 
 export function startAgentPrompt(label: string, mode: string, prompt: string, input: string | null = null, opts: AgentPromptOptions = {}): RunSummary {
   const { runner } = readSettings()
@@ -367,7 +368,7 @@ export function startAgentPrompt(label: string, mode: string, prompt: string, in
   if (runner === 'zen') return startZen({ runner, mode, label, input }, prompt, opts)
   const root = careerOpsRoot()
   // claude (--resume), agy (--conversation) and opencode (--session) continue sessions; codex starts fresh each message.
-  const base = promptOptions(runner === 'codex' ? {} : { resume: opts.resume })
+  const base = promptOptions({ ...(runner === 'codex' ? {} : { resume: opts.resume }), ...(opts.model ? { model: opts.model } : {}) })
   // A text-only run needs neither the installed-skill folders nor their system-prompt note.
   const { bin, args } = argsForPrompt(runner, prompt, opts.textOnly ? { ...base, addDirs: [], systemAppend: undefined, textOnly: true } : base)
   const cli = cliEnv(runner, opts.textOnly)

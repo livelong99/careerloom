@@ -37,7 +37,7 @@ const portalsFile = () => path.join(dataRoot(), 'portals.yml')
 const customFile = () => path.join(dataRoot(), 'modes', '_custom.md')
 const sources = (): Source[] => readAllSources(portalsFile())
 
-function listJobs(): JobListing[] {
+export function listJobs(): JobListing[] {
   const root = dataRoot()
   const srcs = sources()
   const webIndex = readBoardIndex()

@@ -94,6 +94,7 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
                     ? <CliStatus check={ready.data?.clis.find(c => c.id === r.bin)} checking={ready.loading && !ready.data} />
                     : <small className="status-line muted">Choose or install a career-ops folder to check sign-in and skills</small>)}
                   {modelRunner && <ModelPicker runner={modelRunner} value={settings.models[modelRunner] ?? ''} onSaved={onChanged} />}
+                  {modelRunner && <ModelPicker helper runner={modelRunner} value={settings.helperModels[modelRunner] ?? ''} onSaved={onChanged} />}
                 </div>
                 <div className="r">
                   <button type="button" className="btnp" disabled={settings.runner === r.id} onClick={() => void act(async () => { await careerloom.setRunner(r.id); onChanged() })}>{settings.runner === r.id ? 'In use' : 'Use'}</button>
@@ -141,7 +142,7 @@ export function Settings({ settings, onChanged }: { settings: SettingsData; onCh
 
 /** Model for one CLI: suggestions from the CLI (Antigravity lists its own), any id allowed.
  *  Empty = the CLI's default model. Saves on Enter or when the field loses focus. */
-function ModelPicker({ runner, value, onSaved }: { runner: ModelRunner; value: string; onSaved: () => void }) {
+function ModelPicker({ runner, value, onSaved, helper = false }: { runner: ModelRunner; value: string; onSaved: () => void; /** The cheap tier used to tidy postings and humanize text (separate from the main model). */ helper?: boolean }) {
   const [draft, setDraft] = useState(value)
   const [options, setOptions] = useState<ModelOption[] | null>(null)
   useEffect(() => setDraft(value), [value])
@@ -149,22 +150,22 @@ function ModelPicker({ runner, value, onSaved }: { runner: ModelRunner; value: s
   const save = () => {
     const next = draft.trim()
     if (next === value) return
-    void act(async () => { await careerloom.setModel(runner, next || null); onSaved() }, next ? `Model set to ${next}` : 'Using the default model')
+    void act(async () => { await (helper ? careerloom.setHelperModel : careerloom.setModel)(runner, next || null); onSaved() }, next ? `${helper ? 'Helper model' : 'Model'} set to ${next}` : helper ? 'Using the built-in helper model' : 'Using the default model')
   }
-  const listId = `models-${runner}`
+  const listId = `models-${runner}${helper ? '-helper' : ''}`
   return (
     <label className="mt-2 flex items-center gap-2 text-[length:var(--fs-meta)] text-muted-foreground">
-      Model
+      {helper ? 'Helper model' : 'Model'}
       <input
         className="set-input w-64"
         list={listId}
-        placeholder="Default"
+        placeholder={helper ? 'Built-in cheap model' : 'Default'}
         value={draft}
         onFocus={load}
         onChange={e => setDraft(e.target.value)}
         onBlur={save}
         onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-        aria-label={`Model for ${runner}`}
+        aria-label={`${helper ? 'Helper model' : 'Model'} for ${runner}`}
       />
       <datalist id={listId}>
         {(options ?? []).map(o => <option key={o.id} value={o.id}>{o.label}</option>)}

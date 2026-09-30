@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from 'react'
 
 import { CommandPalette } from './components/CommandPalette'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { ReportDrawer } from './components/ReportDrawer'
 import { OPEN_RUNS_EVENT, RunsDrawer } from './components/RunsDrawer'
 import { Hint } from './components/Hint'
 import { Icon } from './components/icons'
@@ -23,27 +22,29 @@ import { Monitoring } from './sections/Monitoring'
 import { Resume } from './sections/Resume'
 import { Overview } from './sections/Overview'
 import { Boards } from './sections/Boards'
+import { Job } from './sections/Job'
 import { Jobs } from './sections/Jobs'
+import { openApplication } from './lib/jobNav'
 import { Onboarding, needsOnboarding } from './sections/Onboarding'
 import { Settings } from './sections/Settings'
 import { applyTheme, readTheme } from './lib/theme'
 import type { Application } from './lib/types'
 
-export const TITLES: Record<Section, string> = { overview: 'Overview', jobs: 'Jobs', boards: 'Boards', resume: 'Resume', agent: 'Agent', monitoring: 'Monitoring', integrations: 'Integrations', settings: 'Settings' }
+export const TITLES: Record<Section, string> = { overview: 'Overview', jobs: 'Jobs', boards: 'Boards', resume: 'Resume', agent: 'Agent', monitoring: 'Monitoring', integrations: 'Integrations', settings: 'Settings', job: 'Jobs' }
 const KEYS: Record<string, Section> = { '1': 'overview', '2': 'jobs', '3': 'boards', '4': 'resume', '5': 'agent', '6': 'monitoring', '7': 'integrations', ',': 'settings' }
 const SECTION_KEY = 'careerloom.section'
 
 function initialSection(): Section {
   try {
     const v = globalThis.localStorage?.getItem(SECTION_KEY)
-    return v && Object.hasOwn(TITLES, v) ? (v as Section) : 'overview'
+    return v && v !== 'job' && Object.hasOwn(TITLES, v) ? (v as Section) : 'overview'
   } catch { return 'overview' }
 }
 
 export function App() {
   const runs = useRunsState()
   const [section, setSection] = useState<Section>(initialSection)
-  const [openApp, setOpenApp] = useState<Application | null>(null)
+  const [jobFocus, setJobFocus] = useState<string | null>(null)
   const [runsOpen, setRunsOpen] = useState(false)
   const [runsFocus, setRunsFocus] = useState<string | null>(null)
   const [boardFocus, setBoardFocus] = useState<string | null>(null)
@@ -61,6 +62,7 @@ export function App() {
       setSection(target as Section)
       const id = typeof d === 'object' && d ? (d as { id?: unknown }).id : undefined
       if (target === 'boards') setBoardFocus(typeof id === 'string' ? id : null)
+      if (target === 'job') setJobFocus(typeof id === 'string' ? id : null)
     }
     window.addEventListener(OPEN_RUNS_EVENT, open)
     window.addEventListener('careerloom:navigate', navigate)
@@ -81,7 +83,7 @@ export function App() {
     else if (!readiness.clis.some(c => c.ready)) showToast('No agent CLI is ready for this folder — open Settings to fix it', 'error', 8000)
   }), [])
   useEffect(() => {
-    try { globalThis.localStorage?.setItem(SECTION_KEY, section) } catch { /* storage can be unavailable */ }
+    try { globalThis.localStorage?.setItem(SECTION_KEY, section === 'job' ? 'jobs' : section) } catch { /* storage can be unavailable */ }
   }, [section])
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -102,7 +104,8 @@ export function App() {
   else if (onboarding) body = <Onboarding onDone={settings.refresh} />
   else if (shown === 'settings') body = <Settings settings={settings.data} onChanged={settings.refresh} />
   else if (shown === 'overview') body = <Overview onNavigate={setSection} />
-  else if (shown === 'jobs') body = <Jobs />
+  else if (shown === 'jobs' || (shown === 'job' && !jobFocus)) body = <Jobs />
+  else if (shown === 'job') body = <Job id={jobFocus!} />
   else if (shown === 'boards') body = <Boards focusId={boardFocus} onFocusHandled={() => setBoardFocus(null)} />
   else if (shown === 'resume') body = <Resume />
   else if (shown === 'monitoring') body = <Monitoring onNavigate={setSection} />
@@ -115,7 +118,7 @@ export function App() {
     <RunsContext.Provider value={runs}>
       <Window>
         {/* Setup is one focused flow: no navigation to screens that can't work yet. */}
-        {!onboarding && <Sidebar active={shown} onNavigate={setSection} />}
+        {!onboarding && <Sidebar active={shown === 'job' ? 'jobs' : shown} onNavigate={setSection} />}
         <ToastHost />
         <div className="ct" aria-busy={running > 0}>
           <div className={running > 0 ? 'switch-line on' : 'switch-line'} aria-hidden="true" />
@@ -135,8 +138,7 @@ export function App() {
             <div className={motionClass('body', 'section-fade')}>{body}</div>
           </ErrorBoundary>
           {!onboarding && <Hint items={[{ k: shortcutLabel('K'), label: 'Command palette' }, { k: shortcutLabel('1-7'), label: 'Navigate' }, { k: shortcutLabel(','), label: 'Settings' }]} />}
-          {ready && !onboarding && <CommandPalette onNavigate={setSection} onOpenApplication={setOpenApp} />}
-          {openApp && <ReportDrawer app={openApp} onClose={() => setOpenApp(null)} />}
+          {ready && !onboarding && <CommandPalette onNavigate={setSection} onOpenApplication={openApplication} />}
           <RunsDrawer open={runsOpen} onOpenChange={setRunsOpen} focusId={runsFocus} />
         </div>
       </Window>

@@ -7,7 +7,7 @@ import { isModifierChord, shortcutLabel } from '../lib/platform'
 import loomi from '../assets/loomi.svg'
 import { Icon } from './icons'
 
-export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'integrations' | 'settings'
+export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'integrations' | 'settings' | 'job'
 
 type NavItem = { id: Section; label: string; key: string; icon: ReactNode }
 
