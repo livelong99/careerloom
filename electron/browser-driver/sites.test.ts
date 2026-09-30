@@ -24,6 +24,7 @@ describe.each(SITES)('$id extractor', site => {
     expect(jobs).toHaveLength(6)
     expect(new Set(jobs.map(j => j.url)).size).toBe(6)
   })
+  it('titles carry no site badge text', () => expect(site.extract(doc).some(j => / with verification$/.test(j.title))).toBe(false))
   it('recognises a results page', () => expect(new Function('document', `return ${hasResults(site.resultLinks)}`)(parse(text(site.id)))).toBe(true))
   it('survives serialisation into the page (toString has no outside references)', () => {
     const run = new Function('document', `return ${scriptOf(site.extract)}`)
