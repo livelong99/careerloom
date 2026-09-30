@@ -1,9 +1,10 @@
 // Benchmark audio (plan §3.2 "Benchmark on this machine"): a few interview sentences spoken by the macOS system voice,
 // generated on demand so no recording ships in the app. SYNTHETIC: cleaner and more regular than a real call.
-import { execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 
 export const BENCH_SENTENCES = [
   'Tell me about a time you led a project under a tight deadline.',
@@ -49,12 +50,22 @@ export function buildFixture(tts: (text: string) => Buffer, sentences: string[] 
   return { pcm, utterances, refText: sentences.join(' ') }
 }
 
-/** macOS system voice → 16 kHz mono WAV (Copilot is macOS-only for now). */
-export function sayWav(text: string): Buffer {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-bench-'))
+const run = promisify(execFile)
+
+/** macOS system voice → 16 kHz mono WAV (Copilot is macOS-only for now). Async so the main process never blocks on `say`. */
+export async function sayWav(text: string): Promise<Buffer> {
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'cl-bench-'))
   try {
     const aiff = path.join(dir, 's.aiff'), wav = path.join(dir, 's.wav')
-    execFileSync('say', ['-o', aiff, text]); execFileSync('afconvert', ['-f', 'WAVE', '-d', 'LEI16@16000', '-c', '1', aiff, wav])
-    return fs.readFileSync(wav)
-  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+    await run('say', ['-o', aiff, text]); await run('afconvert', ['-f', 'WAVE', '-d', 'LEI16@16000', '-c', '1', aiff, wav])
+    return await fs.promises.readFile(wav)
+  } finally { await fs.promises.rm(dir, { recursive: true, force: true }) }
+}
+
+let cached: BenchFixture | null = null
+/** The benchmark fixture, spoken once per app run. */
+export async function loadFixture(tts: (text: string) => Promise<Buffer> = sayWav): Promise<BenchFixture> {
+  if (cached) return cached
+  const wavs = new Map(await Promise.all(BENCH_SENTENCES.map(async t => [t, await tts(t)] as const)))
+  return (cached = buildFixture(t => wavs.get(t)!))
 }

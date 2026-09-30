@@ -8,8 +8,8 @@ import { broadcast, readApiKey, userFile } from '../context'
 import { readCv } from '../resume-agent'
 import { jobContext } from '../job-view/handlers'
 import { runText } from '../job-view/agent'
-import { ensureMic } from './audio-perms'
-import { readCopilotConfig } from './config'
+import { asPermStatus, ensureMic } from './audio-perms'
+import { readCopilotConfig, writeCopilotConfig } from './config'
 import { createContextBuilder, defaultContextDeps, type GroundingContext } from './context'
 import { createCostMeter } from './cost'
 import { createDetector } from './detector'
@@ -24,23 +24,30 @@ import { PRIVACY_NOTICE_VERSION } from './privacy-mode'
 import { collectText } from './providers/openrouter'
 import { createSessionController } from './session'
 import { createFakeAdapter, parseFixture } from './stt/fake'
+import { benchmarkStt } from './stt/benchmark'
+import { killSttSidecars } from './stt/child'
 import { createSttAdapter, listSttModels } from './stt/engines'
 import { installStt } from './stt/install'
-import { DEFAULT_MOONSHINE_MODEL, findSttRuntime } from './stt/runtime'
+import { createProbeHub } from './stt/probe'
+import { defaultModel, findSttRuntime } from './stt/runtime'
 import type { SessionController } from './session'
-import type { AudioChunkMsg } from './types'
+import type { AudioChunkMsg, PermStatus } from './types'
 
 type CopilotInstance = ReturnType<typeof createCopilot>
 const PANE: Record<'microphone' | 'system-audio' | 'screen', string> = { microphone: 'Privacy_Microphone', 'system-audio': 'Privacy_AudioCapture', screen: 'Privacy_ScreenCapture' }
 const SESSION_CEILING_USD = 1 // plan §10: stops answering with a visible message instead of silently degrading
 
+const mediaStatus = (kind: 'microphone' | 'screen'): PermStatus => { try { return asPermStatus(systemPreferences.getMediaAccessStatus(kind)) } catch { return 'unknown' } }
 const lazy = <T>(make: () => T): (() => T) => { let v: { value: T } | null = null; return () => (v ??= { value: make() }).value }
 
 let audioSink: ((m: AudioChunkMsg) => void) | null = null
-/** `careerloom:copilotAudio` handler body: validated chunks reach the running session, everything else is dropped. */
+const probeHub = createProbeHub()
+/** `careerloom:copilotAudio` handler body: validated chunks reach the running session and any open audio test, everything else is dropped. */
 export function copilotAudioIn(raw: unknown): void {
   const m = parseAudioMsg(raw)
-  if (m) audioSink?.(m)
+  if (!m) return
+  probeHub.tap(m)
+  audioSink?.(m)
 }
 
 export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
@@ -83,7 +90,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
   const sttReady = (): boolean => {
     if (e2e()) return true
     const stt = readCopilotConfig().stt
-    return findSttRuntime(stt.engine)?.models.includes(stt.model ?? DEFAULT_MOONSHINE_MODEL) ?? false
+    return findSttRuntime(stt.engine)?.models.includes(stt.model ?? defaultModel(stt.engine)) ?? false
   }
 
   return {
@@ -92,7 +99,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
       try { const c = jobContext(id); return { id, title: c.job.title, company: c.job.company, report: c.report, posting: c.posting } } catch { return null }
     },
     cv: () => readCv()?.markdown ?? '',
-    permission: kind => { try { return systemPreferences.getMediaAccessStatus(kind) } catch { return 'unknown' } },
+    permission: mediaStatus,
     hasKey: () => e2e() !== null || readApiKey() !== null,
     sttInstalled: sttReady,
     // QA hook only: scoring goes through the fake provider instead of launching an agent run.
@@ -130,8 +137,22 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     currentNotice: PRIVACY_NOTICE_VERSION,
 
     sttModels: () => listSttModels(readCopilotConfig().stt),
-    benchmark: () => { throw new Error(sttReady() ? 'The benchmark needs recorded speech fixtures, which this build does not include yet' : 'Install the speech model first, then run the benchmark') },
-    installStt: async model => ({ runId: (await installStt(model)).id }),
+    benchmark: sel => benchmarkStt(sel, {
+      cfg: readCopilotConfig().stt, busy: () => getInstance().recorder.active() !== null,
+      installed: (engine, model) => findSttRuntime(engine)?.models.includes(model) ?? false,
+      make: createSttAdapter, save: lastBenchmark => void writeCopilotConfig({ stt: { lastBenchmark } }), kill: killSttSidecars,
+    }),
+    probe: async (source, ms) => {
+      if (source === 'mic' && !e2e()) {
+        const p = mediaStatus('microphone')
+        if (p === 'denied' || p === 'restricted') return { source, status: 'denied', level: 0 }
+      }
+      return probeHub.probe(source, ms)
+    },
+    installStt: async model => {
+      const { engine } = readCopilotConfig().stt
+      return { runId: (await installStt(engine, model ?? defaultModel(engine))).id }
+    },
     listLlmModels: () => listLiveModels(),
     testLlmModel: id => testLiveModel(id),
   }

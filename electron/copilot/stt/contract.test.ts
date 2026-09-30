@@ -1,5 +1,5 @@
 // Adapter contract: the same assertions run against the fake replay and, with CL_LIVE_STT=1 (local model,
-// cost $0; needs CAREERLOOM_STT_DIR or an install in ~/.careerloom/stt and macOS `say`), the real Moonshine adapter.
+// cost $0; needs CAREERLOOM_STT_DIR or an install in ~/.careerloom/stt and macOS `say`), the real Moonshine and Whisper adapters.
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -7,9 +7,12 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import type { SttAdapter, SttEvent } from './adapter'
+import { createChunkedAdapter } from './buffer'
 import { createFakeAdapter, parseFixture } from './fake'
 import { findSttRuntime } from './runtime'
 import { moonshineAdapter } from './moonshine'
+import { concat, frames as toFrames, silence, tone } from './pcm-gen.test-util'
+import { whisperAdapter } from './whisper-mlx'
 
 const LIVE = process.env.CL_LIVE_STT === '1'
 const PHRASE = 'Tell me about a time you led a project under a tight deadline.'
@@ -53,15 +56,26 @@ describe('SttAdapter contract', () => {
     expect(r.finals[0]!.text).toBe(PHRASE)
   })
 
-  it.skipIf(!LIVE || !findSttRuntime('moonshine'))('moonshine (live, local model): transcribes speech, final then endOfTurn, closed on stop', async () => {
-    const sp = speech()
-    const r = await run(() => moonshineAdapter('small', 'auto'), sp.frames, 100, sp.speechFrames)
-    expect(r.order.at(-1)).toBe('closed')
-    expect(r.order).toContain('final')
-    expect(r.order.indexOf('final')).toBeLessThan(r.order.indexOf('endOfTurn'))
-    const text = r.finals.map(f => f.text).join(' ').toLowerCase()
-    expect(text).toMatch(/tell me about a time/)
-    expect(text).toMatch(/deadline/)
-    console.info(`[live moonshine/small] final lag after the last speech frame (incl. silence wait): ${r.finalLagMs} ms; text: ${text}`)
-  }, 120_000)
+  it('chunked engine (VAD + fake decoder): partial → final → endOfTurn in order, closed last', async () => {
+    const pcm = concat(silence(300), tone(3200), silence(1000))
+    const make = () => createChunkedAdapter({ id: 'fake', decoder: { ready: async () => {}, decode: async (_p, kind) => (kind === 'final' ? PHRASE : 'tell me'), close: async () => {} } })
+    const r = await run(make, toFrames(pcm).map(f => f.slice().buffer))
+    expect(r.order).toEqual(['partial', 'final', 'endOfTurn', 'closed'])
+    expect(r.finals[0]!.text).toBe(PHRASE)
+  })
+
+  const engines = [['moonshine', () => moonshineAdapter('small', 'auto')], ['whisper-mlx', () => whisperAdapter('small')]] as const
+  for (const [engine, make] of engines) {
+    it.skipIf(!LIVE || !findSttRuntime(engine)?.models.includes('small'))(`${engine} (live, local model): transcribes speech, final then endOfTurn, closed on stop`, async () => {
+      const sp = speech()
+      const r = await run(make, sp.frames, 100, sp.speechFrames)
+      expect(r.order.at(-1)).toBe('closed')
+      expect(r.order).toContain('final')
+      expect(r.order.indexOf('final')).toBeLessThan(r.order.indexOf('endOfTurn'))
+      const text = r.finals.map(f => f.text).join(' ').toLowerCase()
+      expect(text).toMatch(/tell me about a time/)
+      expect(text).toMatch(/deadline/)
+      console.info(`[live ${engine}/small] final lag after the last speech frame (incl. silence wait): ${r.finalLagMs} ms; text: ${text}`)
+    }, 120_000)
+  }
 })

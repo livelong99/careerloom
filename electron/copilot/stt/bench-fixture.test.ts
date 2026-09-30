@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { buildFixture, parseWav16k } from './bench-fixture'
+import { buildFixture, loadFixture, parseWav16k } from './bench-fixture'
 import { tone } from './pcm-gen.test-util'
 
 function wav(pcm: Int16Array, rate = 16000, extra = true): Buffer {
@@ -29,5 +29,15 @@ describe('buildFixture', () => {
     expect(f.utterances).toEqual([{ text: 'one two', endMs: 1000 }, { text: 'three', endMs: 3600 }])
     expect(f.pcm.length).toBe(16 * 5200)
     expect(f.refText).toBe('one two three')
+  })
+})
+
+describe('loadFixture', () => {
+  it('speaks every sentence once and caches the result', async () => {
+    const tts = vi.fn(async () => wav(tone(500)))
+    const a = await loadFixture(tts), b = await loadFixture(tts)
+    expect(a).toBe(b)
+    expect(tts).toHaveBeenCalledTimes(a.utterances.length)
+    expect(a.utterances.length).toBeGreaterThanOrEqual(4)
   })
 })

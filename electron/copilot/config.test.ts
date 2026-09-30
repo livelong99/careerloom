@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-config-'))
 vi.mock('electron', () => ({ app: { getPath: () => dir }, BrowserWindow: { getAllWindows: () => [] }, safeStorage: {} }))
 
+import { defaultEngine } from './stt/runtime'
 import { DEFAULT_CONFIG, normalizeConfig, readCopilotConfig, writeCopilotConfig } from './config'
 
 const file = path.join(dir, 'copilot.json')
@@ -22,7 +23,7 @@ describe('defaults (plan §7)', () => {
     expect(DEFAULT_CONFIG.privacy.mode).toMatchObject({ enabled: false, hideFromCapture: false, noDockIcon: false, neutralTitle: false, indicator: 'chip' })
     expect(DEFAULT_CONFIG.coaching.shape).toBe('cues+star')
     expect(DEFAULT_CONFIG.overlay).toMatchObject({ anchor: 'tr', width: 440, opacity: 0.94 })
-    expect(DEFAULT_CONFIG.stt).toMatchObject({ engine: 'moonshine', language: 'en' })
+    expect(DEFAULT_CONFIG.stt).toMatchObject({ engine: defaultEngine(), language: 'en', endSilenceMs: 650 })
     expect(DEFAULT_CONFIG.hotkeys.quickHide).toBe('Control+Alt+Shift+H')
     expect(DEFAULT_CONFIG.hotkeys.panic).toBe('Control+Alt+Shift+X')
   })
