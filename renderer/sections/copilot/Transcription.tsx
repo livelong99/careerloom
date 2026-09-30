@@ -40,6 +40,15 @@ export function TranscriptionPage() {
   const model = stt.model ?? rows.find(r => r.recommended)?.model ?? rows[0]?.model ?? null
   const shown = result ?? stt.lastBenchmark
 
+  const selected = rows.find(r => r.model === model)
+  async function install(): Promise<void> {
+    if (!model) return
+    setNote(null)
+    try {
+      const r = orNull(await careerloom.copilotInstallStt(model))
+      setNote(r ? 'Installing the speech model. Progress shows in Runs; this page refreshes when you come back.' : 'The installer is not available in this build yet.')
+    } catch (e) { setNote(errorText(e)) }
+  }
   async function benchmark(): Promise<void> {
     if (!model) return
     setRunning(true); setNote(null)
@@ -56,7 +65,7 @@ export function TranscriptionPage() {
 
   return (
     <Page title="Transcription" blurb="Turns speech into text as it happens. It runs on this computer, so your audio is never uploaded.">
-      <Group title="Speech model" action={<Button variant="outline" disabled={running || !model} onClick={() => void benchmark()}>{running ? 'Benchmarking…' : 'Benchmark on this computer'}</Button>}>
+      <Group title="Speech model" action={<div className="flex gap-2">{selected?.installed === false && <Button disabled={!model} onClick={() => void install()}>Install speech model</Button>}<Button variant="outline" disabled={running || !model} onClick={() => void benchmark()}>{running ? 'Benchmarking…' : 'Benchmark on this computer'}</Button></div>}>
         <Row label="Engine" hint={engine.hint} htmlFor="stt-engine">
           <select id="stt-engine" className={selectClass} value={engine.id} onChange={e => void save({ stt: { engine: e.target.value as SttEngineId, model: null, device: 'auto' } })}>
             {STT_ENGINES.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}

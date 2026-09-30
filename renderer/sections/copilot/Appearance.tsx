@@ -36,7 +36,7 @@ export function AppearancePage() {
           <Row label="Stay above full-screen apps"><ToggleSwitch aria-label="Stay above full-screen apps" checked={o.aboveFullscreen} onCheckedChange={v => set({ aboveFullscreen: v })} /></Row>
           <Row label="Reduce motion" hint="Follows your system setting."><Chip>System</Chip></Row>
         </Group>
-        <Group title="Live preview"><OverlayPreview config={o} /></Group>
+        <Group title="Live preview"><OverlayPreview config={config} /></Group>
       </div>
     </Page>
   )

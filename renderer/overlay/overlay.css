@@ -141,3 +141,6 @@
 @keyframes ov-blink { 50% { opacity: 0; } }
 @keyframes ov-rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ov *, .ov *::before, .ov *::after { animation: none !important; transition: none !important; } }
+
+.ov-grip { position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px; cursor: ew-resize; border-radius: 3px; opacity: .45; background: linear-gradient(135deg, transparent 55%, var(--mut, #8a8f98) 55%, var(--mut, #8a8f98) 62%, transparent 62%, transparent 75%, var(--mut, #8a8f98) 75%, var(--mut, #8a8f98) 82%, transparent 82%); }
+.ov-grip:hover, .ov-grip:focus-visible { opacity: 1; outline: none; }

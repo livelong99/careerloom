@@ -1,7 +1,6 @@
 import { careerloom } from '@/lib/ipc'
 import { showToast } from '@/lib/toast'
 import type { StartRequest } from '@/lib/types'
-import type { PracticeExtras } from '../../../electron/copilot/practice'
 import { errorText } from './api'
 import { getPracticePick, getSelection } from './selection'
 
@@ -10,7 +9,7 @@ export async function startPractice(): Promise<string | null> {
   const { jobId, interviewType } = getSelection()
   if (!jobId) { showToast('Pick a job on Setup first: every session belongs to a job', 'error'); return null }
   const { ids, custom } = getPracticePick()
-  const req: StartRequest & PracticeExtras = { mode: 'practice', jobId, interviewType, consent: null, ...(ids ? { questionIds: ids } : {}), ...(custom.length ? { custom } : {}) }
+  const req: StartRequest = { mode: 'practice', jobId, interviewType, consent: null, ...(ids ? { questionIds: ids } : {}), ...(custom.length ? { custom } : {}) }
   try { return (await careerloom.copilotStart(req)).sessionId } catch (e) { showToast(errorText(e), 'error'); return null }
 }
 

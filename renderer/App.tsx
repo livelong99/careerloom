@@ -25,6 +25,7 @@ import { Overview } from './sections/Overview'
 import { Boards } from './sections/Boards'
 import { Job } from './sections/Job'
 import { Jobs } from './sections/Jobs'
+import { useDebriefLink } from './lib/copilotDebrief'
 import { openApplication } from './lib/jobNav'
 import { Onboarding, needsOnboarding } from './sections/Onboarding'
 import { Settings } from './sections/Settings'
@@ -47,6 +48,7 @@ function initialSection(): Section {
 
 export function App() {
   const runs = useRunsState()
+  useDebriefLink()
   const [section, setSection] = useState<Section>(initialSection)
   const [jobFocus, setJobFocus] = useState<string | null>(null)
   const [runsOpen, setRunsOpen] = useState(false)

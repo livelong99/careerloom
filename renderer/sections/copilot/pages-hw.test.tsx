@@ -17,15 +17,10 @@ import { HotkeysPage } from './Hotkeys'
 import { TranscriptionPage } from './Transcription'
 import { mergeConfig } from '@/components/copilot/api'
 import { setSelection } from '@/components/copilot/selection'
+import { DEFAULT_CONFIG_FOR_TESTS } from '@/components/copilot/testConfig'
 
 const NI = (method: string) => ({ status: 'not-implemented', method })
-const CONFIG = {
-  version: 1,
-  audio: { micDeviceId: null, useSystem: false, systemSource: 'loopback', virtualDeviceId: null },
-  stt: { engine: 'moonshine', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 700, vocab: ['Kubernetes'] },
-  overlay: { layout: 'strip', anchor: 'tr', displayId: null, width: 440, fontPx: 14, opacity: 0.94, theme: 'app', clickThroughIdle: true, aboveFullscreen: true },
-  hotkeys: { answer: 'Control+Alt+A', followup: 'Control+Alt+F', clarify: 'Control+Alt+C', screenshot: 'Control+Alt+S', summarise: 'Control+Alt+M', expand: 'Control+Alt+E', listen: 'Control+Alt+L', toggle: 'Control+Alt+H', quickHide: 'Control+Alt+Shift+H', panic: 'Control+Alt+Shift+X' },
-}
+const CONFIG = { ...DEFAULT_CONFIG_FOR_TESTS, stt: { ...DEFAULT_CONFIG_FOR_TESTS.stt, vocab: ['Kubernetes'] } }
 
 beforeEach(() => {
   api.copilotGetConfig.mockResolvedValue(CONFIG)

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, session, shell, type MenuItemConstructorOptions } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -16,7 +16,11 @@ import { atsHandlers } from './ats/handlers'
 import { jobViewHandlers } from './job-view/handlers'
 import { docsHandlers } from './docs-gen/handlers'
 import { copilotHandlers } from './copilot/handlers'
+import { isAllowedPermission } from './copilot/audio-perms'
+import { copilotSupported } from './copilot/capabilities'
+import { copilotAudioIn } from './copilot/defaults'
 import { startFakeOverlayIfRequested } from './copilot/overlay-runtime'
+import { killSttSidecars } from './copilot/stt/moonshine'
 import { resumeHandlers } from './resume'
 import { trackerHandlers } from './tracker-actions'
 import { checkReadiness, pickReadyRunner, type Readiness } from './readiness'
@@ -265,6 +269,7 @@ function registerHandlers(): void {
       }
     })
   }
+  if (copilotSupported()) ipcMain.on('careerloom:copilotAudio', (_event, msg: unknown) => copilotAudioIn(msg)) // high-rate mic frames: send, not invoke
   ipcMain.handle('open-external', async (_event, url: unknown) => {
     const target = typeof url === 'string' ? externalUrlToOpen(url) : null
     if (target) await shell.openExternal(target)
@@ -329,10 +334,12 @@ function bootstrap(): void {
     if (win?.isMinimized()) win.restore()
     win?.focus()
   })
-  app.on('before-quit', () => { cancelAll(); stopPrescreen() })
+  app.on('before-quit', () => { cancelAll(); stopPrescreen(); killSttSidecars() })
   void app.whenReady().then(() => {
     sweepCookieTemp() // plaintext cookie copies a crashed browser scan left behind
     registerHandlers()
+    // Only our own pages may ask for the microphone; every other permission keeps Electron's default (allowed).
+    session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) => cb(permission === 'media' ? isAllowedPermission(permission, details.requestingUrl) : true))
     void refreshReadiness().catch(err => console.error('readiness check failed:', err))
     Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate()))
     createWindow()
