@@ -2,7 +2,7 @@
 // `copilotAudio` (send, not invoke). Chromium resamples the device into the 16 kHz context; the pipeline
 // still resamples properly if a platform hands back another rate.
 import { createPipeline } from './pipeline'
-import workletUrl from './worklet.js?url'
+import workletUrl from './worklet.js?worker&url'
 
 export type MicHandle = { stop(): void }
 
