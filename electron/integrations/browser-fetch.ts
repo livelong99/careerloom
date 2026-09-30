@@ -7,12 +7,13 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { careerOpsRoot, launch, readOpencodeKey, readSettings, startZen, streamFormat, type RunRecord } from '../context'
+import { FastBlocked, fastExtract } from '../browser-driver/driver'
 import { opencodeBrowserConfig, opencodeEnv } from '../opencode'
 import { connectMcp, type McpClient } from '../mcp-client'
 import { spawnSpec, type RunnerId } from '../runner'
 import { blockedMessage, browserAgentArgs, browserPrompt, MCP_NAME, navLockScript, playwrightMcp, READ_ONLY_TOOLS } from './browser-args'
 import { registrableDomain, storageState } from './browser-cookies'
-import { domainCookies, effectiveLogin, isAcknowledged, loginLabel, pageWaitSeconds } from './browser-login'
+import { domainCookies, effectiveLogin, fastBrowserEnabled, isAcknowledged, loginLabel, pageWaitSeconds } from './browser-login'
 import type { Source } from './sources'
 import { boardUrls, extractJobsJson, MAX_PAGES, validateJobs, type WebJob } from './web-board-core'
 
@@ -74,6 +75,15 @@ export async function browserExtract(board: Source, guideline: string | undefine
   const cookies = await domainCookies(domain)
   log(`  Loaded ${cookies.length} cookie${cookies.length === 1 ? '' : 's'} for ${domain} from ${source}\n`)
   if (!cookies.length && cfg.source !== 'off') log(`  ⚠ no ${domain} cookies in ${source} — you may not be signed in there; continuing as a visitor\n`)
+  if (fastBrowserEnabled(cfg)) {
+    // Careerloom reads the page itself (read-only, no agent). A wall stops the scan; anything else falls back.
+    try {
+      return await fastExtract({ domain, urls, cookies, headless: cfg.headless, settleSeconds: pageWaitSeconds(cfg), log })
+    } catch (err) {
+      if (err instanceof FastBlocked) throw new Error(blockedMessage(domain, err.message, cookies.length, source))
+      log(`  fast browser fell back to the agent: ${(err as Error).message}\n`)
+    }
+  }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-bs-')) // mkdtemp is 0700
   try {
     const stateFile = path.join(dir, 'state.json')
