@@ -3,6 +3,7 @@
 // Transcript-window budgeting is ported from Open-Cluely (owner's project), adapted for Careerloom:
 // renderer/features/ai-context/context-bundle.js (newest-first under a budget, per-line AI on/off).
 import type { JobPosting, ReportBlock, ReportView } from '../job-view/types'
+import { neutralize } from './prompts'
 import type { ContextPreview, ContextSummary, TranscriptLine } from './types'
 
 export type Story = { requirement: string; title: string; s: string; t: string; a: string; r: string }
@@ -98,8 +99,9 @@ export function buildGrounding(job: JobSource, cv: string | null): GroundingCont
   const sText = storiesText(stories)
   const cvText = cv ?? ''
   let facts = cvFacts(cvText)
+  // Posting and report text is scraped/generated, so it cannot forge answer markers or the transcript fence; cv.md stays verbatim (quotes must match).
   const assemble = (f: string[]) => [
-    `## JOB\n${posting.text}`, ev.text && `## EVALUATION\n${ev.text}`, sText && `## INTERVIEW PLAN — STAR STORIES (prepared, true)\n${sText}`,
+    `## JOB\n${neutralize(posting.text)}`, ev.text && `## EVALUATION\n${neutralize(ev.text)}`, sText && `## INTERVIEW PLAN — STAR STORIES (prepared, true)\n${neutralize(sText)}`,
     `## CANDIDATE FACTS (cv.md, verbatim — the only source of truth about the candidate)\n${f.length ? f.join('\n') : '(no résumé on file: say so and ask the candidate for specifics; invent nothing)'}`,
   ].filter(Boolean).join('\n\n')
   let prefix = assemble(facts)

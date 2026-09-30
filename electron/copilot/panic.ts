@@ -1,6 +1,6 @@
 // Ported from Open-Cluely (owner's project), adapted for Careerloom: emergency hide (window-controller.js) becomes a
 // real kill switch: capture off first, no opacity trick. Plan §9: panic hotkey, tray "Stop now", stop button,
-// before-quit, render-process-gone, uncaughtException and renderer heartbeat loss all land in `trigger`.
+// before-quit, render-process-gone, uncaughtExceptionMonitor and renderer heartbeat loss all land in `trigger`.
 import type { StopReason } from './types'
 
 export const HEARTBEAT_TIMEOUT_MS = 5000
@@ -16,7 +16,8 @@ export type PanicDeps = {
   notify(reason: StopReason): void
   isLive(): boolean
   app: { on(event: 'before-quit', cb: () => void): unknown }
-  proc: { on(event: 'uncaughtException', cb: () => void): unknown }
+  /** The monitor event only observes: Electron's own crash handling still runs, the stop just happens first. */
+  proc: { on(event: 'uncaughtExceptionMonitor', cb: () => void): unknown }
   /** Step failures are reported here; never thrown. */
   log?(step: string, err: unknown): void
 }
@@ -45,7 +46,7 @@ export function createPanicController(deps: PanicDeps) {
 
   function arm(): void {
     deps.app.on('before-quit', () => { void trigger('user') })
-    deps.proc.on('uncaughtException', () => { void trigger('error') })
+    deps.proc.on('uncaughtExceptionMonitor', () => { void trigger('error') })
     lastBeat = Date.now()
     timer ??= setInterval(() => {
       if (deps.isLive() && Date.now() - lastBeat > HEARTBEAT_TIMEOUT_MS) void trigger('error')

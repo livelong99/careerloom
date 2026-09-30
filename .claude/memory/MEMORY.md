@@ -8,6 +8,7 @@
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
 - [20261001 Copilot WP3b](session_20261001_copilot-wp3b-whisper.md) — Whisper MLX adapter + VAD/chunker, Whisper small default per S2, benchmark + audio-probe backends; live p50 772 ms on synthetic speech
+- [20261001 Copilot review](session_20261001_copilot-review.md) — independent review; 3 HIGH + M1-M8 fixed, M9/M10 follow-ups in docs/plans/interview-copilot/review.md
 - [20261001 Copilot INT](session_20261001_copilot-int.md) — WP1-4 merged + wired e2e (live wiring, mic in overlay, overlay actions); verified on cloned profile with fake mic/OpenRouter
 - [20261001 Copilot WP2](session_20261001_copilot-wp2.md) — OpenRouter SSE engine, detector, grounding, guard, failover, cost; live latency table pending a key
 - [20261001 Copilot WP3](session_20261001_copilot-wp3-capture-stt.md) — mic capture + Moonshine sidecar STT adapter/install, session controller, silent detector, mac entitlements, S1 system-audio spike (GO via loopback)

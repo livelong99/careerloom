@@ -58,13 +58,14 @@ describe('panic / kill switch', () => {
     expect(deps.notify).toHaveBeenCalledWith('error')
   })
 
-  it('arm(): before-quit and uncaughtException trigger it', async () => {
+  it('arm(): before-quit and uncaughtExceptionMonitor (observe only, Electron keeps its crash handling) trigger it', async () => {
     const { panic, handlers, deps } = setup()
     panic.arm()
     handlers.get('before-quit')?.()
     await vi.waitFor(() => expect(deps.stopCapture).toHaveBeenCalledTimes(1))
     panic.reset()
-    handlers.get('uncaughtException')?.()
+    handlers.get('uncaughtExceptionMonitor')?.()
+    expect(handlers.has('uncaughtException')).toBe(false)
     await vi.waitFor(() => expect(deps.stopCapture).toHaveBeenCalledTimes(2))
     panic.dispose()
   })

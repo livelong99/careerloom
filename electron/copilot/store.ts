@@ -28,7 +28,9 @@ const summaryOf = (d: SessionDetail): SessionSummary => ({
   questions: d.questions, durationSec: d.durationSec, score: d.score,
 })
 const checkId = (id: string): string => { if (!ID.test(id)) throw new Error('Invalid session id'); return id }
-const hasText = (d: SessionDetail): boolean => d.transcript.length > 0 || d.questionsList.some(q => q.text !== '')
+const answerText = (s: Suggestion): boolean => s.say !== '' || s.bullets.length > 0 || s.star !== null || s.proof.length > 0
+// Everything the conversation put into the record: transcript, question text, generated answers, debrief tips.
+const hasText = (d: SessionDetail): boolean => d.transcript.length > 0 || d.questionsList.some(q => q.text !== '') || d.suggestions.some(answerText) || (d.scorecard?.notes.length ?? 0) > 0
 
 function writeJson(file: string, data: unknown): void {
   const tmp = `${file}.${process.pid}.tmp`
@@ -48,8 +50,9 @@ export function openSessionStore(dir: string): SessionStore {
   const rebuild = (): Record<string, SessionSummary> => {
     const out: Record<string, SessionSummary> = {}
     for (const f of readdirSync(sessions)) {
-      if (!f.endsWith('.json')) continue
-      const d = readSession(f.slice(0, -5))
+      const id = f.slice(0, -5)
+      if (!f.endsWith('.json') || !ID.test(id)) continue // stray files never break the listing
+      const d = readSession(id)
       if (d) out[d.id] = summaryOf(d)
     }
     return out
@@ -103,7 +106,10 @@ export function openSessionStore(dir: string): SessionStore {
         if (!isOld(s, days, now)) continue
         const d = readSession(s.id)
         if (!d || !hasText(d)) continue
-        writeJson(join(sessions, `${d.id}.json`), { ...d, transcript: [], questionsList: d.questionsList.map(q => ({ ...q, text: '' })) })
+        writeJson(join(sessions, `${d.id}.json`), {
+          ...d, transcript: [], questionsList: d.questionsList.map(q => ({ ...q, text: '' })),
+          suggestions: d.suggestions.map(x => ({ ...x, say: '', bullets: [], star: null, proof: [] })), scorecard: d.scorecard && { ...d.scorecard, notes: [] },
+        })
         n++
       }
       return n

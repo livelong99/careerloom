@@ -20,7 +20,7 @@ export type HostDeps = {
   writeConfig(patch: DeepPartial<CopilotConfig>): CopilotConfig
   restorePrivacy(): void
   app: { on(event: 'before-quit', cb: () => void): unknown }
-  proc: { on(event: 'uncaughtException', cb: () => void): unknown }
+  proc: { on(event: 'uncaughtExceptionMonitor', cb: () => void): unknown }
 }
 
 type OverlayCmd = Parameters<CopilotApi['copilotOverlay']>[0]
@@ -32,6 +32,7 @@ export function createOverlayHost(deps: HostDeps) {
   let live = false
   let lastState: CopilotEvents['copilotState'] | null = null
   let quickHidden = false
+  let capturing = false
   let replayOnBeat = false
   let lastKey = configKey(deps.getConfig())
   const actionListeners: Array<(a: HotkeyAction) => void> = []
@@ -71,13 +72,14 @@ export function createOverlayHost(deps: HostDeps) {
   /** Every capture-state change goes through here: window, tray, hotkeys and renderers stay in step. */
   function publishState(s: CopilotEvents['copilotState']): void {
     const wasLive = live
-    const capturing = s.state === 'listening' || s.state === 'armed'
+    capturing = s.state === 'listening' || s.state === 'armed'
     live = s.state === 'listening'
     if (capturing && !wasLive && lastState?.sessionId !== s.sessionId) { panic.reset(); quickHidden = false }
     lastState = s
     deps.tray.setState(s.state satisfies CopilotState)
     deps.overlay.setLive(live)
     if (capturing) { deps.overlay.open(); registerHotkeys() }
+    else deps.hotkeys.unregisterAll() // the overlay may stay open on the stopped card; the keys go back to other apps
     deps.publish('copilotState', s)
   }
 
@@ -101,7 +103,7 @@ export function createOverlayHost(deps: HostDeps) {
         if (replayOnBeat && lastState) { replayOnBeat = false; deps.publish('copilotState', lastState) }
         // ponytail: one small file read per second; a config-changed event replaces this if it ever shows up in a profile.
         const key = configKey(deps.getConfig())
-        if (key !== lastKey) { lastKey = key; deps.overlay.refresh(); if (deps.overlay.isVisible() || live) registerHotkeys() }
+        if (key !== lastKey) { lastKey = key; deps.overlay.refresh(); if (capturing) registerHotkeys() }
         return
       }
       deps.overlay.apply(cmd)
