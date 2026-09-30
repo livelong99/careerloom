@@ -34,7 +34,7 @@ export async function runBenchmark(o: { make: () => SttAdapter; fixture: BenchFi
     await a.start(opts)
     const t0 = clock.now()
     for (const [i, f] of frames.entries()) {
-      if (paced) await clock.sleepUntil(t0 + i * FRAME_MS)
+      if (paced) await clock.sleepUntil(t0 + (i + 1) * FRAME_MS) // a frame exists only once its 100 ms have been spoken
       else if (i % 10 === 0) await tick()
       a.push(f)
     }
