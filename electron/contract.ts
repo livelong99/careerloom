@@ -120,6 +120,10 @@ export type ExtractedProfile = {
   experience: ExperienceItem[]
   education: EducationItem[]
   projects: ProjectItem[]
+  /** Sections the original extraction shape had no room for; the template renders them when present. */
+  awards?: string[]
+  certifications?: string[]
+  skillGroups?: Array<{ category: string; items: string[] }>
   extractedFrom?: string
   extractedAt?: number
 }
@@ -253,7 +257,8 @@ export type ScoreBlock = { score: number; low: number; high: number; confidence:
 export type AtsSeverity = 'critical' | 'major' | 'minor' | 'info'
 export type AtsCategory = 'parse' | 'keyword' | 'evidence' | 'bullet' | 'date' | 'section' | 'seniority' | 'skill'
 export type ApplyOp = {
-  op: 'replace' | 'insert' | 'append' | 'delete'
+  /** 'rebuild-profile' regenerates the template data from cv.md (no cv.md edit, no agent). */
+  op: 'replace' | 'insert' | 'append' | 'delete' | 'rebuild-profile'
   /** Exact cv.md text to change (replace/delete) or the heading/line to anchor on (insert/append). */
   target: string
   before?: string
@@ -288,6 +293,8 @@ export type AtsReport = {
   skillGaps: SkillGap[]
   courses: Course[]
   plan?: string
+  /** Plain-language limits of this run (no web-search runner, local model missing, …). */
+  notes?: string[]
   session?: { runId: string; sessionId: string | null; round: number; questions: AtsQuestion[] }
 }
 export type AtsApplyResult = { ok: boolean; error?: string; undoId?: string; newCv?: string; rescore?: AtsReport }
