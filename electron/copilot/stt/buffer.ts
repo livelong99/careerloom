@@ -5,7 +5,7 @@ import { createEmitter, type SttAdapter, type SttStartOpts } from './adapter'
 import { createVad } from './vad'
 
 export type Decoder = {
-  ready(): Promise<void>
+  ready(opts: SttStartOpts): Promise<void>
   decode(pcm: Int16Array, kind: 'partial' | 'final'): Promise<string>
   close(): Promise<void>
 }
@@ -68,7 +68,7 @@ export function createChunkedAdapter(o: { id: SttAdapter['id']; decoder: Decoder
     async start(opts: SttStartOpts) {
       endSilenceMs = opts.endSilenceMs
       vad = createVad(); t = 0; reset()
-      await decoder.ready()
+      await decoder.ready(opts)
       live = true
     },
     push(pcm16) {

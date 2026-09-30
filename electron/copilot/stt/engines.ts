@@ -1,21 +1,28 @@
-import type { CopilotConfig, SttModelInfo } from '../types'
+import type { CopilotConfig, SttEngineId, SttModelInfo } from '../types'
 import type { SttAdapter } from './adapter'
-import { DEFAULT_MOONSHINE_MODEL, findSttRuntime, MOONSHINE_MODELS } from './runtime'
 import { moonshineAdapter } from './moonshine'
+import { defaultEngine, defaultModel, findSttRuntime, MODEL_SIZE_MB, STT_MODELS } from './runtime'
+import { whisperAdapter } from './whisper-mlx'
 
-/** Adapter for the configured engine. Whisper MLX / faster-whisper stay behind this switch until the S2 bake-off picks them. */
+/** Adapter for the configured engine (S2: Whisper small is the default on Apple silicon, Moonshine the fallback). */
 export function createSttAdapter(stt: CopilotConfig['stt']): SttAdapter {
   switch (stt.engine) {
-    case 'moonshine': return moonshineAdapter(stt.model ?? DEFAULT_MOONSHINE_MODEL, stt.device)
-    default: throw new Error(`${stt.engine} is not available yet — choose Moonshine in Transcription`)
+    case 'moonshine': return moonshineAdapter(stt.model ?? defaultModel('moonshine'), stt.device)
+    case 'whisper-mlx': return whisperAdapter(stt.model ?? defaultModel('whisper-mlx'))
+    default: throw new Error(`${stt.engine} is not available yet — choose Whisper or Moonshine in Transcription`)
   }
 }
 
-export function listSttModels(cfg: CopilotConfig['stt']): SttModelInfo[] {
-  const installed = findSttRuntime('moonshine')?.models ?? []
-  const pick = cfg.model ?? DEFAULT_MOONSHINE_MODEL
-  return MOONSHINE_MODELS.map(model => ({
-    engine: 'moonshine' as const, model, sizeMb: null, installed: installed.includes(model), devices: ['cpu' as const],
-    lastBenchmark: cfg.engine === 'moonshine' && pick === model ? cfg.lastBenchmark : null, recommended: model === DEFAULT_MOONSHINE_MODEL,
-  }))
+/** One row per installable model; `recommended` marks the S2 default for this machine. MLX runs on the GPU, so only Auto is offered for Whisper. */
+export function listSttModels(cfg: CopilotConfig['stt'], recommended: SttEngineId = defaultEngine()): SttModelInfo[] {
+  return (['whisper-mlx', 'moonshine'] as const).flatMap(engine => {
+    const installed = findSttRuntime(engine)?.models ?? []
+    const pick = cfg.model ?? defaultModel(engine)
+    return STT_MODELS[engine].map((model): SttModelInfo => ({
+      engine, model, sizeMb: MODEL_SIZE_MB[`${engine}:${model}`] ?? null, installed: installed.includes(model),
+      devices: engine === 'moonshine' ? ['cpu'] : [],
+      lastBenchmark: cfg.engine === engine && pick === model ? cfg.lastBenchmark : null,
+      recommended: engine === recommended && model === defaultModel(engine),
+    }))
+  })
 }
