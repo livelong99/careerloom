@@ -21,7 +21,7 @@ export type RootCheck = { ok: true; root: string; dataRoot: string } | { ok: fal
 export type CliRunner = Exclude<RunnerId, 'api' | 'zen'>
 /** Runners with a model setting. */
 export type ModelRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; hasApiKey: boolean; hasOpencodeKey: boolean; rootCheck: RootCheck | null }
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; helperModels: Partial<Record<ModelRunner, string>>; hasApiKey: boolean; hasOpencodeKey: boolean; rootCheck: RootCheck | null }
 export type ModelOption = { id: string; label: string }
 export type RunnerStatus = Record<'claude' | 'codex' | 'antigravity' | 'opencode' | 'node' | 'git', string | null>
 export type ProfileStatus = { cv: boolean; profile: boolean; portals: boolean }
@@ -106,6 +106,11 @@ export type CareerloomBridge = {
   /** Applied changes that can still be undone, newest first. */
   atsHistory(): Promise<AtsHistoryItem[]>
   onAtsEvent(cb: (event: AtsEvent) => void): () => void
+  // ————— Job page —————
+  /** Everything the job page shows, from cache when it can; `pending` = structuring still running (an `onJobView` event follows). */
+  jobView(id: string): Promise<JobView & { pending: boolean }>
+  onJobView(cb: (e: { id: string }) => void): () => void
+  setHelperModel(runner: ModelRunner, model: string | null): Promise<unknown>
   /** The template filled with the current résumé, as PDF bytes (for the in-app viewer). */
   renderTemplatePdf(name: string): Promise<Uint8Array>
   /** Save dialog → writes that PDF; resolves to the saved path or null if cancelled. */
@@ -214,4 +219,4 @@ export type SpendFlow = {
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
 import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
-import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow } from '../../electron/contract'
+import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView } from '../../electron/contract'

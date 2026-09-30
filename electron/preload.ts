@@ -73,6 +73,10 @@ const bridge = {
   atsDismiss: (findingId: string) => invoke('atsDismiss', findingId),
   atsHistory: () => invoke('atsHistory'),
   onAtsEvent: (cb: (event: unknown) => void) => subscribe('atsEvents', cb),
+  // ————— Job page —————
+  jobView: (id: string) => invoke('jobView', id),
+  onJobView: (cb: (e: unknown) => void) => subscribe('jobView', cb),
+  setHelperModel: (runner: string, model: string | null) => invoke('setHelperModel', runner, model),
   // Jobs
   listJobs: () => invoke('listJobs'),
   listPortals: () => invoke('listPortals'),

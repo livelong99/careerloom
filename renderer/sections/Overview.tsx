@@ -7,7 +7,7 @@ import { Icon, type IconName } from '../components/icons'
 import { ListRow } from '../components/ListRow'
 import { Panel } from '../components/Panel'
 import { openRuns } from '../components/RunsDrawer'
-import { ReportDrawer } from '../components/ReportDrawer'
+import { openApplication } from '../lib/jobNav'
 import { Sankey } from '../components/Sankey'
 import { SectionSkeleton } from '../components/Skeleton'
 import type { Section } from '../components/Sidebar'
@@ -16,7 +16,6 @@ import { usePolled } from '../hooks/usePolled'
 import { useRuns } from '../hooks/useRuns'
 import { careerloom } from '../lib/ipc'
 import { dailyCounts, isActive, sourceFlow, stageOf } from '../lib/stages'
-import type { Application } from '../lib/types'
 
 const POLL_MS = 15_000
 
@@ -24,7 +23,6 @@ export function Overview({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const { generation, start } = useRuns()
   const tracker = usePolled(() => careerloom.getTracker(), [generation], { intervalMs: POLL_MS, memoKey: 'tracker' })
   const profile = usePolled(() => careerloom.profileStatus(), [generation], { intervalMs: null })
-  const [open, setOpen] = useState<Application | null>(null)
 
   if (tracker.error) {
     return (
@@ -87,7 +85,7 @@ export function Overview({ onNavigate }: { onNavigate: (s: Section) => void }) {
             {topMatches.length === 0
               ? <EmptyNote>No evaluated roles scored 4+ yet. Scan portals from Jobs to find more.</EmptyNote>
               : topMatches.map(a => (
-                  <ListRow key={a.num} title={a.company} sub={a.role} value={<><ScoreBadge score={a.score} /> <StageBadge status={a.status} /></>} onClick={() => setOpen(a)} />
+                  <ListRow key={a.num} title={a.company} sub={a.role} value={<><ScoreBadge score={a.score} /> <StageBadge status={a.status} /></>} onClick={() => openApplication(a)} />
                 ))}
           </Panel>
           <Panel title="What to do next">
@@ -109,7 +107,6 @@ export function Overview({ onNavigate }: { onNavigate: (s: Section) => void }) {
           </Panel>
         </>
       )}
-      {open && <ReportDrawer app={open} onClose={() => setOpen(null)} />}
     </>
   )
 }
