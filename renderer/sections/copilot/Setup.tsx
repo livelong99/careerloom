@@ -1,10 +1,34 @@
-import { Page, Soon } from '../resume/PageStub'
+import { Group } from '@/components/copilot/Group'
+import { ContextTiles } from '@/components/copilot/ContextTiles'
+import { JobPicker } from '@/components/copilot/JobPicker'
+import { ReadinessStrip } from '@/components/copilot/ReadinessStrip'
+import { SessionsNote } from '@/components/copilot/SessionsNote'
+import { SegTabs } from '@/components/SegTabs'
+import { careerloom } from '@/lib/ipc'
+import type { InterviewType } from '@/lib/types'
+import { orNull, useAsync } from '@/components/copilot/api'
+import { setSelection, useSelection } from '@/components/copilot/selection'
+import { Page } from '../resume/PageStub'
 
-/** WP0 stub: WP4 replaces this page's body (keep the export name). */
+const TYPES: Array<{ value: InterviewType; label: string }> = [
+  { value: 'recruiter', label: 'Recruiter screen' }, { value: 'behavioural', label: 'Behavioural' }, { value: 'technical', label: 'Technical' },
+  { value: 'system-design', label: 'System design' }, { value: 'mixed', label: 'Mixed' },
+]
+
 export function SetupPage() {
+  const { jobId, interviewType } = useSelection()
+  const readiness = useAsync(async () => (jobId ? careerloom.copilotReadiness(jobId) : null), [jobId])
+  const preview = useAsync(async () => (jobId ? orNull(await careerloom.copilotContextPreview(jobId)) : null), [jobId])
+  const r = readiness.data
   return (
-    <Page title="Setup" blurb="Pick the job you are interviewing for and check everything is ready.">
-      <Soon>Choose a job, see what the copilot will know about it, and start a practice or live session.</Soon>
+    <Page title="Set up the interview" blurb="Pick the job and the kind of interview. The copilot only uses what you choose here, plus your résumé.">
+      <ReadinessStrip readiness={r ? { ...r.context, mic: r.mic, system: r.system, stt: r.stt, engine: r.engine } : null} />
+      <JobPicker summary={jobId ? <SessionsNote jobId={jobId} title={r?.context.title} /> : null} />
+      <Group title="Interview type">
+        <SegTabs options={TYPES} value={interviewType} onChange={v => setSelection({ interviewType: v as InterviewType })} />
+        <p className="m-0 mt-2 text-xs text-muted-foreground">Sets how questions are classified and which answer shape is offered first. Mixed detects the type per question.</p>
+      </Group>
+      <ContextTiles preview={preview.data} />
     </Page>
   )
 }
