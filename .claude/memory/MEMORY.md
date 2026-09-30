@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261001 Copilot WP0](session_20261001_copilot-wp0.md) — frozen copilot IPC/config contract, stub handlers/modules, mac-only Copilot shell, copilot.json config
 - [20261001 Interview Copilot plan](session_20261001_interview-copilot-plan.md) — research + design/prototype + WP plan for config screen and overlay; option B responsible-use default, mic-only MVP, SSE runner
 - [20261001 Orca integration](session_20261001_orca-integration.md) — browser spike no-go -> deterministic driver, Orca worker flow, integration branch, job-page agent launched
 - [20261001 Job page](session_20261001_job-page.md) — selected Job page (6 tabs) replaces drawer; report parser, cheap-model structuring, per-job ATS, tailored resume + cover letter, fact gates, vendored humanizer

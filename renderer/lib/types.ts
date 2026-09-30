@@ -189,7 +189,7 @@ export type CareerloomBridge = {
   openExternal(url: string): Promise<void>
   platform: string
   arch: string
-}
+} & CopilotBridge
 
 export type UpdateStatus = { currentVersion: string; latestVersion: string | null; updateAvailable: boolean; tag: string | null; storeManaged?: boolean }
 
@@ -227,5 +227,6 @@ export type SpendFlow = {
 // Feature contracts live in electron/contract.ts (types only) so the main
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
+import type { CopilotBridge } from '../../electron/contract'
 import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
 import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'
