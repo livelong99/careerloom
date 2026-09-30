@@ -38,16 +38,17 @@ export function createSidecarDecoder(spec: DecoderSpec): Decoder {
     return ready
   }
 
+  const current = (): SidecarChild | null => child // TS narrows `child` to null across the awaits below
   const failAll = (msg: string) => { for (const p of pending.values()) p.reject(new Error(msg)); pending.clear() }
 
   async function crashed(code: number | null) {
-    child = null
-    if (restarts >= 1) return failAll(`Speech recognition stopped unexpectedly (exit ${code ?? 'signal'})`)
+    if (restarts >= 1) { child = null; return failAll(`Speech recognition stopped unexpectedly (exit ${code ?? 'signal'})`) }
     restarts++
     try {
-      await launch(opts!)
-      for (const p of pending.values()) child?.write(p.frame)
-    } catch (err) { child?.kill(); child = null; failAll((err as Error).message) }
+      const ready = launch(opts!)
+      for (const p of pending.values()) current()?.write(p.frame) // queued behind the config frame; requests made during the restart are already in `pending`
+      await ready
+    } catch (err) { current()?.kill(); child = null; failAll((err as Error).message) }
   }
 
   return {

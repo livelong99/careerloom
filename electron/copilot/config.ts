@@ -2,6 +2,7 @@ import { app } from 'electron'
 import fs from 'node:fs'
 
 import { userFile } from '../context'
+import { defaultEngine } from './stt/runtime'
 import type { Anchor, CopilotConfig, DeepPartial, SttBenchmark } from './types'
 
 const FILE = 'copilot.json'
@@ -10,7 +11,8 @@ const PANIC = 'Control+Alt+Shift+X'
 export const DEFAULT_CONFIG: CopilotConfig = {
   version: 1,
   audio: { micDeviceId: null, useSystem: false, systemSource: 'loopback', virtualDeviceId: null },
-  stt: { engine: 'moonshine', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 700, vocab: [] },
+  // S2 bake-off: Whisper small on Apple silicon, Moonshine small elsewhere; 650 ms of quiet ends an utterance
+  stt: { engine: defaultEngine(), model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 650, vocab: [] },
   engine: {
     tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter',
     openrouter: { dataCollection: 'deny', zdr: false, sort: 'latency' },
