@@ -50,6 +50,7 @@
 <!-- SETUP -->
 <section class="page" id="p-setup">
   <header><h2>Set up the interview</h2><p>Pick the job and the kind of interview. The copilot only uses what you choose here, plus your résumé.</p></header>
+  <div class="notice" id="winnote" style="display:none;margin-bottom:14px"><i data-i="info" data-s="16"></i><div><b>Windows:</b> live sessions aren't available yet. Practice works, and you type your answers. <button class="btn sm" disabled style="margin-left:8px">Start live session…</button></div></div>
   <div class="ready">
     <div class="chk2"><span class="ok"><i data-i="check" data-s="14"></i>Job context loaded</span><span class="ok"><i data-i="check" data-s="14"></i>Microphone allowed</span><span class="wn"><i data-i="warn" data-s="14"></i>System audio needs permission</span></div>
     <span style="flex:1"></span>
@@ -112,21 +113,19 @@
 
 <!-- TRANSCRIPTION -->
 <section class="page" id="p-transcription">
-  <header><h2>Transcription</h2><p>Turns speech into text as it happens. This is the step where audio may leave your computer.</p></header>
-  <div class="card"><div class="ch"><b>Engine</b></div><div class="cb">
-    <div class="grid2">
-      <button class="mode" aria-pressed="true"><b>Cloud streaming <span class="badge brand" style="margin-left:6px">Fast</span></b><small>Text appears within a second. Audio is sent to the provider you choose.</small></button>
-      <button class="mode" aria-pressed="false"><b>On this device <span class="badge" style="margin-left:6px">Private</span></b><small>Audio never leaves your Mac. Slower and less exact. Downloads a speech model first.</small></button>
-    </div>
-    <div class="row" style="margin-top:14px"><div class="lab"><b>Provider</b><span>You bring the key. It's stored in your system keychain.</span></div><select class="sel" aria-label="Provider"><option>Soniox · about $0.12 per hour</option><option>AssemblyAI · about $0.15 per hour</option><option>Deepgram Flux · detects end of speech</option></select></div>
-    <div class="row"><div class="lab"><b>API key</b><span>Saved in the keychain. Never shown again.</span></div><span class="badge ok"><i data-i="check" data-s="12"></i>Saved</span><button class="btn sm">Replace</button></div>
-    <div class="notice" style="margin-top:12px"><i data-i="info" data-s="16"></i><div>Audio from your microphone and, if enabled, system audio is sent to <b>Soniox</b>. Prices are provider estimates and change.</div></div>
+  <header><h2>Transcription</h2><p>Turns speech into text as it happens. It runs on this Mac, so your audio is never uploaded.</p></header>
+  <div class="card"><div class="ch"><b>Engine</b><div class="r"><span class="badge ok"><i data-i="check" data-s="12"></i>Installed</span></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>Whisper on Apple silicon</b><span>Runs locally with MLX. About 1 GB of memory while listening. Needs an Apple silicon Mac.</span></div><span class="badge brand">On this Mac</span></div>
+    <div class="row"><div class="lab"><b>Model</b><span>Bigger is more accurate and slower. Downloaded once, never bundled in the app.</span></div><select class="sel" aria-label="Model"><option>Recommended: small</option><option>Tiny (fastest)</option><option>Large (most accurate)</option></select></div>
+    <div class="row"><div class="lab"><b>Model status</b><span>Installed in ~/.careerloom/stt. Self-test passed.</span></div><button class="btn sm">Reinstall</button><button class="btn sm danger">Remove</button></div>
+    <div class="notice ok" style="margin-top:12px"><i data-i="shield" data-s="16"></i><div>Audio from your microphone and system audio stays on this Mac. Only the text of the conversation is sent to the answer provider.</div></div>
   </div></div>
   <div class="card"><div class="cb">
-    <div class="row"><div class="lab"><b>Language</b></div><select class="sel" aria-label="Language"><option>English (India)</option><option>English (US)</option><option>English (UK)</option></select></div>
+    <div class="row"><div class="lab"><b>Language</b></div><select class="sel" aria-label="Language"><option>English</option><option>Hindi</option><option>Auto-detect</option></select></div>
     <div class="row"><div class="lab"><b>Wait after the interviewer stops</b><span>Shorter is faster but may cut a question in half.</span></div><input class="rng" type="range" min="400" max="1400" value="800" aria-label="Wait after speech"><span class="val">800 ms</span></div>
     <div class="row"><div class="lab"><b>Words to recognise</b><span>Names and tools the engine often gets wrong.</span></div><div class="tags"><span class="badge">Kubernetes</span><span class="badge">Northwind</span><span class="badge">Terraform</span><button class="btn sm"><i data-i="plus" data-s="12"></i>Add</button></div></div>
   </div></div>
+  <div class="notice warn"><i data-i="warn" data-s="16"></i><div><b>Windows:</b> live transcription isn't available yet. Practice works, and you type your answers.</div></div>
 </section>
 
 <!-- ENGINE -->
@@ -142,7 +141,10 @@
     <div class="row" style="margin-top:12px"><div class="lab"><b>Use Deep for design and coding questions</b><span>Switches per question. The overlay shows which model answered.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Escalate to Deep"></button></div>
   </div></div>
   <div class="card"><div class="cb">
-    <div class="row"><div class="lab"><b>Provider</b><span>Streams words as they are written. Agent command-line tools are too slow for live use.</span></div><select class="sel" aria-label="Runner"><option>OpenCode Zen</option><option>OpenRouter</option><option>Direct API key</option></select></div>
+    <div class="row"><div class="lab"><b>Provider</b><span>OpenRouter streams words as they are written. The text of the conversation is sent to it.</span></div><span class="badge brand">OpenRouter</span></div>
+    <div class="row"><div class="lab"><b>API key</b><span>Shared with your other Careerloom agents. Kept in your system keychain.</span></div><span class="badge ok"><i data-i="check" data-s="12"></i>Saved</span><button class="btn sm">Replace</button></div>
+    <div class="row"><div class="lab"><b>Only use providers that don't keep or train on my data</b><span>Safer, but it limits which models you can pick.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Data collection deny"></button></div>
+    <div class="row"><div class="lab"><b>Answer automatically</b><span>Off: press <span class="kbd">⌃⌥A</span> when you want a suggestion. On: a suggestion starts when a question is detected.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Auto answer"></button></div>
     <div class="row"><div class="lab"><b>Model</b></div><select class="sel" aria-label="Model"><option>Recommended for Fast</option><option>Choose a model…</option></select></div>
     <div class="row"><div class="lab"><b>Check answers against your résumé</b><span>Flags numbers, tools and names that aren't in your résumé or stories.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Fact check"></button></div>
     <div class="row"><div class="lab"><b>Read screenshots with</b><span>For coding questions shown on screen.</span></div><div class="seg"><button aria-pressed="true">Vision model</button><button aria-pressed="false">Text only (OCR)</button></div></div>
@@ -217,7 +219,7 @@
   </div></div>
   <div class="card"><div class="ch"><b>What is kept</b></div><div class="cb">
     <div class="row"><div class="lab"><b>Audio recordings</b><span>Audio is turned into text and discarded straight away.</span></div><span class="badge">Never saved</span></div>
-    <div class="row"><div class="lab"><b>Transcript</b></div><div class="seg"><button aria-pressed="false">Don't keep</button><button aria-pressed="true">7 days</button><button aria-pressed="false">Until I delete</button></div></div>
+    <div class="row"><div class="lab"><b>Keep transcripts for</b><span>Older text is deleted automatically. Lowering this asks before deleting.</span></div><select class="sel" style="min-width:150px" aria-label="Keep transcripts for"><option>Don't keep</option><option>30 days</option><option selected>3 months</option><option>1 year</option><option>Until I delete</option></select></div>
     <div class="row"><div class="lab"><b>Session records</b><span>Your confirmations, dates and providers, saved on this device only.</span></div><button class="btn sm">Export</button><button class="btn sm danger">Delete all</button></div>
   </div></div>
   <div class="card"><div class="ch"><b>What leaves your computer</b></div><div class="cb">
@@ -241,6 +243,7 @@
     <!-- SESSIONS -->
 <section class="page" id="p-sessions">
   <header><h2>Sessions &amp; debrief</h2><p>Review how an answer landed and move the good parts into your résumé and job notes.</p></header>
+  <div class="notice" style="margin-bottom:12px"><i data-i="clock" data-s="16"></i><div>Transcripts are kept for <b>3 months</b>, then deleted. <a href="#privacy" style="color:var(--accent-text)">Change</a></div></div>
   <div class="card"><div class="cb" style="padding:4px 16px 8px"><table class="tbl">
     <tr><th>Date</th><th>Job</th><th>Mode</th><th>Length</th><th>Answers</th><th>Score</th></tr>
     <tr class="on"><td class="num">Today 09:40</td><td>Senior Platform Engineer</td><td><span class="badge brand">Practice</span></td><td class="num">18 min</td><td class="num">6</td><td class="num"><b>3.9</b> / 5</td></tr>
@@ -269,7 +272,7 @@
 
 <!-- per-session consent gate -->
 <div class="scrim" id="gate" role="dialog" aria-modal="true" aria-labelledby="gt"><div class="dlg">
-  <header><h3 id="gt">Before you start a live session</h3><p>Careerloom will listen and send text to <b>Soniox</b> and <b>OpenCode Zen</b> to suggest answers. A “Listening” indicator stays visible the whole time.</p></header>
+  <header><h3 id="gt">Before you start a live session</h3><p>Careerloom will listen on this Mac (audio never leaves it) and send the conversation's text to <b>OpenRouter</b> to suggest answers. Transcripts are kept for <b>3 months</b> (change in Privacy). A “Listening” indicator is shown by default.</p></header>
   <div class="body">
     <div class="src"><i data-i="mic" data-s="16"></i><div class="lab"><b style="font-weight:600">Your microphone</b><span>Always included in a live session</span></div><span class="badge ok">On</span></div>
     <div class="src"><i data-i="speaker" data-s="16"></i><div class="lab"><b style="font-weight:600">System audio (the other person)</b><span>Records them. Off unless you turn it on.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Include system audio"></button></div>
@@ -322,6 +325,7 @@ setPm(false);
 pm.onclick = e => { e.stopImmediatePropagation(); if (pm.getAttribute('aria-checked') === 'true') setPm(false); else pmn.classList.add('on'); };
 document.getElementById('pmCancel').onclick = () => pmn.classList.remove('on');
 document.getElementById('pmOk').onclick = () => { pmn.classList.remove('on'); setPm(true); };
+if (q.get('os') === 'win') { document.getElementById('winnote').style.display = 'flex'; document.getElementById('openGate').classList.add('dis'); document.getElementById('openGate').disabled = true; }
 if (q.get('pm') === '1') setPm(true); if (q.get('notice') === '1') pmn.classList.add('on');
 // range value labels
 document.querySelectorAll('.rng').forEach(r => r.oninput = () => { const v = r.nextElementSibling; if (!v) return; const t = v.textContent; v.textContent = /ms/.test(t) ? r.value + ' ms' : /px/.test(t) ? r.value + ' px' : /%/.test(t) ? r.value + '%' : /min/.test(t) ? r.value + ' min' : t; });

@@ -12,7 +12,9 @@ type: project
 - `docs/plans/interview-copilot/design.md` + `prototype/` (config.html, overlay.html, css, js, `shots/`, `shoot.sh`): clickable static prototype, dark + light.
 - `docs/plans/interview-copilot/plan.md`: architecture, IPC types, storage, config schema, WP0-WP5 with file ownership and gates, test/packaging/rollout, risks, open questions.
 
-**Decisions made (provisional, lead-approved, user to confirm; all listed in plan.md §15):**
+**User decisions (2026-10-01, final for now):** STT = Whisper on MLX (local, Apple Silicon; mlx-whisper has no documented streaming, so chunked pseudo-streaming + spike S2); LLM = OpenRouter (data_collection deny, SSE, skip `: OPENROUTER PROCESSING`); answer-on-demand default; Windows = Practice only; transcript retention 3 months, editable in app.
+
+**Earlier decisions (provisional, lead-approved, user to confirm; all listed in plan.md §15):**
 - Open-Cluely is the user's own project: code/prompts are PORTED (per-WP port map in plan.md §11); never port disguise identities, plaintext keys, LAN companion.
 - Responsible-use option B (practice first; per-session consent; system audio off by default) plus an opt-in Privacy mode group, OFF by default, one-time notice: hide-from-capture (unreliable on macOS 15+ ScreenCaptureKit), no Dock icon, neutral title, click-through, quick hide, indicator full/dot/off (tray icon always on). Not included: process-name masquerading, fake identities, anything defeating proctoring.
 - MVP = practice + mic-only + streaming API runner; then system audio (spike gate), screenshots, local-only. macOS first.

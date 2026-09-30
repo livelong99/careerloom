@@ -11,8 +11,8 @@ Caveat on sources: the fetch tool summarises pages with a small model; prices/ve
 | 1 | Open-Cluely reuse | **Port** (user confirmed it is their own project; supersedes the clean-room rule). Do not port disguise/stealth-identity features or plaintext keys. Port map in `plan.md` §11 |
 | 2 | Responsible-use default | **Option B** (practice first; live = per-session consent + policy acknowledgement; Listening indicator on by default) **plus an opt-in Privacy mode group, OFF by default** (option C) |
 | 3 | Hide-from-capture | Included **only inside Privacy mode** (OFF by default, one-time plain notice, labelled unreliable on macOS 15+). Not included: process-name masquerading, fake system-app identities, anything aimed at defeating proctoring or anti-cheat |
-| 4 | STT | MVP: cloud streaming, two channels (Soniox or AssemblyAI; Deepgram Flux if endpointing matters). Local-only later: Apple SpeechAnalyzer (macOS 26+) else whisper.cpp |
-| 5 | Answer runner | New in-process **streaming** runner (SSE) on API/Zen/OpenRouter-style endpoints; default small fast model; "deep" escalates. Agent CLIs are not viable for live |
+| 4 | STT | **User decision (2026-10-01): Whisper on MLX, local on-device** (Apple Silicon; `mlx-whisper`, MIT repo, file/array transcribe + word timestamps, no documented streaming so chunked pseudo-streaming is ours; model size/latency via spike S2). Cloud providers remain a later adapter option |
+| 5 | Answer runner | **User decision: OpenRouter**, new in-process **streaming** runner (SSE; skip `: OPENROUTER PROCESSING` comments, handle mid-stream `error`, `data_collection:'deny'`). Answer on demand by default; Windows = Practice only; transcript retention 3 months. Agent CLIs are not viable for live |
 | 6 | Components | shadcn core (`message bubble marker message-scroller`) + prompt-kit (`response-stream text-shimmer loader`); hand-build meter/stepper/suggestion card; avoid AI Elements heavy parts, coss ui (AGPL), Aceternity |
 
 ## A. Open-Cluely analysis (owner's own project: port allowed)

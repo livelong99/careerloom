@@ -1,13 +1,14 @@
 # Interview Copilot — Implementation Plan (Phase 3)
 
 Inputs: `research.md` (facts, sources), `design.md` + `prototype/` (screens). Defaults below are **provisional** (lead-approved at G1, user to confirm) and are isolated in §15 so they are cheap to change.
-Target: Careerloom v0.3.0 · macOS first, Windows second · Electron ^43.7.0 (installed version unverified in this worktree).
+Target: Careerloom v0.3.0 · **macOS (Apple Silicon) for Live; Windows = Practice only** · Electron ^43.7.0 (installed version unverified in this worktree).
 
 ## 1. Context and scope
 
 Add a **Copilot** section (config workspace, 10 pages) and an **overlay window** that listens (mic, later system audio), detects interviewer questions, and streams grounded suggestions built from the job posting, evaluation report, `cv.md` facts and STAR stories.
 
-**MVP (M1):** Practice mode + mic-only live + streaming API runner + consent gate + kill switch. **M2:** system audio (after spike gate). **M3:** screenshot → vision. **M4:** local-only STT/LLM, Windows hardening, extras.
+**User decisions (2026-10-01, supersede earlier provisional defaults):** STT = **Whisper on MLX** (local, on-device); LLM = **OpenRouter**; **answer-on-demand** is the default; **Windows gets Practice mode only**; transcript retention default **3 months**, changeable in the app.
+**MVP (M1):** Practice mode (macOS + Windows) + mic-only Live (macOS Apple Silicon) + local Whisper MLX STT + OpenRouter streaming runner + consent gate + kill switch. **M2:** system audio (macOS, after spike gate). **M3:** screenshot → vision. **M4:** local LLM, Windows Live (new STT adapter), extras.
 **Included as opt-in, OFF by default — Privacy mode** (user decision): hide overlay from screen sharing (`setContentProtection`), no Dock icon while listening, neutral window title, click-through, quick-hide hotkey, configurable recording indicator. Guarded by a one-time plain notice (some interviewers/employers prohibit AI help; hide-from-capture unreliable on macOS 15+ ScreenCaptureKit). Per-session consent is **not** part of it.
 **Not included:** process-name masquerading, fake system-app/browser identities, disguised installers/icons, near-invisible opacity or cursor tricks, or anything aimed at defeating proctoring/anti-cheat software. Also out: the unauthenticated LAN companion, diarisation, auto-typing into other apps, raw-audio retention (design.md §7).
 **Reuse:** Open-Cluely is the user's own project, so code/prompts are **ported** (TS/React adaptation, keys via `safeStorage`). Per-package port map in §11.
@@ -33,7 +34,7 @@ Overlay renderer ←─ IPC push (careerloom:copilot*) ─┐          Config re
 │ session.ts  state machine: idle→armed→live→stopped; owns capture/STT/engine lifetimes │
 │ overlay-window.ts  BrowserWindow(s), level, click-through, bounds, panic                │
 │ hotkeys.ts  globalShortcut register/verify/unregister; tray.ts  Stop now              │
-│ stt/ adapter interface + soniox.ts, assemblyai.ts (WebSocket, PCM16 16 kHz) + fake.ts │
+│ stt/ adapter interface + whisper-mlx.ts (Python sidecar, chunked) + fake.ts          │
 │ detector.ts  endpointing + rules + optional tiny LLM classify                         │
 │ context.ts  builds cached grounding prefix (posting+report+cv facts+stories)          │
 │ engine.ts   streaming runner (SSE fetch, abort, retry), prompt templates, cost meter  │
@@ -49,19 +50,25 @@ New pattern: long-lived child process (only for M4 on-device STT helper); SSE st
 
 ### 3.1 Capture (WP3)
 - Mic: `getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})` → `AudioContext({sampleRate:16000})` → AudioWorklet posts Int16 frames (80–100 ms) to main (`copilotAudioChunk`, transferable). Worklet file under `renderer/copilot/worklet.js`, allowed by `script-src 'self'`.
-- System audio (M2): main sets `session.setDisplayMediaRequestHandler` with `audio:'loopback'`; renderer calls `getDisplayMedia`. **Spike gate G-B** decides between: (a) loopback (Windows; macOS ≥14.2 CoreAudio tap, `NSAudioCaptureUsageDescription`), (b) `useSystemPicker:true` path (issue #52738 workaround), (c) virtual device (BlackHole) via `getUserMedia`, (d) mic-only.
+- **Platform rule:** Live capture exists on macOS only (Apple Silicon, because MLX). On Windows `copilotStart(mode:'live')` is refused in main (`process.platform` check) and the UI disables "Start live session" with an explanation; no capture/STT code path is reachable on Windows in M1. Windows Practice answers are typed (no STT); voice practice on Windows needs a new STT adapter (M4).
+- System audio (M2, macOS): main sets `session.setDisplayMediaRequestHandler` with `audio:'loopback'`; renderer calls `getDisplayMedia`. **Spike gate G-B** decides between: (a) macOS ≥14.2 CoreAudio tap (`NSAudioCaptureUsageDescription`), (b) `useSystemPicker:true` path (issue #52738 workaround), (c) virtual device (BlackHole) via `getUserMedia`, (d) mic-only.
 - Health: per-source "samples received in last 3 s" detector drives the **permission-missing** overlay state (silent ended track raises no error).
 - Channel = speaker (`interviewer` = system, `you` = mic). No diarisation.
 
 ### 3.2 STT adapter (WP3)
-Interface in §6. MVP adapters: one of Soniox / AssemblyAI (choose at G-C after a 1-hour comparison on recorded fixtures), second behind the same interface. Reconnect with backoff (5 tries), audio ring buffer (≤ 10 s) replayed after reconnect, `error` event → overlay error state. Keys via `safeStorage` (`stt-<provider>`). Endpointing uses provider end-of-turn when available, else 700–900 ms silence (`endSilenceMs`).
+Interface in §6. **MVP adapter: Whisper on MLX** (`whisper-mlx.ts`), fully on-device: audio never leaves the Mac, only text goes to OpenRouter.
+- **Runtime:** `mlx-whisper` (Python, `pip install mlx-whisper`; MIT licence per the repo's licence file; `transcribe()` on a file or array, optional `word_timestamps`; default model `mlx-community/whisper-tiny`, pre-converted models on the Hugging Face MLX Community — README: https://raw.githubusercontent.com/ml-explore/mlx-examples/main/whisper/README.md). **The README documents no streaming/real-time API**, so we build pseudo-streaming ourselves (below). Apple Silicon requirement is inferred from MLX, not stated on that page — verify.
+- **Sidecar:** a **long-lived** Python process (new pattern: `fit-sidecar.ts` is one-shot) spawned at session start, JSON-lines over stdin/stdout (audio as length-prefixed PCM16 frames on stdin), tracked and killed on stop/quit/crash (`killSidecars` pattern). One model instance serves both channels sequentially (16 GB rule: one heavy model at a time; `assertMemory()`-style check before start).
+- **Install:** optional-install flow like `prescreen-model.ts` into `~/.careerloom/stt/` (venv + pinned model revision + selftest), started from the Transcription page and from the Live gate if missing. Nothing ML ships in the installer. Model choice (tiny/small/turbo-class), size and RAM are **unverified**: decided in spike S2.
+- **Chunking:** energy/VAD gate cuts utterances; a growing window is re-decoded about every 1 s for `partial`, `final` on silence ≥ `endSilenceMs` (700–900 ms) with overlap trimming; `stt/merge.ts` (port) joins adjacent finals per source. Expected partial latency ~1–2 s and final ≈ silence + decode (hypothesis; measured at gate G-C).
+- **Failure:** sidecar crash → restart once, replay ≤ 10 s ring buffer, else `copilotError{kind:'stt'}` and the overlay error state. Cloud adapters (Soniox/AssemblyAI/Deepgram) stay behind the same interface but are **not in M1**.
 
 ### 3.3 Question detector (WP2)
 1. Interviewer-channel final/EOT text only. 2. Rules: trailing `?`, openers (what/why/how/tell me/walk me through/describe/explain/design/implement/write/given), "can you…". 3. Ambiguous → one tiny classify call (`max_tokens≈5`) → `{isQuestion, type}`. 4. Optional eager start on provider early-EOT, `AbortController` cancel if speech resumes. Output `DetectedQuestion {id,text,type,confidence,at}`. Types: `behavioural|technical|system-design|coding|other`.
 
 ### 3.4 Context + answer engine (WP2)
 - **Grounding prefix** (stable, cacheable): system rules + persona + `JobPosting` summary/requirements + `ReportView` strengths/gaps/personalization + **Interview Plan** STAR stories + `cv.md` facts (structured list) — target ≥ 4,096 tokens only if the chosen model caches (Haiku-class threshold per Anthropic docs); otherwise keep it lean. Then rolling transcript window (last ~6 turns) + the question.
-- **Streaming runner:** `fetch` with `stream:true`, SSE parser (OpenAI-compatible `data:` chunks; adapter for messages-API events), `AbortController` per request, first-token timestamp, usage/cost from response or estimate. Providers behind `AnswerProvider`: `zen` (endpoints per model family), `openrouter`, `api` (direct key). Reuse `readSecret`, `zenModel`. No tool loop, no agent CLIs.
+- **Streaming runner:** `fetch` with `stream:true`, SSE parser (OpenAI-compatible `data:` chunks; adapter for messages-API events), `AbortController` per request, first-token timestamp, usage/cost from response or estimate. **Provider: OpenRouter** (`providers/openrouter.ts`), the only provider in M1 (the `AnswerProvider` interface keeps Zen/direct-API possible later). Reuse `readApiKey()` (existing `openrouter` secret in `safeStorage`). OpenRouter facts (docs read 2026-10-01: https://openrouter.ai/docs/api-reference/streaming, https://openrouter.ai/docs/features/provider-routing): `stream:true` returns SSE `data:` chunks; the stream may contain comment lines such as `: OPENROUTER PROCESSING` that **must be skipped before JSON parsing**; mid-stream errors arrive as an SSE event with a top-level `error` and `finish_reason:'error'` (HTTP stays 200); a final usage chunk precedes `[DONE]`; cancel with `AbortController` (only some providers stop processing/billing). Routing body options used: `provider.data_collection:'deny'` (default in Careerloom), optional `provider.zdr:true`, `provider.sort:'latency'`, `allow_fallbacks` default. No tool loop, no agent CLIs.
 - **Shapes:** `cues | cues+star | script` (coaching page). Output schema is text with section markers parsed incrementally → `say`, `bullets[]`, `star{S,T,A,R}`, `proof[]` (each `{quote, source}` must be a substring of `cv.md` or a story, else dropped).
 - **Guard:** after stream ends `factCheck(cv, cv+draft)`; violations → inline "check this number" chip, never silent removal of text the user is already reading. Redaction (names/emails) applied to transcript text before send if enabled.
 - **Escalation:** `system-design|coding` → Deep tier when enabled.
@@ -156,16 +163,16 @@ Validation: every handler validates input with the existing `str()` style guards
 | Consent records | `userData/copilot/consent.jsonl` (append-only, 0600) | kept until user deletes; exportable |
 | Practice history | inside session files (+ `lastScore` index in `copilot/index.json`) | rebuildable |
 | Audio | **never written** | PCM only in memory ring buffers |
-| Local STT model (M4) | `~/.careerloom/stt/` (venv/weights or binary) | install pattern of `prescreen-model.ts`; nothing bundled in installers |
+| Whisper MLX runtime + model (M1, macOS) | `~/.careerloom/stt/` (venv + pinned model) | install pattern of `prescreen-model.ts`; nothing bundled in installers |
 | Price table | `electron/copilot/prices.json` (bundled, dated) | user-overridable in `copilot.json` |
 
-Retention sweep on app start and on session end: transcript `dont-keep` → delete session text at stop (keep summary row without text); `7d` → delete older; `keep` → manual.
+Retention sweep on app start, on session end and immediately when the setting changes: `retentionDays = 0` → delete transcript text at stop (keep the summary row); `N > 0` → delete text older than N days (**default 90 = 3 months**); `null` → keep until the user deletes. Lowering the value shows how many sessions will lose their text and asks for confirmation before deleting.
 
 ## 6. STT adapter interface
 
 ```ts
 export interface SttAdapter {
-  readonly id: 'soniox' | 'assemblyai' | 'deepgram' | 'apple' | 'whisper-local' | 'fake'
+  readonly id: 'whisper-mlx' | 'soniox' | 'assemblyai' | 'deepgram' | 'apple' | 'whisper-cpp' | 'fake'   // M1: whisper-mlx + fake
   start(opts: { source: SourceId; language: string; vocab: string[]; endSilenceMs: number }): Promise<void>
   push(pcm16: ArrayBuffer): void                          // 16 kHz mono
   on(ev: 'partial' | 'final' | 'endOfTurn' | 'error' | 'closed', cb: (e: SttEvent) => void): void
@@ -181,19 +188,19 @@ One adapter instance per source. `fake.ts` replays a fixture (`.jsonl` of timed 
 export type CopilotConfig = {
   version: 1
   audio: { micDeviceId: string | null; useSystem: boolean; systemSource: 'loopback' | 'virtual'; virtualDeviceId: string | null }
-  stt: { engine: 'cloud' | 'device'; provider: 'soniox' | 'assemblyai' | 'deepgram'; language: string; endSilenceMs: number; vocab: string[] }
-  engine: { tier: 'fast' | 'balanced' | 'deep'; escalateForDesignCoding: boolean; provider: 'zen' | 'openrouter' | 'api'; models: Record<'fast' | 'balanced' | 'deep', string | null>; factCheck: boolean; vision: 'vision' | 'ocr'; autoAnswer: boolean }
+  stt: { engine: 'whisper-mlx'; model: string | null /* resolved from recommended-models.json after spike S2 */; language: string; endSilenceMs: number; vocab: string[] }   // cloud engines are a later union member
+  engine: { tier: 'fast' | 'balanced' | 'deep'; escalateForDesignCoding: boolean; provider: 'openrouter'; openrouter: { dataCollection: 'deny' | 'allow'; zdr: boolean; sort: 'latency' | 'price' }; models: Record<'fast' | 'balanced' | 'deep', string | null>; factCheck: boolean; vision: 'vision' | 'ocr'; autoAnswer: boolean }
   coaching: { shape: 'cues' | 'cues+star' | 'script'; length: 1 | 2 | 3; tone: 'direct' | 'warm' | 'formal'; persona: string; quoteResume: boolean }   // never-invent-numbers is not configurable
   overlay: { layout: 'strip' | 'panel'; anchor: Anchor; displayId: number | null; width: number; fontPx: number; opacity: number /*0.6–1*/; theme: 'app' | 'dark' | 'light'; clickThroughIdle: boolean; aboveFullscreen: boolean }
   hotkeys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'expand' | 'listen' | 'toggle' | 'quickHide', string> & { panic: string /* fixed default */ }
   privacy: {
-    retention: 'none' | '7d' | 'keep'; localOnly: boolean; redact: boolean      // per-session consent is a constant, not a setting
+    retentionDays: number | null /* 0 = don't keep, null = until deleted; default 90 */; localOnly: boolean /* also requires a local LLM (M4) */; redact: boolean      // per-session consent is a constant, not a setting
     mode: { enabled: boolean; noticeVersion: string | null; hideFromCapture: boolean; noDockIcon: boolean; neutralTitle: boolean; indicator: 'chip' | 'dot' | 'off' }   // all false / 'chip' by default; ignored unless enabled + notice acked
   }
   practice: { followups: boolean; readAloud: boolean; answerMinutes: number }
 }
 ```
-Defaults: tier `fast`, escalate on, provider `zen`, shape `cues+star`, retention `7d`, redact on, opacity 0.94, anchor `tr`, width 440, hotkeys `⌃⌥A/F/C/S/M/E/L/H`, quick hide `⌃⌥⇧H`, panic `⌃⌥⇧X` (Windows: Ctrl+Alt). Model ids are **not** hard-coded: resolved from a dated `recommended-models.json` (prices and ids change) and shown in the UI.
+Defaults: tier `fast`, escalate on, provider `openrouter` (`dataCollection:'deny'`), `autoAnswer:false` (answer on demand), shape `cues+star`, `retentionDays:90`, redact on, opacity 0.94, anchor `tr`, width 440, hotkeys `⌃⌥A/F/C/S/M/E/L/H`, quick hide `⌃⌥⇧H`, panic `⌃⌥⇧X` (Windows: Ctrl+Alt). Model ids are **not** hard-coded: resolved from a dated `recommended-models.json` (prices and ids change) and shown in the UI.
 
 ## 8. Renderer structure
 
@@ -216,7 +223,7 @@ UI kit adds (M1): shadcn `message bubble marker message-scroller`; prompt-kit `r
 | Topic | Design |
 |---|---|
 | Permissions | Mic via `askForMediaAccess`; system audio via OS prompt (macOS `NSAudioCaptureUsageDescription`); screenshots need Screen Recording. Add `setPermissionRequestHandler` allowing only `media` for the app's own windows |
-| Where data goes | Audio → STT provider (cloud) or stays local; text (transcript window, grounding prefix, question) → LLM provider. Shown in the consent gate and Transcription page in plain words. Local-only mode blocks all copilot network calls (enforced in main: providers refuse to construct) |
+| Where data goes | **Audio stays on the Mac** (local Whisper MLX). Text (transcript window, grounding prefix, question) → **OpenRouter** and whichever model provider it routes to. Said in plain words in the consent gate and on the Transcription/Answer engine pages. Local-only mode (needs a local LLM, M4) blocks all copilot network calls (enforced in main) |
 | Consent | Per-session gate; `copilotStart(live)` refuses without a fresh `ConsentRecord`; system audio off by default; jurisdiction picker adds stronger text for all-party places |
 | Indicator | Listening chip (default) is rendered from main-process capture state, not renderer state. Privacy mode may switch it to a small dot or off on the overlay; the **tray/menu-bar icon always shows capture state** and carries "Stop now". The chosen indicator is recorded in the session's consent record |
 | Privacy mode | Opt-in, OFF by default, honoured only after a versioned notice ack (validated in main). Flags live in one file (`privacy-mode.ts`); a grep test forbids process-title/app-id/name changes. Hide-from-capture is labelled unreliable on macOS 15+ and useless against cameras/proctoring |
@@ -226,7 +233,8 @@ UI kit adds (M1): shadcn `message bubble marker message-scroller`; prompt-kit `r
 | Prompt injection | Transcript is untrusted text: inside a fenced data block, system prompt forbids following instructions in it; output parsed as text sections only (no tool calls, no URLs fetched) |
 | Retention | Raw audio never stored; transcript per setting; session records deletable; export button |
 | Logging | No transcript or answer text in `run-logs`; metrics only (latency, token counts) |
-| Third-party data handling | Provider retention notes (e.g. some hosted models retain prompts for 30 days, free-tier models may train) shown next to the provider picker; default provider choice reviewed at gate G-D |
+| Third-party data handling | OpenRouter requests send `provider.data_collection:'deny'` by default (only providers that don't collect/train on data; narrows the model list; the UI says so); `zdr` optional; per-provider retention is not fully known, so the consent gate says the text is sent to OpenRouter and its providers; choice reviewed at gate G-D |
+| Stored transcripts | Default retention 3 months (`retentionDays`), editable in Privacy and Sessions pages; other people's words are stored on this device only, plain JSON 0600, deletable per session or all; retention value shown in the consent gate |
 
 ## 10. Cost and latency budget
 
@@ -234,14 +242,14 @@ Assumptions (from research §C4): 15 answers / 45 min, 5,000 cached-prefix + 800
 
 | Option | First token target (after end-of-turn) | LLM per interview | STT per interview (interviewer only / both) | Notes |
 |---|---|---|---|---|
-| Fast = small model via Zen/OpenRouter | ≤ 1.0 s (hypothesis, unmeasured) | ≈ $0.005–0.05 | ≈ $0.09–0.11 / $0.18–0.23 (Soniox/AssemblyAI) | default |
+| Fast = small model via OpenRouter | ≤ 1.0 s (hypothesis, unmeasured) | ≈ $0.005–0.05 | **$0 (local Whisper MLX)** | default |
 | Balanced | ≤ 1.5 s | ≈ $0.10 | same | |
 | Deep (Sonnet-class) | ≤ 2.5 s | ≈ $0.10–0.30 | same | design/coding only when escalation on |
 | Agent CLI runners (claude/codex/opencode/agy) | multi-second spawn, no token stream | n/a | — | **not offered** for live; allowed only for debrief scoring |
-| Local-only (M4) | STT 1–3 s, LLM 2–5 s (estimates) | $0 | $0 | weaker on design/coding; one heavy model at a time on 16 GB |
+| Local-only (M4: local LLM added) | STT ≈ 1–2 s partials (hypothesis), LLM 2–5 s (estimate) | $0 | $0 | weaker on design/coding; Whisper + LLM + call app on 16 GB is tight: one heavy model at a time |
 
 Budget target approved at G1: **≈ $0.30 per interview** all-in; Deep per-question cap and a per-session spend ceiling (`copilot.json`, default $1.00) stop answering with a visible message rather than silently degrading.
-Stage budget: STT finalise ≈ 0.3 s + detector ≤ 50 ms + request ≈ 0.1 s + TTFT 0.5–0.9 s. **Gate G-C:** measured p50 first token ≤ 1.2 s and p95 ≤ 2.5 s on the fixture harness, else change provider/model before building UI polish.
+Stage budget (hypothesis): silence wait 0.7–0.9 s + local Whisper decode ≈ 0.3–0.8 s + detector ≤ 50 ms + request ≈ 0.1 s + TTFT 0.5–0.9 s; with on-demand answers the silence wait is hidden because the user presses the hotkey after the question. **Gate G-C:** measured (a) Whisper final-after-silence p50 ≤ 0.8 s on the target Mac and (b) OpenRouter p50 first token ≤ 1.2 s, p95 ≤ 2.5 s on the fixture harness, else change model/size before building UI polish.
 
 ## 11. Work packages
 
@@ -282,7 +290,7 @@ Accept: all 8 states + strip/panel + light/dark match `prototype/shots` within r
 **Gate G-E1:** screenshot + screen recording review by lead on a cloned profile.
 
 ### WP2 — Context builder, detector, streaming answer engine (parallel after G-A)
-Files: `electron/copilot/{context,detector,engine,prompts,guard,cost,redact}.ts`, `electron/copilot/providers/{zen,openrouter,api}.ts`, `electron/copilot/prices.json`, `recommended-models.json`, tests + `electron/copilot/fixtures/**`, `scripts/copilot-latency.mjs` (harness).
+Files: `electron/copilot/{context,detector,engine,prompts,guard,cost,redact}.ts`, `electron/copilot/providers/openrouter.ts`, `electron/copilot/prices.json`, `recommended-models.json`, tests + `electron/copilot/fixtures/**`, `scripts/copilot-latency.mjs` (harness).
 **Port from Open-Cluely:**
 | Source | Target | Adaptation |
 |---|---|---|
@@ -297,11 +305,11 @@ Accept: SSE parser unit tests (fragmented chunks, `[DONE]`, errors, abort); dete
 **Gate G-C:** latency numbers reviewed; provider/model defaults chosen.
 
 ### WP3 — Capture + STT (mic first; system audio behind a spike)
-Files: `renderer/overlay/capture/**` (worklet, mic, system), `electron/copilot/stt/{adapter,soniox,assemblyai,fake,ring}.ts`, `electron/copilot/audio-perms.ts`, `build/entitlements.mac.plist`, `package.json` `build.mac` (**only this package edits the mac block; integration owner merges**), `electron/copilot/session.ts` (capture+STT orchestration only).
+Files: `renderer/overlay/capture/**` (worklet, mic, system), `electron/copilot/stt/{adapter,whisper-mlx,vad,fake,ring,install}.ts`, `electron/copilot/stt/sidecar.py` (embedded script, `fit-sidecar.ts` style), `electron/copilot/audio-perms.ts`, `build/entitlements.mac.plist`, `package.json` `build.mac` (**only this package edits the mac block; integration owner merges**), `electron/copilot/session.ts` (capture+STT orchestration only).
 **Port from Open-Cluely:**
 | Source | Target | Adaptation |
 |---|---|---|
-| `services/assembly-ai/service.js` | `electron/copilot/stt/assemblyai.ts` | implement `SttAdapter`; reconnect + ring buffer; key from `safeStorage` |
+| `services/assembly-ai/service.js` | reference for a later cloud `SttAdapter` (not M1) | reconnect + ring-buffer ideas feed `stt/ring.ts`; any cloud key via `safeStorage` |
 | `services/assembly-ai/stt-history.js` | `electron/copilot/stt/merge.ts` | merge finals per source inside ~2.4 s |
 | `services/assembly-ai/ipc.js` | `handlers.ts` | audio chunks over `send`, not invoke |
 | `windows/assistant/pcm-capture-worklet.js` | `renderer/overlay/capture/worklet.js` | as-is, 16 kHz PCM16 frames |
@@ -310,7 +318,7 @@ Files: `renderer/overlay/capture/**` (worklet, mic, system), `electron/copilot/s
 | `renderer/features/transcription/transcription-manager.js` | `renderer/overlay/useCopilotEvents.ts` (partial/final transcript state) | React hook |
 macOS system audio has no source to port (Open-Cluely relies on Windows loopback): new work behind S1.
 
-Steps: (1) mic → 16 kHz PCM → fake STT replay parity test; (2) first real adapter; reconnect/ring buffer; (3) **spike S1 (time-boxed 1 day)** on a signed or ad-hoc-signed build on macOS: loopback vs system-picker vs BlackHole, record which work, silent-track detector, TCC prompt behaviour across updates; (4) Windows loopback check.
+Steps: (1) mic → 16 kHz PCM → fake STT replay parity test; (2) Whisper MLX sidecar + chunker + install flow; **spike S2 (time-boxed 1 day, Apple Silicon 16 GB):** pick model size (tiny/small/turbo-class), measure partial cadence, final latency, RAM/CPU with the call app running, WER on fixture audio, verify MLX's Apple-Silicon-only requirement; restart/replay handling; (3) **spike S1 (time-boxed 1 day)** on a signed or ad-hoc-signed build on macOS: loopback vs system-picker vs BlackHole, record which work, silent-track detector, TCC prompt behaviour across updates; (4) Windows: assert Live is refused and Practice works (no audio code reachable).
 Accept: mic-only end-to-end in a dev build; `silent` health fires within 3 s of a dead track; adapter contract tests pass for fake + real (real behind `CL_LIVE_STT=1`, ≤ $0.50 cap); spike report committed.
 **Gate G-B:** go/no-go on system audio per platform, written from S1 evidence.
 
@@ -318,11 +326,11 @@ Accept: mic-only end-to-end in a dev build; `silent` health fires within 3 s of 
 Files: `renderer/sections/copilot/**`, `renderer/components/copilot/**` (except OverlayPreview), `electron/copilot/{store,practice,debrief,handlers}.ts`, THIRD_PARTY_NOTICES additions.
 **Port from Open-Cluely:** `services/state/app-state.js` → `electron/copilot/store.ts` (sessions JSON; **keys removed**, moved to `safeStorage`); `main-process/features/settings/ipc.js` → config handlers (return `hasKey` booleans only); `renderer/features/settings/settings-panel-manager.js` and `features/chat/chat-ui-manager.js` → reference only for the React pages and transcript.
 Scope: all 10 pages to match `prototype/shots` (incl. Privacy mode group + notice); consent gate dialog (+ server-side validation in `handlers.ts`); practice runner (mock interviewer question queue from report interview plan; follow-ups via engine); sessions table, scorecard (LLM-scored via the **text-only** neutral run, cheap model), Apply to résumé bullets / job notes.
-Accept: pages pass a11y checks (labels, focus order, Esc on dialog; the Privacy mode switch announces its state and opens the notice dialog first); `copilotStart(live)` without consent rejected (test); retention sweep tests; practice session end-to-end on fake STT + fake provider.
+Accept: retention control (Privacy and Sessions pages) defaults to 3 months, applies the sweep on change and confirms before deleting sessions newly out of range; on Windows "Start live session" is disabled with an explanation and Practice works; pages pass a11y checks (labels, focus order, Esc on dialog; the Privacy mode switch announces its state and opens the notice dialog first); `copilotStart(live)` without consent rejected (test); retention sweep tests; practice session end-to-end on fake STT + fake provider.
 **Gate G-D (legal/policy):** lead/user reviews consent text, **Privacy mode notice text**, employer-policy link text, default provider, retention defaults before Live is enabled in a release build.
 
 ### WP5 — Later milestones (separate dispatches, not started now)
-M3 screenshot→vision (`desktopCapturer`, image to vision model, FIFO cap + crash sweep, Screen Recording guidance). **Port:** `main-process/features/assistant/screenshot-manager.js` → `electron/copilot/screenshots.ts` (FIFO cap, cleanup on clear/quit, add crash-recovery sweep, temp dir), `services/ocr/service.js` → `electron/copilot/ocr.ts` (tesseract.js, fallback only); M4 local STT (Apple SpeechAnalyzer helper on macOS 26+, else whisper.cpp; install flow like `prescreen-model.ts`; long-lived child process + cleanup) and local LLM; Windows hardening and installer tests; notarization.
+M3 screenshot→vision (`desktopCapturer`, image to vision model, FIFO cap + crash sweep, Screen Recording guidance). **Port:** `main-process/features/assistant/screenshot-manager.js` → `electron/copilot/screenshots.ts` (FIFO cap, cleanup on clear/quit, add crash-recovery sweep, temp dir), `services/ocr/service.js` → `electron/copilot/ocr.ts` (tesseract.js, fallback only); M4 local LLM (Ollama port), Windows Live via a new STT adapter (whisper.cpp or a cloud adapter), Windows voice practice, Apple SpeechAnalyzer as an alternative adapter; Windows hardening and installer tests; notarization.
 
 ### Sequencing
 ```
@@ -337,7 +345,7 @@ Integration owner (lead's worktree) merges in order WP0 → WP2 → WP3 → WP1 
 
 - **Unit (vitest, existing setup):** config defaults/migration; consent validation; detector; SSE parser; prompt builder (golden prompt snapshot for a fixture job); `proof` substring invariant; redaction; retention sweep; hotkey conflict handling; anchor math; overlay state reducer.
 - **Fixtures:** `electron/copilot/fixtures/{interview-behavioural,interview-design}.jsonl` (timed STT events, original synthetic dialogue) + optional synthetic `.wav` via local TTS; fake STT replays at 1× and 4×; fake provider streams canned SSE with configurable TTFT.
-- **Latency harness:** `node scripts/copilot-latency.mjs --provider zen --runs 20 --max-usd 2` → p50/p95 TTFT, total, tokens, cost; output JSON checked into `docs/plans/interview-copilot/measurements/` per run.
+- **Latency harness:** `node scripts/copilot-latency.mjs --provider openrouter --runs 20 --max-usd 2` (plus `--stt whisper-mlx` for decode latency on recorded fixtures) → p50/p95 TTFT, total, tokens, cost; output JSON checked into `docs/plans/interview-copilot/measurements/` per run.
 - **Overlay QA (manual, cloned profile):** `--user-data-dir` copy + career-ops copy (repo rule); checklist: no focus steal over a real call app, above full-screen app, second monitor, click-through + hover, panic, Spaces switch, sleep/wake, dark/light, reduced motion, 200 % text. Windows: DPI scaling, taskbar z-order, exclusive full-screen caveat.
 - **Permission matrix (manual):** fresh mac profile → mic prompt; system audio denied/allowed; revoke mid-session; app update (ad-hoc signed identity changes may reset grants — record outcome).
 - **Live-provider smoke:** behind `CL_LIVE=1`, capped spend, never in CI.
@@ -359,9 +367,9 @@ Integration owner (lead's worktree) merges in order WP0 → WP2 → WP3 → WP1 
 |---|---|---|
 | M0 | WP0 | G-A |
 | M1 (v0.3.0) | Practice + mic-only live + streaming runner + consent gate + kill switch (WP0–WP4) | G-B(mic ok), G-C, G-D, cloned-profile QA, user confirms defaults |
-| M2 | System audio (macOS per spike, Windows loopback) | G-B = go; permission matrix passed |
+| M2 | System audio (macOS per spike) | G-B = go; permission matrix passed |
 | M3 | Screenshot → vision | privacy review of screen capture |
-| M4 | Local STT/LLM, Windows polish, notarization, extras (pace/filler coaching, extra providers) | hardware test on 16 GB Mac |
+| M4 | Local LLM, Windows Live STT, notarization, extras (pace/filler coaching, extra providers) | hardware test on 16 GB Mac |
 
 Feature flag `copilot.enabled` (default on in dev, off in first public build) and a runtime **Live disabled** fallback if consent text version is missing.
 
@@ -372,11 +380,12 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 | Responsible-use option | **B** + opt-in Privacy mode: practice first; live = per-session consent; no disguise features | §9, WP4 consent gate, design §7 |
 | Privacy mode (hide-from-capture, no Dock icon, neutral title, click-through, quick hide, indicator) | **Opt-in, OFF**; notice on first enable; indicator default = chip | `privacy-mode.ts`, Privacy page group |
 | MVP scope | Practice + mic-only + streaming API runner | §14 |
-| Platforms | macOS first, Windows second | WP3 S1, §12 |
+| Platforms | **macOS Apple Silicon = Live + Practice; Windows = Practice only** (user, 2026-10-01) | WP3, §3.1, §12 |
 | Budget | ≈ $0.30 per interview; per-session ceiling $1.00 | §10, `engine.ts` |
-| STT | Provider-agnostic adapter; first provider chosen at G-C (Soniox or AssemblyAI) | WP3 |
-| Auto-answer | Off (answer on demand) | `engine.autoAnswer` |
-| Transcript retention | 7 days | `privacy.retention` |
+| STT | **Whisper MLX, local** (user, 2026-10-01); adapter interface kept for later engines | WP3, spike S2 |
+| LLM | **OpenRouter** with `data_collection:'deny'` (user, 2026-10-01) | WP2, `engine.openrouter` |
+| Auto-answer | **Off: answer on demand** (user, 2026-10-01) | `engine.autoAnswer` |
+| Transcript retention | **3 months (90 days)**, editable in the app (user, 2026-10-01) | `privacy.retentionDays` |
 
 ## 16. Licence and notice obligations
 
@@ -409,12 +418,12 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 
 1. **Confirm the defaults:** option B (per-session consent, practice first) plus Privacy mode OFF by default with the one-time notice (macOS 15+ ScreenCaptureKit caveat), quick-hide hotkey `⌃⌥⇧H`, indicator choices full / small dot / off (tray icon always on). Anything to add or cut from the Privacy mode list?
 2. **Legal/policy review:** who signs off the consent text and the "check the employer's rules" copy (gate G-D)? Any jurisdictions to call out beyond the generic all-party note?
-3. **STT provider:** Soniox vs AssemblyAI vs Deepgram Flux — bring-your-own key only, or should Careerloom offer a bundled/trial key (cost and abuse implications)?
-4. **Default LLM provider/model tier** and whether interview text may go to hosted models with 30-day retention (or require local/zero-retention providers by default).
-5. **Auto-answer:** keep answer-on-demand as default, or auto-answer detected questions?
+3. ~~STT provider~~, 4. ~~LLM provider~~, 5. ~~Auto-answer~~ — **resolved by the user (2026-10-01): Whisper MLX, OpenRouter, answer on demand.**
 6. **System audio:** acceptable to ship M1 mic-only and let the interviewer side wait for M2 (spike outcome)? Is BlackHole (user-installed) an acceptable fallback?
-7. **Windows timing** and whether Windows gets the same Live mode or practice-only first.
-8. **Transcript retention default** (7 days proposed) and whether saved sessions may feed the Resume/Job pages automatically or only on explicit Apply.
+7. ~~Windows~~ — **resolved: Windows is Practice only.** New: should Windows Practice use typed answers only for now, or is voice practice worth a Windows STT adapter earlier?
+8. ~~Retention~~ — **resolved: 3 months, editable.** Still open: may saved sessions feed the Resume/Job pages automatically, or only on explicit Apply (plan assumes explicit)? Is holding an interviewer's words for 3 months acceptable for the consent copy (plan says so on screen)?
 9. **Apple signing/notarization** budget: ad-hoc builds may keep re-prompting for permissions.
 10. **Open-Cluely ownership:** you own it; adding a `LICENSE` is your call. Git history lists other contributors: confirm their contributions may be ported, or limit ports to files you wrote.
 11. Is `feat-job-page`'s `reportParse` contract final (Interview Plan STAR stories), and who owns changes to it?
+12. **Whisper MLX model and install:** which size/quality trade-off (decided from spike S2), and is an on-demand download in onboarding acceptable? Does live use require Apple Silicon only (Intel Macs get Practice only)?
+13. **OpenRouter defaults:** `data_collection:'deny'` narrows the available models/providers; accept that, or allow per-model opt-in? Which default models per tier (resolved from `recommended-models.json`, dated)?

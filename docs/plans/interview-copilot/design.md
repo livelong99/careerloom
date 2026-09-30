@@ -37,12 +37,12 @@ Header actions (always visible): **Preview overlay**, **Start live session…** 
 | Setup | Readiness strip (context / mic / system audio); job picker; interview type; "what the copilot will know" (posting, report, résumé facts, STAR stories, token estimate) | `job-view` (posting, `reportParse` interview plan), `readCv`, `currentProfile` |
 | Practice | Mock questions from the report (+ custom), follow-ups, read aloud, timer | report interview plan |
 | Audio | Mic device + level; system audio toggle, permission status + fix steps, virtual-device source, headphone tip | `systemPreferences`, capture probe |
-| Transcription | Cloud vs on-device, provider, key status, language, end-of-speech wait, vocabulary, data-flow sentence | provider adapters, `safeStorage` |
-| Answer engine | Fast/Balanced/Deep with cost per interview, escalate for design/coding, provider + model, fact check, vision vs OCR | streaming runner, `factCheck` |
+| Transcription | **Whisper on MLX (on this Mac)**: install status/size, model, language, end-of-speech wait, vocabulary, "audio never leaves this Mac" sentence; Windows: Practice only note | `whisper-mlx` sidecar + install flow |
+| Answer engine | Fast/Balanced/Deep with cost per interview, **OpenRouter** key + model per tier + data-collection setting, **answer on demand (auto-answer off)**, escalate for design/coding, fact check, vision vs OCR | streaming runner, `factCheck` |
 | Coaching style | Cues / Cues+STAR / Full script, length, tone, one-line persona, quote résumé, never invent numbers; live preview | prompt builder |
 | Appearance | Layout, 3×3 position, width, text size, opacity (≥60 %), theme, click-through, above full-screen, reduced motion; live preview | overlay window manager |
 | Hotkeys | Table with conflict status, "Stop everything now" fixed | `globalShortcut` |
-| Privacy & consent | Consent per session (locked), retention, local-only, redaction; **Privacy mode group (off by default):** hide from screen sharing, no Dock icon, neutral window title, click-through, quick hide, recording indicator (full / small dot / off) | session store, overlay window manager |
+| Privacy & consent | Consent per session (locked), retention (default **3 months**, editable here and on Sessions), local-only, redaction; **Privacy mode group (off by default):** hide from screen sharing, no Dock icon, neutral window title, click-through, quick hide, recording indicator (full / small dot / off) | session store, overlay window manager |
 | Sessions & debrief | Sessions table, scorecard, improve-this-answer, push to résumé bullets / job notes | session store, Resume/Job pages |
 
 ## 3. Flows
@@ -118,3 +118,7 @@ The one-time notice says: some interviewers and employers prohibit AI assistance
 | `overlay.html?view=gallery` / `strips` | All panel / strip states |
 | `css/tokens.css` | Careerloom tokens (values only) |
 | `shots/*.png` | 26 screenshots (dark + light), incl. `config-privacy-*` (default off, Privacy mode on, first-use notice) |
+
+## 9. Updates from user decisions (2026-10-01)
+
+Whisper MLX (local STT), OpenRouter (LLM), answer-on-demand default, Windows = Practice only, retention 3 months editable. Prototype reflects: Transcription page (on-device engine, install status, no API key), Answer engine page (OpenRouter + data-collection + auto-answer off), Privacy/Sessions retention control, consent gate wording (audio stays on this Mac; text goes to OpenRouter), Windows note on Setup. Screenshots re-rendered: `config-transcription-dark`, `config-engine-dark`, `config-privacy-*`, `config-gate-dark`, `config-setup-windows-dark`.
