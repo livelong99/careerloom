@@ -25,9 +25,10 @@ const W = { coverage: 35, semantic: 20, seniority: 15, evidence: 15, bullets: 15
 const weight = (r: JdReq) => (r.required ? 3 : 1)
 const round1 = (n: number) => Math.round(n * 10) / 10
 const MAX_SKILLS_PER_BULLET = 4 // beyond this a bullet is a keyword dump, not evidence
-// ponytail: fixed cosine window for the small encoder (related text ≈ .86+, unrelated ≈ .74). Re-fit on the labelled golden set.
-const COS_FLOOR = 0.74
-const COS_CEIL = 0.9
+// ponytail: fixed cosine window for the small title encoder, measured on 14 requirement queries against a real résumé's
+// bullets: covered requirements scored .70-.80, absent ones .45-.60, unrelated domains .48-.54. Re-fit on the labelled golden set.
+const COS_FLOOR = 0.5
+const COS_CEIL = 0.76
 
 /** A model-judged synonym only counts when its quote really appears in the résumé. */
 function synonymFor(req: JdReq, judgements: Judgement[], cv: CvModel): { via: string; certain: boolean } | null {

@@ -169,6 +169,15 @@ export function rebuildProfile(md: string, existing: ExtractedProfile | null, no
   }
 }
 
+const CONTENT_KEYS = ['name', 'headline', 'email', 'phone', 'location', 'summary', 'links', 'skills', 'skillGroups', 'experience', 'education', 'projects', 'awards', 'certifications', 'extractedFrom', 'extractedAt'] as const
+
+/** The profile JSON with cv.md-derived content replaced and every other key (targetRoles, archetypes, narrative …) kept. */
+export function mergeProfileJson(raw: unknown, rebuilt: ExtractedProfile): Record<string, unknown> {
+  const out: Record<string, unknown> = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : {}
+  for (const k of CONTENT_KEYS) { if (rebuilt[k] === undefined) delete out[k]; else out[k] = rebuilt[k] }
+  return out
+}
+
 // ————— build-cv-html.mjs payload (keys per career-ops lib/cv-payload-schema.mjs, html) —————
 
 const linkObj = (url?: string) => (url ? { url, display: url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') } : undefined)

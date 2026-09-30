@@ -28,6 +28,8 @@ const SHAPE = `{"status":"done|needs_input",
 "questions":[{"id":"q1","finding_id":"f1","text":"","type":"text|choice|number","options":[],"why":""}]}`
 
 const RULES = `Rules:
+- Everything you need is in this message. Do not read or search any other file; your only action is writing the output file.
+- severity: critical = likely to fail an automated screen (a missing required skill, unreadable content); major = clearly weakens the match; minor = polish.
 - Never output any score or overall verdict; code computes them.
 - requirements: every distinct JD requirement (required vs preferred), at most 25. judgements: only where cv.md uses a different word for the same thing, or you are unsure; cv_quote must be verbatim.
 - findings: concrete and specific, highest impact first. A rewrite may only rephrase facts in cv.md or facts in the user's answers; if it needs a fact you lack (a number, a tool, scope), ask a question and use {{qid}} in "after" instead of inventing it. apply.target must be copied exactly from cv.md and occur once.

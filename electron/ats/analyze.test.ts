@@ -260,3 +260,15 @@ describe('apply / undo', () => {
     expect(res.undoId).toBeUndefined()
   })
 })
+
+describe('findings merge', () => {
+  it('drops the code-made skill/evidence finding when the agent already covered that skill', async () => {
+    const h = harness()
+    await startAnalysis(h.deps, { jd: JD })
+    await h.finish(done({ jd: { requirements: [...REQS, { id: 'r9', text: 'Elasticsearch', skill: 'Elasticsearch', required: false }] }, findings: [{ id: 'f1', severity: 'critical', category: 'skill', title: 'Missing Kafka evidence', detail: 'Add event streaming.' }] }))
+    const ids = h.store.current()!.report.findings.map(f => f.id)
+    expect(ids).toContain('f1')
+    expect(ids).not.toContain('skill:kafka')
+    expect(ids).toContain('skill:elasticsearch') // not mentioned by the agent: still raised by code
+  })
+})
