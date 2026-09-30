@@ -22,6 +22,13 @@ export function opencodeConfig(skillDirs: string[]): string {
   })
 }
 
+/** Text-only runs (the prompt carries all the data): no edit/bash grant, web search + fetch only. "ask" (auto-rejected
+ *  headless), not "deny": a denied tool is dropped from the request and Zen's free tier then refuses it (FreeTierError).
+ *  The skill allowlist stays, it is what keeps the request small. Later rules win. */
+export function opencodeTextConfig(skillDirs: string[]): string {
+  return JSON.stringify({ permission: { '*': 'ask', webfetch: 'allow', websearch: 'allow', skill: skillAllowlist(skillDirs) } })
+}
+
 /** opencode lists every skill it can find (~/.agents/skills, ~/.config/opencode/skills…) in each request —
  *  1.5k skills measured at ~130k input tokens. Denied skills drop out of that list, so allow only
  *  career-ops' own and the skills installed in Careerloom (155k → 22k input tokens per run). */

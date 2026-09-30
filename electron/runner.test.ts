@@ -55,6 +55,13 @@ describe('model selection', () => {
     expect(argsForPrompt('antigravity', '/career-ops x', { model: 'gemini-3.1-pro-high' }).args).toEqual(['-p', '/career-ops x', '--output-format', 'stream-json', '--model', 'gemini-3.1-pro-high'])
     // without Careerloom's project (no workspace), agy never gets skip-permissions
     expect(argsForPrompt('antigravity', '/career-ops x').args).not.toContain('--dangerously-skip-permissions')
+    // text-only (ATS analysis): no file/shell tools; other modes are untouched
+    const text = argsForPrompt('claude', 'Careerloom x', { textOnly: true, model: 'haiku', addDirs: ['/skills'], systemAppend: 'note' }).args
+    expect(text).toEqual(['-p', 'Careerloom x', '--output-format', 'stream-json', '--verbose', '--model', 'haiku', '--tools', 'WebSearch,WebFetch', '--allowedTools', 'WebSearch', 'WebFetch'])
+    expect(argsForPrompt('claude', 'Careerloom x', { textOnly: true, resume: 'abcdefgh-1234' }).args).toEqual(expect.arrayContaining(['--resume', 'abcdefgh-1234']))
+    expect(argsForPrompt('claude', 'x').args).toContain('Bash(node:*)')
+    expect(argsForPrompt('codex', 'x', { textOnly: true }).args.slice(0, 3)).toEqual(['exec', '--sandbox', 'read-only'])
+    expect(argsForPrompt('codex', 'x').args.slice(0, 3)).toEqual(['exec', '--sandbox', 'workspace-write'])
     expect(argsForPrompt('claude', '/career-ops x', { model: '--dangerously-skip-permissions' }).args).not.toContain('--dangerously-skip-permissions')
   })
 })

@@ -67,12 +67,22 @@ export function validateProfile(raw: unknown): ExtractedProfile | null {
     const pname = s(o.name)
     return pname ? [{ name: pname, url: s(o.url), summary: s(o.summary) }] : []
   })
+  const strings = (v: unknown) => arr(v).map(s).filter((x): x is string => !!x)
+  const skillGroups = arr(r.skillGroups).flatMap(g => {
+    const o = obj(g)
+    const category = s(o.category)
+    const items = strings(o.items)
+    return category && items.length ? [{ category, items }] : []
+  })
   return {
     name,
     headline: s(r.headline), email: s(r.email), phone: s(r.phone), location: s(r.location), summary: s(r.summary),
     links,
-    skills: arr(r.skills).map(s).filter((x): x is string => !!x),
+    skills: strings(r.skills),
     experience, education, projects,
+    ...(strings(r.awards).length ? { awards: strings(r.awards) } : {}),
+    ...(strings(r.certifications).length ? { certifications: strings(r.certifications) } : {}),
+    ...(skillGroups.length ? { skillGroups } : {}),
     extractedFrom: s(r.extractedFrom),
     extractedAt: typeof r.extractedAt === 'number' ? r.extractedAt : undefined,
   }
@@ -94,18 +104,78 @@ export function profileFromCv(md: string): ExtractedProfile | null {
     return { company: company.trim(), title: title.trim(), start, end, highlights: bullets(rest.join('\n')) }
   })
   const lines = (t: string) => t.split('\n').map(l => l.replace(/^\s*[-*]\s+/, '').trim()).filter(Boolean)
+  const plainText = (t: string) => t.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\*+/g, '').trim()
+  const groups = lines(sec(/skills/i)).flatMap(l => {
+    const m = /^\*\*(.+?):?\*\*:?\s*(.+)$/.exec(l)
+    const items = (m ? m[2]! : l).split(',').map(x => plainText(x).replace(/\.$/, '')).filter(Boolean)
+    return items.length ? [{ category: m ? plainText(m[1]!) : 'Skills', items }] : []
+  })
+  const education: EducationItem[] = sec(/education/i).split(/^###\s+/m).slice(1).map(block => {
+    const head = block.split('\n')[0] ?? ''
+    const dates = /\(([^)]*)\)\s*$/.exec(head)?.[1]
+    const [degree = '', school = ''] = head.replace(/\([^)]*\)\s*$/, '').trim().split(/\s+[—–|@]\s+/)
+    const [start, end] = dates?.split(/\s*[–—-]\s*/) ?? []
+    return school ? { school: school.trim(), degree: degree.trim(), start, end } : { school: degree.trim(), start, end }
+  })
+  const eduFallback = education.length ? education : lines(sec(/education/i)).map(school => ({ school }))
+  const list = (re: RegExp) => lines(sec(re)).map(plainText)
+  const awards = list(/awards|achievements|honou?rs/i)
+  const certifications = list(/certif|licen[sc]e/i)
   return {
     name: name!.trim(), headline: headline?.trim(),
+    ...contactOf(md),
     summary: sec(/summary|profile|about/i) || undefined,
-    links: [],
-    skills: sec(/skills/i).split(/[,\n]/).map(x => x.replace(/^\s*[-*]\s+/, '').replace(/\.$/, '').trim()).filter(Boolean),
+    skills: groups.flatMap(g => g.items),
     experience,
-    education: lines(sec(/education/i)).map(school => ({ school })),
+    education: eduFallback,
     projects: lines(sec(/projects/i)).map(l => {
       const m = /^\*\*(.+?)\*\*\s*[—–-]?\s*(.*)$/.exec(l)
-      return m ? { name: m[1]!, summary: m[2] || undefined } : { name: l }
+      const head = m ? m[1]! : l
+      const url = /\]\((https?:[^)\s]+)\)/.exec(head)?.[1]
+      return m ? { name: plainText(head), url, summary: m[2] || undefined } : { name: plainText(l) }
     }),
+    ...(awards.length ? { awards } : {}),
+    ...(certifications.length ? { certifications } : {}),
+    ...(groups.length ? { skillGroups: groups } : {}),
   }
+}
+
+/** Email, phone, location and links from the contact line under the heading ("a · b · [LinkedIn](url)"). */
+function contactOf(md: string): Pick<ExtractedProfile, 'email' | 'phone' | 'location' | 'links'> {
+  const line = md.split('\n').slice(0, 8).find(l => /@/.test(l)) ?? ''
+  const links: ProfileLink[] = []
+  let email: string | undefined
+  let phone: string | undefined
+  let location: string | undefined
+  for (const part of line.split(/\s+[·|•]\s+/).map(x => x.trim()).filter(Boolean)) {
+    const link = /^\[([^\]]*)\]\((https?:[^)\s]+)\)$/.exec(part)
+    if (link) { links.push({ kind: /linkedin/i.test(link[2]!) ? 'linkedin' : /github/i.test(link[2]!) ? 'github' : 'portfolio', url: link[2]! }); continue }
+    if (/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(part)) email ??= part
+    else if (/^\+?\(?\d[\d\s().-]{7,}$/.test(part)) phone ??= part
+    else location ??= part
+  }
+  return { email, phone, location, links }
+}
+
+/** Template data rebuilt from cv.md, keeping the contact details the old profile had when cv.md has none. */
+export function rebuildProfile(md: string, existing: ExtractedProfile | null, now = Date.now()): ExtractedProfile | null {
+  const fresh = profileFromCv(md)
+  if (!fresh) return null
+  return {
+    ...fresh,
+    email: fresh.email ?? existing?.email, phone: fresh.phone ?? existing?.phone, location: fresh.location ?? existing?.location,
+    links: fresh.links.length ? fresh.links : existing?.links ?? [],
+    extractedFrom: existing?.extractedFrom, extractedAt: now,
+  }
+}
+
+const CONTENT_KEYS = ['name', 'headline', 'email', 'phone', 'location', 'summary', 'links', 'skills', 'skillGroups', 'experience', 'education', 'projects', 'awards', 'certifications', 'extractedFrom', 'extractedAt'] as const
+
+/** The profile JSON with cv.md-derived content replaced and every other key (targetRoles, archetypes, narrative …) kept. */
+export function mergeProfileJson(raw: unknown, rebuilt: ExtractedProfile): Record<string, unknown> {
+  const out: Record<string, unknown> = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : {}
+  for (const k of CONTENT_KEYS) { if (rebuilt[k] === undefined) delete out[k]; else out[k] = rebuilt[k] }
+  return out
 }
 
 // ————— build-cv-html.mjs payload (keys per career-ops lib/cv-payload-schema.mjs, html) —————
@@ -126,10 +196,10 @@ export function profileToPayload(p: ExtractedProfile, pageFormat: 'a4' | 'letter
     })),
     projects: p.projects.map(x => ({ name: x.name, description: x.summary, url: x.url })),
     education: p.education.map(e => ({ title: e.degree ?? e.school, org: e.degree ? e.school : undefined, year: dates(e.start, e.end) })),
-    certifications: [],
-    awards: [],
+    certifications: (p.certifications ?? []).map(title => ({ title })),
+    awards: (p.awards ?? []).map(title => ({ title })),
     interests: [],
-    skills: p.skills.length ? [{ items: p.skills }] : [],
+    skills: p.skillGroups?.length ? p.skillGroups.map(g => ({ category: g.category, items: g.items })) : p.skills.length ? [{ items: p.skills }] : [],
   }
 }
 
