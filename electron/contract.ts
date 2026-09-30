@@ -11,13 +11,6 @@ export type RunUsage = { costUsd: number | null; inputTokens: number; outputToke
 export type ResumeSection = { title: string; lines: number; text: string }
 export type ResumeSource = { file: string; kind: string; size: number; updatedAt: number } // documents/**
 export type CvTemplate = { name: string; displayName: string; file: string; builtin: boolean }
-export type AtsIssue = { severity: string; message: string }
-export type AtsResult = {
-  file: string; pass: boolean; minScore: number; score: number; grade: string
-  issues: AtsIssue[]
-  keywordCoverage: { total: number; found: number; percent: number; missing: string[] } | null
-  checkedAt: number
-}
 export type ExportFormat = 'pdf' | 'html' | 'tex' | 'docx' | 'md'
 export type ResumeExport = { file: string; format: ExportFormat; updatedAt: number } // output/**
 export type ResumeOverview = {
@@ -25,7 +18,6 @@ export type ResumeOverview = {
   sources: ResumeSource[]
   templates: CvTemplate[]
   activeTemplate: string | null
-  lastAts: AtsResult | null
   exports: ResumeExport[]
 }
 
@@ -120,6 +112,10 @@ export type ExtractedProfile = {
   experience: ExperienceItem[]
   education: EducationItem[]
   projects: ProjectItem[]
+  /** Sections the original extraction shape had no room for; the template renders them when present. */
+  awards?: string[]
+  certifications?: string[]
+  skillGroups?: Array<{ category: string; items: string[] }>
   extractedFrom?: string
   extractedAt?: number
 }
@@ -244,3 +240,60 @@ export type LocalModelStatus = {
   /** Id of an install run still in progress. */
   installRun: string | null
 }
+
+// ————— ATS / Resume (electron/ats/*, electron/resume.ts) —————
+export type ScoreBlockPart = { id: string; label: string; got: number; max: number; evidence?: string }
+export type ScoreCap = { id: string; max: number; reason: string }
+/** A score the code computed: `score` sits in [low, high]; `caps` are the hard ceilings that applied. */
+export type ScoreBlock = { score: number; low: number; high: number; confidence: 'low' | 'medium' | 'high'; parts: ScoreBlockPart[]; caps: ScoreCap[] }
+export type AtsSeverity = 'critical' | 'major' | 'minor' | 'info'
+export type AtsCategory = 'parse' | 'keyword' | 'evidence' | 'bullet' | 'date' | 'section' | 'seniority' | 'skill'
+export type ApplyOp = {
+  /** 'rebuild-profile' regenerates the template data from cv.md (no cv.md edit, no agent). */
+  op: 'replace' | 'insert' | 'append' | 'delete' | 'rebuild-profile'
+  /** Exact cv.md text to change (replace/delete) or the heading/line to anchor on (insert/append). */
+  target: string
+  before?: string
+  after: string
+  /** ids of AtsQuestions the user must answer before this can be applied. */
+  requires_answers: string[]
+}
+export type AtsFinding = {
+  id: string
+  severity: AtsSeverity
+  category: AtsCategory
+  title: string
+  detail: string
+  evidence?: string
+  apply?: ApplyOp
+  status: 'open' | 'applied' | 'dismissed'
+}
+export type SkillGap = { skill: string; canonical: string; required: boolean; bucket: 'gap' | 'supported' | 'existing'; lowConfidence?: boolean; howToAdd: string }
+export type Course = { title: string; provider: string; url: string; verified_at: number; free: boolean; hours?: number; skill: string; why: string }
+export type AtsQuestion = { id: string; finding_id?: string; text: string; type: 'text' | 'choice' | 'number'; options?: string[]; why: string }
+export type AtsAnswer = { id: string; value: string | number }
+export type AtsReport = {
+  id: string
+  createdAt: number
+  hashes: { cv: string; jd?: string; tpl: string }
+  label: 'parse-risk heuristic'
+  parse: ScoreBlock
+  match?: ScoreBlock
+  /** What was unavailable: semantic similarity (no local model) or the real PDF text layer. */
+  degraded: { embeddings: boolean; pdfText: boolean }
+  findings: AtsFinding[]
+  skillGaps: SkillGap[]
+  courses: Course[]
+  plan?: string
+  /** Plain-language limits of this run (no web-search runner, local model missing, …). */
+  notes?: string[]
+  /** Every question the agent asked during this analysis (answered or not), for "Answer first". */
+  questions?: AtsQuestion[]
+  session?: { runId: string; sessionId: string | null; round: number; questions: AtsQuestion[] }
+}
+export type AtsHistoryItem = { undoId: string; findingId: string; title: string; at: number }
+export type AtsApplyResult = { ok: boolean; error?: string; undoId?: string; newCv?: string; rescore?: AtsReport }
+export type AtsPreview = { diff: { before: string; after: string }; factCheck: { ok: boolean; violations: string[] } }
+export type AtsPhase = 'parse' | 'extract' | 'agent' | 'score' | 'done'
+export type AtsEvent = { runId: string; phase: AtsPhase; message: string; questions?: AtsQuestion[] }
+export type AtsAnalyzeInput = { jd?: string; jobId?: string; templateId?: string }

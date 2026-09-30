@@ -59,6 +59,7 @@ const PROFILE_SHAPE = `{
   "experience": [{ "company": string, "title": string, "location"?: string, "start"?: string, "end"?: string, "highlights": string[] }],
   "education": [{ "school": string, "degree"?: string, "start"?: string, "end"?: string }],
   "projects": [{ "name": string, "url"?: string, "summary"?: string }],
+  "awards"?: string[], "certifications"?: string[], "skillGroups"?: [{ "category": string, "items": string[] }] /* "skills" stays the flat union */,
   "extractedFrom": string, "extractedAt": number /* Date.now() ms */
 }`
 
@@ -76,7 +77,7 @@ export async function extractResume(file: unknown): Promise<RunSummary> {
   }
   const prompt = '/career-ops intake — the user already confirmed this extraction in the Careerloom app; do not ask for confirmation. '
     + `Read their résumé at ${readPath} (original file: documents/cv/${name}) and extract everything faithfully — never invent facts. Then:\n`
-    + '1. Write/overwrite cv.md in the career-ops cv.md format (keep its heading structure: "# Name — Headline", ## Summary, ## Experience with "### Title — Company (start–end)" + bullet highlights, ## Projects, ## Education, ## Skills).\n'
+    + '1. Write/overwrite cv.md in the career-ops cv.md format (keep its heading structure: "# Name — Headline", ## Summary, ## Experience with "### Title — Company (start–end)" + bullet highlights, ## Projects, ## Education, ## Skills, plus ## Awards and ## Certifications when the résumé has them).\n'
     + '2. Update config/profile.yml under `candidate:` — full_name, email, phone, location, linkedin, portfolio_url, github — preserving every other key and comment.\n'
     + `3. Write ${PROFILE_JSON} as JSON matching exactly this shape (omit unknown optional fields, use [] for empty lists, extractedFrom = "documents/cv/${name}"):\n${PROFILE_SHAPE}`
   return startAgentPrompt('Extract résumé', 'intake', prompt, `documents/cv/${name}`)

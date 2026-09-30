@@ -18,7 +18,6 @@ const {
   missingPlaceholders,
   setProfileTemplate,
   sanitizeDocName,
-  buildAtsCheckHtml,
   validateProfile,
   profileFromCv,
   profileToPayload,
@@ -88,18 +87,6 @@ describe('sanitizeDocName', () => {
   it('strips path separators and unsafe characters', () => {
     expect(sanitizeDocName('../../etc/passwd')).toBe('_.._etc_passwd')
     expect(sanitizeDocName('my résumé (final).pdf')).toBe('my_r_sum___final_.pdf')
-  })
-})
-
-describe('buildAtsCheckHtml', () => {
-  it('renders sections as section-title divs and escapes contact info', () => {
-    const md = '## Experience\nDid things.\n\n## Education\nDegree.\n'
-    const html = buildAtsCheckHtml(md, { name: 'A&B', email: 'a@b.com' })
-    expect(html).toContain('<meta charset="utf-8">')
-    expect(html).toContain('class="section-title">Experience<')
-    expect(html).toContain('class="section-title">Education<')
-    expect(html).toContain('A&amp;B')
-    expect(html).toContain('a@b.com')
   })
 })
 

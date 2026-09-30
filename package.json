@@ -17,6 +17,9 @@
     "package": "npm run build && electron-builder"
   },
   "dependencies": {
+    "pdfjs-dist": "^6.3.289",
+    "react-resizable-panels": "^4.14.1",
+    "sonner": "^2.0.8",
     "tldts": "^7.4.16",
     "yaml": "^2.9.1"
   },
@@ -80,6 +83,9 @@
       "dist/electron/**/*",
       "!dist/electron/**/*.map",
       "dist/renderer/**/*",
+      "!node_modules/pdfjs-dist/{build,web,types,image_decoders,cmaps,standard_fonts,wasm}/**",
+      "!node_modules/pdfjs-dist/legacy/{web,image_decoders}/**",
+      "!node_modules/pdfjs-dist/**/*.map",
       "package.json"
     ],
     "mac": {
