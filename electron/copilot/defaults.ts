@@ -95,7 +95,10 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     permission: kind => { try { return systemPreferences.getMediaAccessStatus(kind) } catch { return 'unknown' } },
     hasKey: () => e2e() !== null || readApiKey() !== null,
     sttInstalled: sttReady,
-    call: prompt => runText(prompt, { tier: 'helper', label: 'Score interview practice' }),
+    // QA hook only: scoring goes through the fake provider instead of launching an agent run.
+    call: prompt => e2e()
+      ? collectText(provider(), { system: 'Score interview answers.', messages: [{ role: 'user', content: prompt }], model: fastModel(), maxTokens: 600, signal: AbortSignal.timeout(8000) }).then(r => ({ text: r.text, tokens: null, model: 'e2e' }))
+      : runText(prompt, { tier: 'helper', label: 'Score interview practice' }),
     openSettings: pane => { void shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${PANE[pane]}`); return true },
 
     session: {

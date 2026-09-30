@@ -47,8 +47,9 @@ export function createSessionController(deps: SessionDeps) {
   function wire(source: SourceId, a: SttAdapter) {
     let open: { id: string; t0: number } | null = null
     const line = (text: string, t0: number, t1: number, final: boolean): TranscriptLine => {
-      open ??= { id: `${source}-${sessionId}-${lineSeq++}`, t0 }
-      const l: TranscriptLine = { id: open.id, speaker: SPEAKER[source], text, final, t0: open.t0, t1: final ? t1 : null }
+      // Epoch ms (session start + the engine's audio clock): lines compare directly with DetectedQuestion.at and SessionSummary times.
+      open ??= { id: `${source}-${sessionId}-${lineSeq++}`, t0: (startedAt ?? 0) + t0 }
+      const l: TranscriptLine = { id: open.id, speaker: SPEAKER[source], text, final, t0: open.t0, t1: final ? (startedAt ?? 0) + t1 : null }
       if (final) open = null
       return l
     }

@@ -32,6 +32,7 @@ export function createOverlayHost(deps: HostDeps) {
   let live = false
   let lastState: CopilotEvents['copilotState'] | null = null
   let quickHidden = false
+  let replayOnBeat = false
   let lastKey = configKey(deps.getConfig())
   const actionListeners: Array<(a: HotkeyAction) => void> = []
 
@@ -49,7 +50,8 @@ export function createOverlayHost(deps: HostDeps) {
   deps.tray.onStopNow(() => { void stop('panic') })
   deps.overlay.onGone(() => { void panic.trigger('error') })
   // A window that opens after the state was published would miss it: replay the current state once it has loaded.
-  deps.overlay.onLoaded(() => { if (lastState) deps.publish('copilotState', lastState) })
+  // `load` can fire before the page's React tree subscribes, so the first heartbeat after a load replays it once more.
+  deps.overlay.onLoaded(() => { replayOnBeat = true; if (lastState) deps.publish('copilotState', lastState) })
   panic.arm()
 
   function onHotkey(action: HotkeyAction): void {
@@ -96,6 +98,7 @@ export function createOverlayHost(deps: HostDeps) {
     overlayCommand(cmd: OverlayCmd): void {
       if (Object.values(cmd).every(v => v === undefined)) {
         panic.heartbeat()
+        if (replayOnBeat && lastState) { replayOnBeat = false; deps.publish('copilotState', lastState) }
         // ponytail: one small file read per second; a config-changed event replaces this if it ever shows up in a profile.
         const key = configKey(deps.getConfig())
         if (key !== lastKey) { lastKey = key; deps.overlay.refresh(); if (deps.overlay.isVisible() || live) registerHotkeys() }

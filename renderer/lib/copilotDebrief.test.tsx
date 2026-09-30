@@ -2,7 +2,7 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { GOTO_EVENT } from '../components/copilot/selection'
+import { GOTO_EVENT, takePendingPage } from '../components/copilot/selection'
 import { NAVIGATE_EVENT } from './nav'
 import { useDebriefLink } from './copilotDebrief'
 
@@ -18,10 +18,9 @@ describe('useDebriefLink', () => {
     const { unmount } = renderHook(() => useDebriefLink())
     fire({ sessionId: 's1' })
     expect((nav.mock.calls[0]![0] as CustomEvent).detail).toBe('copilot')
-    return new Promise<void>(resolve => setTimeout(() => {
-      expect((go.mock.calls[0]![0] as CustomEvent).detail).toBe('sessions')
-      unmount(); expect(off).toHaveBeenCalled(); resolve()
-    }, 20))
+    expect((go.mock.calls[0]![0] as CustomEvent).detail).toBe('sessions')
+    expect(takePendingPage()).toBe('sessions') // a Copilot screen that mounts later still gets it
+    unmount(); expect(off).toHaveBeenCalled()
   })
 
   it('does nothing when the bridge has no copilot events (non-macOS, tests)', () => {

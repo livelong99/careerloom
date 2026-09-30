@@ -99,4 +99,18 @@ describe('session controller (mic-only, fake STT)', () => {
     await s.stop('user'); await s.retry() // a stopped session is not revived
     expect(made).toBe(2)
   })
+
+  it('stamps transcript lines in epoch ms (session start + audio clock), so they compare with question times', async () => {
+    const events: Array<[string, unknown]> = []
+    const s = createSessionController({
+      createAdapter: () => createFakeAdapter(parseFixture(FIXTURE)), now: () => 1_700_000_000_000, newId: () => 'S',
+      emit: (ev, p) => void events.push([ev, p]),
+      stt: () => ({ engine: 'moonshine', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 700, vocab: [] }),
+    })
+    await s.start(REQ)
+    for (let i = 0; i < 10; i++) s.audio({ source: 'mic', pcm16: chunk(100, 500), t: i })
+    const finals = events.filter(e => e[0] === 'copilotTranscript').map(e => e[1] as { t0: number; t1: number | null; final: boolean }).filter(l => l.final)
+    expect(finals[0]).toMatchObject({ t0: 1_700_000_000_000, t1: 1_700_000_000_900 })
+    await s.stop('user')
+  })
 })

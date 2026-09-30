@@ -441,3 +441,17 @@ Feature flag `copilot.enabled` (default on in dev, off in first public build) an
 12. **STT bake-off (S2):** you suggested Moonshine with CUDA. CUDA is not documented for Moonshine's runtime and this Mac has no CUDA, so with Windows deferred the bake-off runs on the Mac only (Moonshine CPU/CoreML vs Whisper MLX); the CUDA check moves to the Windows phase. Is an on-demand model download in onboarding acceptable?
 12b. **Language:** Moonshine lists no Hindi STT. Is English (incl. accented English) enough for v0.3.0?
 13. **OpenRouter defaults:** `data_collection:'deny'` narrows the available models/providers; accept that, or allow per-model opt-in? Which default models per tier (resolved from `recommended-models.json`, dated)?
+
+## 19. Integration status (2026-10-01, branch `livelong99/copilot-int`)
+
+| Package | State | Notes |
+|---|---|---|
+| WP0 contract/shell | done | `StartRequest.questionIds/custom`, `OverlayCommand` (`start`, `retry`, `debrief`) and `copilotInstallStt` added (additive) |
+| WP1 overlay/hotkeys/kill switch | integrated | host bound to session via `defaults.ts`; replay-on-first-heartbeat fixes a load/subscribe race |
+| WP2 engine/detector/context | integrated | streaming answers, guard flags, cost ceiling $1/session; live latency still unmeasured (no key) |
+| WP3 capture/STT | integrated (mic) | overlay window owns the mic (`useMicCapture`); Moonshine install via `copilotInstallStt`; Whisper adapters, system audio, benchmark audio fixtures pending |
+| WP4 config UI/sessions | integrated | Appearance/Privacy use WP1 components; Transcription has Install |
+| End-to-end (cloned profile, fake mic + fake OpenRouter) | passed | Setup → consent → live (mic) → detected question → answer streams (first token 0.26 s) → stop → session saved under the Job → Sessions → scorecard; Practice likewise; evidence in `int-evidence/` |
+
+Remaining gaps: hotkey→answer verified by unit test only (global shortcuts cannot be pressed from CDP; the overlay Answer button takes the same engine path); real Moonshine, live OpenRouter latency (G-C) and macOS TCC mic prompt not exercised; `copilotProbeAudio` and `copilotBenchmarkStt` have no backend (benchmark needs recorded fixtures); overlay Start restarts practice only (a live restart needs the consent dialog); Practice mode shows the live "Answer" actions; system audio (M2), Whisper adapters (after S2), Windows, screenshot/vision (M3) out of scope.
+
