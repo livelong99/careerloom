@@ -111,7 +111,13 @@
       "identity": "-",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Careerloom listens through your microphone during an interview practice or live session you start. Audio is transcribed on this computer and is not stored.",
+        "NSAudioCaptureUsageDescription": "Careerloom can capture the interviewer's audio from your call app during a live session you start. Audio is transcribed on this computer and is not stored."
+      }
     },
     "dmg": {
       "backgroundColor": "#0b0e13",
