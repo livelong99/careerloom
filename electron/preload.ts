@@ -77,6 +77,13 @@ const bridge = {
   jobView: (id: string) => invoke('jobView', id),
   onJobView: (cb: (e: unknown) => void) => subscribe('jobView', cb),
   setHelperModel: (runner: string, model: string | null) => invoke('setHelperModel', runner, model),
+  docsList: (jobId: string) => invoke('docsList', jobId),
+  docsGenerate: (jobId: string, kind: string, options?: unknown) => invoke('docsGenerate', jobId, kind, options),
+  docsReadText: (rel: string) => invoke('docsReadText', rel),
+  docsReadPdf: (rel: string) => invoke('docsReadPdf', rel),
+  docsReveal: (rel: string) => invoke('docsReveal', rel),
+  docsSave: (rel: string) => invoke('docsSave', rel),
+  onDocs: (cb: (e: unknown) => void) => subscribe('docs', cb),
   // Jobs
   listJobs: () => invoke('listJobs'),
   listPortals: () => invoke('listPortals'),

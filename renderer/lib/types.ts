@@ -112,6 +112,14 @@ export type CareerloomBridge = {
   jobView(id: string): Promise<JobView & { pending: boolean }>
   onJobView(cb: (e: { id: string }) => void): () => void
   setHelperModel(runner: ModelRunner, model: string | null): Promise<unknown>
+  docsList(jobId: string): Promise<Artifact[]>
+  /** Starts in the background; progress and the result arrive through `onDocs`. */
+  docsGenerate(jobId: string, kind: DocKind, options?: DocsOptions): Promise<{ started: true }>
+  docsReadText(rel: string): Promise<string>
+  docsReadPdf(rel: string): Promise<Uint8Array>
+  docsReveal(rel: string): Promise<boolean>
+  docsSave(rel: string): Promise<string | null>
+  onDocs(cb: (e: DocsEvent) => void): () => void
   /** The template filled with the current résumé, as PDF bytes (for the in-app viewer). */
   renderTemplatePdf(name: string): Promise<Uint8Array>
   /** Save dialog → writes that PDF; resolves to the saved path or null if cancelled. */
@@ -220,4 +228,4 @@ export type SpendFlow = {
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
 import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
-import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView } from '../../electron/contract'
+import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'

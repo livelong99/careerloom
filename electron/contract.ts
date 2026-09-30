@@ -300,3 +300,4 @@ export type AtsAnalyzeInput = { jd?: string; jobId?: string; templateId?: string
 
 // ————— Job page —————
 export type { JobPosting, JobView, KeywordStatus, JobViewMeta, MatchStatus, ReportBlock, ReportGap, ReportSection, ReportView } from './job-view/types'
+export type { Artifact, DocKind, DocsEvent, DocsOptions } from './docs-gen/types'
