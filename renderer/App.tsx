@@ -19,6 +19,7 @@ import { isMacPlatform, isModifierChord, shortcutLabel } from './lib/platform'
 import { Agent } from './sections/Agent'
 import { Integrations } from './sections/Integrations'
 import { Monitoring } from './sections/Monitoring'
+import { Copilot } from './sections/Copilot'
 import { Resume } from './sections/Resume'
 import { Overview } from './sections/Overview'
 import { Boards } from './sections/Boards'
@@ -30,14 +31,17 @@ import { Settings } from './sections/Settings'
 import { applyTheme, readTheme } from './lib/theme'
 import type { Application } from './lib/types'
 
-export const TITLES: Record<Section, string> = { overview: 'Overview', jobs: 'Jobs', boards: 'Boards', resume: 'Resume', agent: 'Agent', monitoring: 'Monitoring', integrations: 'Integrations', settings: 'Settings', job: 'Jobs' }
-const KEYS: Record<string, Section> = { '1': 'overview', '2': 'jobs', '3': 'boards', '4': 'resume', '5': 'agent', '6': 'monitoring', '7': 'integrations', ',': 'settings' }
+export const TITLES: Record<Section, string> = { overview: 'Overview', jobs: 'Jobs', boards: 'Boards', resume: 'Resume', agent: 'Agent', monitoring: 'Monitoring', integrations: 'Integrations', settings: 'Settings', job: 'Jobs', copilot: 'Copilot' }
+const KEYS: Record<string, Section> = { '1': 'overview', '2': 'jobs', '3': 'boards', '4': 'resume', '5': 'agent', '6': 'monitoring', '7': 'integrations', '8': 'copilot', ',': 'settings' }
 const SECTION_KEY = 'careerloom.section'
+
+/** Copilot exists on macOS only; everything else is always there. */
+const sectionAvailable = (id: string): boolean => Object.hasOwn(TITLES, id) && (id !== 'copilot' || isMacPlatform())
 
 function initialSection(): Section {
   try {
     const v = globalThis.localStorage?.getItem(SECTION_KEY)
-    return v && v !== 'job' && Object.hasOwn(TITLES, v) ? (v as Section) : 'overview'
+    return v && v !== 'job' && sectionAvailable(v) ? (v as Section) : 'overview'
   } catch { return 'overview' }
 }
 
@@ -58,7 +62,7 @@ export function App() {
     const navigate = (e: Event) => {
       const d = (e as CustomEvent<unknown>).detail
       const target = typeof d === 'string' ? d : (d as { section?: unknown } | null)?.section
-      if (typeof target !== 'string' || !Object.hasOwn(TITLES, target)) return
+      if (typeof target !== 'string' || !sectionAvailable(target)) return
       setSection(target as Section)
       const id = typeof d === 'object' && d ? (d as { id?: unknown }).id : undefined
       if (target === 'boards') setBoardFocus(typeof id === 'string' ? id : null)
@@ -89,7 +93,7 @@ export function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!isModifierChord(event)) return
       const target = KEYS[event.key]
-      if (target) { event.preventDefault(); setSection(target) }
+      if (target && sectionAvailable(target)) { event.preventDefault(); setSection(target) }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -110,6 +114,7 @@ export function App() {
   else if (shown === 'resume') body = <Resume />
   else if (shown === 'monitoring') body = <Monitoring onNavigate={setSection} />
   else if (shown === 'integrations') body = <Integrations />
+  else if (shown === 'copilot') body = <Copilot />
   else body = <Agent />
 
   const running = runs.runs.filter(r => r.status === 'running').length

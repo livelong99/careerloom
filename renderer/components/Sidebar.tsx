@@ -3,11 +3,11 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { version } from '../../package.json'
 import { t } from '../i18n'
 import { careerloom } from '../lib/ipc'
-import { isModifierChord, shortcutLabel } from '../lib/platform'
+import { isMacPlatform, isModifierChord, shortcutLabel } from '../lib/platform'
 import loomi from '../assets/loomi.svg'
 import { Icon } from './icons'
 
-export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'integrations' | 'settings' | 'job'
+export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'integrations' | 'settings' | 'job' | 'copilot'
 
 type NavItem = { id: Section; label: string; key: string; icon: ReactNode }
 
@@ -33,6 +33,8 @@ export function navGroups(): Array<{ label?: string; items: NavItem[] }> {
         { id: 'integrations', label: 'Integrations', key: '7', icon: <Icon name="puzzle" /> },
       ],
     },
+    // macOS only for now (plan §3.1): no half-working section elsewhere.
+    ...(isMacPlatform() ? [{ label: 'Interview', items: [{ id: 'copilot' as const, label: 'Copilot', key: '8', icon: <Icon name="mic" /> }] }] : []),
     { items: [{ id: 'settings', label: t('shell.nav.settings'), key: ',', icon: <Icon name="settings" /> }] },
   ]
 }
