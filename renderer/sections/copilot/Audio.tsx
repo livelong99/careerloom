@@ -19,6 +19,16 @@ const PROBE_TEXT: Record<SourceHealth['status'], string> = {
   missing: 'No input device found.',
 }
 
+/** Streams the chosen mic to main (same `copilotAudio` channel a session uses) so the 3-second test has sound to listen to. Returns a stop function; any failure just means main reports no input. */
+async function streamMic(deviceId: string | null): Promise<() => void> {
+  try {
+    const t0 = Date.now()
+    const { startMic } = await import('../../overlay/capture/mic')
+    const h = await startMic({ deviceId, onFrame: pcm16 => careerloom.copilotAudio({ source: 'mic', pcm16, t: Date.now() - t0 }) })
+    return () => h.stop()
+  } catch { return () => {} }
+}
+
 /** Audio inputs the browser can see; labels stay empty until the mic permission was granted once. */
 function useInputDevices(): Array<{ id: string; label: string }> {
   const [list, setList] = useState<Array<{ id: string; label: string }>>([])
@@ -44,10 +54,11 @@ export function AudioPage() {
 
   async function test(source: 'mic' | 'system'): Promise<void> {
     setTesting(source); setProbe(null)
+    const stop = source === 'mic' ? await streamMic(config?.audio.micDeviceId ?? null) : () => {}
     try {
       const r = orNull(await careerloom.copilotProbeAudio(source, 3000))
       setProbe({ source, text: r ? PROBE_TEXT[r.status] : 'The audio test is not available in this build yet.' })
-    } catch (e) { setProbe({ source, text: errorText(e) }) } finally { setTesting(null) }
+    } catch (e) { setProbe({ source, text: errorText(e) }) } finally { stop(); setTesting(null) }
   }
   const open = (pane: 'microphone' | 'system-audio') => () => { void careerloom.copilotOpenSystemSettings(pane) }
   if (!config) return <Page title="Audio" blurb="Loading…" />
