@@ -1,0 +1,50 @@
+{
+  "asOf": "2026-10-01",
+  "source": "https://openrouter.ai/api/v1/models (read 2026-10-01)",
+  "models": {
+    "google/gemini-2.5-flash-lite": {
+      "promptUsdPerM": 0.1,
+      "completionUsdPerM": 0.4
+    },
+    "openai/gpt-4.1-nano": {
+      "promptUsdPerM": 0.1,
+      "completionUsdPerM": 0.4
+    },
+    "openai/gpt-6-luna": {
+      "promptUsdPerM": 0.1,
+      "completionUsdPerM": 0.5
+    },
+    "qwen/qwen3-30b-a3b-instruct-2507": {
+      "promptUsdPerM": 0.04815,
+      "completionUsdPerM": 0.19305
+    },
+    "anthropic/claude-haiku-4.5": {
+      "promptUsdPerM": 1,
+      "completionUsdPerM": 5
+    },
+    "openai/gpt-4.1-mini": {
+      "promptUsdPerM": 0.4,
+      "completionUsdPerM": 1.6
+    },
+    "google/gemini-3.6-flash": {
+      "promptUsdPerM": 0.75,
+      "completionUsdPerM": 3.75
+    },
+    "openai/gpt-5.4-mini": {
+      "promptUsdPerM": 0.75,
+      "completionUsdPerM": 4.5
+    },
+    "anthropic/claude-sonnet-5.5": {
+      "promptUsdPerM": 2,
+      "completionUsdPerM": 10
+    },
+    "openai/gpt-6.1-sol": {
+      "promptUsdPerM": 2,
+      "completionUsdPerM": 10
+    },
+    "google/gemini-3.1-pro-preview": {
+      "promptUsdPerM": 2,
+      "completionUsdPerM": 12
+    }
+  }
+}
