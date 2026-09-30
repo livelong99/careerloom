@@ -7,7 +7,9 @@ import { OVERLAY_CMD_CHANNEL, type OverlayCmdEvent } from '../../electron/copilo
 import { OverlayView } from './OverlayView'
 import { buildOverlayData } from './buildData'
 import type { OverlayActions } from './types'
+import { clampWidth, ResizeGrip } from './ResizeGrip'
 import { useCopilotEvents } from './useCopilotEvents'
+import { useMicCapture } from './useMicCapture'
 
 const HEARTBEAT_MS = 1000
 type Anchor = CopilotConfig['overlay']['anchor']
@@ -20,12 +22,12 @@ const onOverlayCmd = (cb: (e: OverlayCmdEvent) => void): (() => void) =>
   (bridge().onCopilotEvent as unknown as (name: string, cb: (e: OverlayCmdEvent) => void) => () => void)(OVERLAY_CMD_CHANNEL.replace('careerloom:', ''), cb)
 
 /** null until the first read: electron/copilot/config.ts is main-only, so there is no renderer-side default to show. */
-function useConfig(refreshOn: unknown): CopilotConfig | null {
+function useConfig(refreshOn: unknown): [CopilotConfig | null, () => void] {
   const [cfg, setCfg] = useState<CopilotConfig | null>(null)
   const load = useCallback(() => { bridge().copilotGetConfig().then(setCfg).catch(() => undefined) }, [])
   useEffect(load, [load, refreshOn])
   useEffect(() => onOverlayCmd(e => { if (e.layout || e.anchor) load() }), [load])
-  return cfg
+  return [cfg, load]
 }
 
 function useTheme(pref: CopilotConfig['overlay']['theme'] | undefined): 'dark' | 'light' {
@@ -42,9 +44,10 @@ function useTheme(pref: CopilotConfig['overlay']['theme'] | undefined): 'dark' |
 
 export function Overlay() {
   const model = useCopilotEvents()
-  const cfg = useConfig(model.session?.state)
+  const [cfg, reloadConfig] = useConfig(model.session?.state)
   const theme = useTheme(cfg?.overlay.theme)
   const [wiped, setWiped] = useState(false)
+  const [dragWidth, setDragWidth] = useState<number | null>(null)
   const [now, setNow] = useState(Date.now())
   const frozen = useRef<number | null>(null)
 
@@ -55,6 +58,8 @@ export function Overlay() {
     return () => clearInterval(id)
   }, [])
   const state = model.session?.state
+  // The overlay window owns the microphone while a session runs; main owns state, health and the kill switch.
+  useMicCapture({ active: state === 'armed' || state === 'listening', sessionId: model.session?.sessionId ?? null, deviceId: cfg?.audio.micDeviceId ?? null, send: m => bridge().copilotAudio(m), onError: message => console.error('copilot mic failed:', message) })
   useEffect(() => {
     if (state === 'stopped') { frozen.current ??= Date.now(); setNow(frozen.current); return }
     frozen.current = null
@@ -76,14 +81,21 @@ export function Overlay() {
     collapse: () => { b.copilotOverlay({ collapse: true }).catch(() => undefined) },
     expand: () => { b.copilotOverlay({ collapse: false }).catch(() => undefined) },
     stop: () => { b.copilotStop('panic').catch(() => undefined) },
+    start: () => { b.copilotOverlay({ start: true }).catch(() => undefined) },
+    retry: () => { b.copilotOverlay({ retry: true }).catch(() => undefined) },
+    // Mic-only is what M1 captures; the choice is saved so a later system-audio build stays off until asked for.
+    micOnly: () => { b.copilotSetConfig({ audio: { useSystem: false } }).catch(() => undefined) },
+    switchOnDevice: () => { b.copilotSetConfig({ stt: { engine: 'moonshine' } }).then(() => b.copilotOverlay({ retry: true })).catch(() => undefined) },
+    openDebrief: () => { b.copilotOverlay({ debrief: true }).catch(() => undefined) },
     fix: () => { b.copilotOpenSystemSettings(data.problem?.kind === 'mic' ? 'microphone' : 'system-audio').catch(() => undefined) },
     ...(sessionId ? { deleteTranscript: () => { b.copilotDeleteSession(sessionId).catch(() => undefined) } } : {}),
   }
 
   return (
     <div className="ov-win" style={{ alignItems: VERTICAL[cfg.overlay.anchor], justifyContent: HORIZONTAL[cfg.overlay.anchor] }}>
-      <div onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}>
-        <OverlayView data={data} on={on} theme={theme} fontPx={cfg.overlay.fontPx} widthPx={layout === 'panel' ? Math.min(560, Math.max(360, cfg.overlay.width)) : undefined} opacity={cfg.overlay.opacity} />
+      <div style={{ position: 'relative' }} onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}>
+        <OverlayView data={data} on={on} theme={theme} fontPx={cfg.overlay.fontPx} widthPx={layout === 'panel' ? (dragWidth ?? clampWidth(cfg.overlay.width)) : undefined} opacity={cfg.overlay.opacity} />
+        {layout === 'panel' ? <ResizeGrip width={dragWidth ?? clampWidth(cfg.overlay.width)} onPreview={setDragWidth} onCommit={w => { setDragWidth(null); bridge().copilotSetConfig({ overlay: { width: w } }).then(reloadConfig).catch(() => undefined) }} /> : null}
       </div>
     </div>
   )

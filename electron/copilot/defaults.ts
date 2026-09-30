@@ -2,9 +2,9 @@
 // and session controller + local STT (WP3). Everything is built lazily on first use, so importing this never touches Electron.
 import fs from 'node:fs'
 
-import { shell, systemPreferences } from 'electron'
+import { BrowserWindow, shell, systemPreferences } from 'electron'
 
-import { readApiKey, userFile } from '../context'
+import { broadcast, readApiKey, userFile } from '../context'
 import { readCv } from '../resume-agent'
 import { jobContext } from '../job-view/handlers'
 import { runText } from '../job-view/agent'
@@ -112,6 +112,11 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
       stop: reason => live().host.stop(reason),
     },
     retry: () => live().ctl.retry(),
+    openDebrief: sessionId => {
+      const main = BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && !w.webContents.getURL().includes('overlay.html'))
+      if (main) { if (main.isMinimized()) main.restore(); main.show(); main.focus() }
+      broadcast('careerloom:copilotOpenDebrief', { sessionId })
+    },
     answer: (kind, questionId) => { void live().wiring.answer(kind, questionId) },
     context: { preview: id => context().preview(id) },
     complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: user }], model: fastModel(), maxTokens: 120, signal: AbortSignal.timeout(8000) })).text,

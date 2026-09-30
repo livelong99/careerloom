@@ -59,6 +59,8 @@ export type CopilotDeps = {
   overlay?(cmd: OverlayCommand): void
   /** Reopen speech recognition for the running session (overlay Retry). */
   retry?(): Promise<void> | void
+  /** Bring the main window forward on the Sessions page (overlay "Open debrief"). */
+  openDebrief?(sessionId: string | null): void
   /** Records the Privacy mode notice ack (and refreshes the overlay); without it the ack is written straight to config. */
   ackNotice?(version: string): { ok: boolean }
   checkHotkey?(accel: string): { ok: boolean; reason?: 'in-use' | 'reserved' | 'invalid' }
@@ -94,7 +96,7 @@ function overlayCmd(raw: unknown): OverlayCommand {
   if (c.moveTo !== undefined && !ANCHORS.includes(c.moveTo as Anchor)) throw new Error('moveTo must be an anchor')
   return {
     collapse: flag(c.collapse, 'collapse'), hide: flag(c.hide, 'hide'), quickHide: flag(c.quickHide, 'quickHide'), passive: flag(c.passive, 'passive'),
-    moveTo: c.moveTo as Anchor | undefined, start: flag(c.start, 'start'), retry: flag(c.retry, 'retry'),
+    moveTo: c.moveTo as Anchor | undefined, start: flag(c.start, 'start'), retry: flag(c.retry, 'retry'), debrief: flag(c.debrief, 'debrief'),
   }
 }
 /** Only `copilotAckPrivacyNotice` may record that the Privacy mode notice was seen. */
@@ -257,6 +259,7 @@ export function createCopilot(deps: CopilotDeps) {
         return
       }
       if (cmd.retry) return void (await deps.retry?.())
+      if (cmd.debrief) return void deps.openDebrief?.(store.list()[0]?.id ?? null)
       return deps.overlay ? void deps.overlay(cmd) : notImplemented('copilotOverlay')
     },
     copilotAckPrivacyNotice: (version: unknown) => {

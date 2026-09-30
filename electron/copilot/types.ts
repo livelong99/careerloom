@@ -37,8 +37,8 @@ export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; que
 
 /** `questionIds`/`custom` (practice only): the chosen report questions and the user's own. Additive to the frozen contract. */
 export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[] }
-/** `start` restarts the last practice session, `retry` reopens speech recognition for the running one (overlay buttons). Additive. */
-export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean }
+/** `start` restarts the last practice session, `retry` reopens speech recognition for the running one, `debrief` opens the last session in Careerloom (overlay buttons). Additive. */
+export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean; debrief?: boolean }
 export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper'
 export type SttDevice = 'auto' | 'cpu' | 'coreml' | 'cuda'
 export type SttBenchmark = { at: number; p50FinalMs: number; realTimeFactor: number; ramMb: number | null; wer: number | null }

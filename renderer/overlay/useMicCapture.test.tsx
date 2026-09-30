@@ -1,0 +1,44 @@
+// @vitest-environment jsdom
+import { renderHook, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+
+import type { MicHandle } from './capture/mic'
+import { useMicCapture } from './useMicCapture'
+
+function fakeMic() {
+  const stop = vi.fn()
+  let onFrame: (b: ArrayBuffer) => void = () => undefined
+  const start = vi.fn(async (o: { deviceId?: string | null; onFrame: (b: ArrayBuffer) => void }): Promise<MicHandle> => { onFrame = o.onFrame; return { stop } })
+  return { start, stop, frame: (b: ArrayBuffer) => onFrame(b) }
+}
+
+describe('useMicCapture', () => {
+  it('captures while a session is armed or listening and sends frames as mic chunks', async () => {
+    const m = fakeMic(), send = vi.fn()
+    const { rerender } = renderHook((p: { active: boolean }) => useMicCapture({ active: p.active, sessionId: 'S1', deviceId: 'dev', send, start: m.start }), { initialProps: { active: false } })
+    expect(m.start).not.toHaveBeenCalled()
+    rerender({ active: true })
+    await waitFor(() => expect(m.start).toHaveBeenCalledTimes(1))
+    expect(m.start.mock.calls[0]![0].deviceId).toBe('dev')
+    m.frame(new Int16Array(1600).buffer)
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ source: 'mic', pcm16: expect.any(ArrayBuffer) }))
+    rerender({ active: false })
+    expect(m.stop).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops the mic even when the session ends before getUserMedia resolved', async () => {
+    const stop = vi.fn()
+    let release: (h: MicHandle) => void = () => undefined
+    const start = vi.fn(() => new Promise<MicHandle>(r => { release = r }))
+    const { unmount } = renderHook(() => useMicCapture({ active: true, sessionId: 'S1', deviceId: null, send: vi.fn(), start }))
+    unmount()
+    release({ stop })
+    await waitFor(() => expect(stop).toHaveBeenCalledTimes(1))
+  })
+
+  it('a failing mic start is reported, not thrown', async () => {
+    const onError = vi.fn()
+    renderHook(() => useMicCapture({ active: true, sessionId: 'S1', deviceId: null, send: vi.fn(), start: async () => { throw new Error('denied') }, onError }))
+    await waitFor(() => expect(onError).toHaveBeenCalledWith('denied'))
+  })
+})

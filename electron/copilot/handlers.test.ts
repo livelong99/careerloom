@@ -285,9 +285,11 @@ describe('integration slots (WP1–3 bound through CopilotDeps)', () => {
     expect(session.start).toHaveBeenCalledTimes(2)
   })
 
-  it('overlay retry calls the retry slot; other commands reach the overlay slot', async () => {
-    const retry = vi.fn(), overlay = vi.fn()
-    const { c } = setup({ retry, overlay })
+  it('overlay retry calls the retry slot, debrief opens the newest session; other commands reach the overlay slot', async () => {
+    const retry = vi.fn(), overlay = vi.fn(), openDebrief = vi.fn()
+    const { c } = setup({ retry, overlay, openDebrief })
+    await c.handlers.copilotOverlay({ debrief: true })
+    expect(openDebrief).toHaveBeenCalledWith(null) // nothing recorded in this fresh store
     await c.handlers.copilotOverlay({ retry: true })
     await c.handlers.copilotOverlay({ collapse: true })
     expect(retry).toHaveBeenCalledTimes(1)
