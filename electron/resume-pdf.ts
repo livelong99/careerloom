@@ -5,7 +5,7 @@ import { parseDocument } from 'yaml'
 
 import { dataRoot, runScript, str, userFile } from './context'
 import { currentProfile } from './resume-agent'
-import { profileToPayload } from './resume-profile'
+import { profileToPayload, rebuildProfile } from './resume-profile'
 
 // Template → PDF: build-cv-html.mjs fills the template deterministically, a hidden
 // sandboxed window prints it. PDFs are cached per (template, cv/profile/template mtimes).
@@ -39,7 +39,7 @@ function offlineSession(): Session {
   return pdfSession
 }
 
-async function printHtml(htmlFile: string, format: 'a4' | 'letter'): Promise<Buffer> {
+export async function printHtml(htmlFile: string, format: 'a4' | 'letter'): Promise<Buffer> {
   const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, javascript: false, session: offlineSession() } })
   win.webContents.on('will-navigate', e => e.preventDefault())
   win.webContents.on('will-redirect', e => e.preventDefault())
@@ -74,6 +74,38 @@ export async function renderTemplatePdf(name: unknown): Promise<Uint8Array> {
   for (const f of readdirSync(dir)) if (f.startsWith(`${slug}--`)) rmSync(join(dir, f), { force: true })
   writeFileSync(cached, pdf)
   return new Uint8Array(pdf)
+}
+
+/** A template filled from ANY résumé text (a tailored copy), not the master cv.md. Nothing is cached or written to the master files. */
+export async function renderCvText(cvMarkdown: string, templateName: string): Promise<Uint8Array> {
+  const slug = slugOf(templateName)
+  const root = dataRoot()
+  const format = pageFormat(root)
+  const profile = rebuildProfile(cvMarkdown, currentProfile())
+  if (!profile) throw new Error('That résumé text has no name or sections to build a PDF from')
+  const template = await templatePath(slug)
+  const dir = userFile('cv-pdf-cache')
+  mkdirSync(dir, { recursive: true })
+  const stem = join(dir, `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+  try {
+    writeFileSync(`${stem}.payload.json`, JSON.stringify(profileToPayload(profile, format)))
+    const res = await runScript(['build-cv-html.mjs', `${stem}.payload.json`, `${stem}.html`, template])
+    if (res.code !== 0) throw new Error(`Could not fill the ${slug} template: ${res.stderr.trim().split('\n').slice(0, 3).join(' ') || 'build-cv-html failed'}`)
+    return new Uint8Array(await printHtml(`${stem}.html`, format))
+  } finally {
+    for (const ext of ['payload.json', 'html']) rmSync(`${stem}.${ext}`, { force: true })
+  }
+}
+
+/** Any self-contained HTML page (the cover letter) to PDF, in the same offline print window. */
+export async function htmlToPdf(html: string): Promise<Uint8Array> {
+  const dir = userFile('cv-pdf-cache')
+  mkdirSync(dir, { recursive: true })
+  const file = join(dir, `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`)
+  try {
+    writeFileSync(file, html)
+    return new Uint8Array(await printHtml(file, pageFormat(dataRoot())))
+  } finally { rmSync(file, { force: true }) }
 }
 
 export async function savePdf(name: unknown): Promise<string | null> {

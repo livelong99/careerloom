@@ -4,18 +4,17 @@ import { LayoutGrid, Radar } from 'lucide-react'
 import { EmptyNote } from '../components/EmptyState'
 import { BulkBar, useEvaluateJobs } from '../components/jobs/BulkBar'
 import { applyJobFilters, loadPersistedFilters, persistFilters, toApplication, type JobFilters, type ScreenedJob } from '../components/jobs/filters'
-import { JobSheet } from '../components/jobs/JobSheet'
 import { JobsTable } from '../components/jobs/JobsTable'
 import { JobsToolbar, type JobsView } from '../components/jobs/JobsToolbar'
 import { PrescreenControls, usePrescreen } from '../components/jobs/prescreen'
 import { EmptyState } from '../components/kit/EmptyState'
 import { Panel } from '../components/Panel'
 import { PipelineBoard } from '../components/pipeline/PipelineBoard'
-import { ReportDrawer } from '../components/ReportDrawer'
 import { SectionSkeleton } from '../components/Skeleton'
 import { usePolled } from '../hooks/usePolled'
 import { useRuns } from '../hooks/useRuns'
 import { careerloom } from '../lib/ipc'
+import { loadJobsUi, openJob, saveJobsUi, setJobList } from '../lib/jobNav'
 import { navigate } from '../lib/nav'
 import type { JobState } from '../lib/types'
 
@@ -29,10 +28,13 @@ export function Jobs() {
   const portals = usePolled(() => careerloom.listPortals(), [generation], { intervalMs: 20_000 })
   const [filters, setFiltersState] = useState<JobFilters>(() => loadPersistedFilters())
   const [view, setView] = useState<JobsView>('table')
-  const [selected, setSelected] = useState<string[]>([])
-  const [open, setOpen] = useState<ScreenedJob | null>(null)
+  const [selected, setSelected] = useState<string[]>(() => loadJobsUi().selected)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const open = (j: ScreenedJob) => openJob(j.id)
   const prescreen = usePrescreen(generation)
   const evaluateJobs = useEvaluateJobs()
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
   const searchRef = useRef<HTMLInputElement>(null)
 
   const setFilters = (f: JobFilters) => { setFiltersState(f); persistFilters(f) }
@@ -53,6 +55,11 @@ export function Jobs() {
   const all = useMemo((): ScreenedJob[] => (jobs.data ?? []).map(j => (screens[j.id] ? { ...j, screen: screens[j.id] } : j)), [jobs.data, screens])
   const portalList = portals.data ?? []
   const shown = useMemo(() => applyJobFilters(all, filters), [all, filters])
+  useEffect(() => setJobList(shown.map(j => j.id)), [shown])
+  // Back from a job page: selection and table scroll come back as they were.
+  const scroller = () => rootRef.current?.querySelector<HTMLElement>('.fill-scroll') ?? null
+  useEffect(() => { const el = scroller(); if (el) el.scrollTop = loadJobsUi().scroll }, [jobs.data === undefined]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => saveJobsUi({ selected: selectedRef.current, scroll: scroller()?.scrollTop ?? 0 }), []) // eslint-disable-line react-hooks/exhaustive-deps
   const selectedJobs = useMemo(() => all.filter(j => selected.includes(j.id)), [all, selected])
 
   const shortcuts = useMemo((): Shortcut[] => {
@@ -87,10 +94,9 @@ export function Jobs() {
   }
 
   const boardApps = shown.flatMap(j => { const a = toApplication(j, portalList); return a ? [a] : [] })
-  const openApp = open && toApplication(open, portalList)
 
   return (
-    <div className="workspace workspace-fill flex flex-col gap-3">
+    <div ref={rootRef} className="workspace workspace-fill flex flex-col gap-3">
       <div className="flex shrink-0 flex-wrap gap-2" role="group" aria-label="Jobs by state">
         {shortcuts.map(s => (
           <button
@@ -110,13 +116,10 @@ export function Jobs() {
       </div>
       {selectedJobs.length > 0 && <div className="shrink-0"><BulkBar jobs={selectedJobs} onClear={() => setSelected([])} onChanged={refresh} /></div>}
       {view === 'table'
-        ? <JobsTable jobs={shown} portals={portalList} onOpen={setOpen} selected={selected} onSelectedChange={setSelected} onScreened={prescreen.refresh} />
+        ? <JobsTable jobs={shown} portals={portalList} onOpen={open} selected={selected} onSelectedChange={setSelected} onScreened={prescreen.refresh} />
         : boardApps.length
-          ? <div className="min-h-0 flex-1 overflow-auto"><PipelineBoard apps={boardApps} onOpen={a => setOpen(shown.find(j => j.reportNum === a.num) ?? null)} onStatusChanged={refresh} /></div>
+          ? <div className="min-h-0 flex-1 overflow-auto"><PipelineBoard apps={boardApps} onOpen={a => { const j = shown.find(x => x.reportNum === a.num); if (j) open(j) }} onStatusChanged={refresh} /></div>
           : <EmptyNote>No evaluated jobs match these filters. The board shows evaluated jobs; switch to Table for the rest.</EmptyNote>}
-      {open && (openApp
-        ? <ReportDrawer app={openApp} onClose={() => setOpen(null)} />
-        : <JobSheet job={open} portals={portalList} onClose={() => setOpen(null)} onScreened={prescreen.refresh} />)}
     </div>
   )
 }

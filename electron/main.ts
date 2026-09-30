@@ -13,6 +13,8 @@ import { firecrawlReady, firecrawlScrape } from './integrations/firecrawl'
 import { readRegistry } from './integrations/registry'
 import { metricsHandlers } from './metrics'
 import { atsHandlers } from './ats/handlers'
+import { jobViewHandlers } from './job-view/handlers'
+import { docsHandlers } from './docs-gen/handlers'
 import { resumeHandlers } from './resume'
 import { trackerHandlers } from './tracker-actions'
 import { checkReadiness, pickReadyRunner, type Readiness } from './readiness'
@@ -109,7 +111,7 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
 } // stays under promptFor's 20k input ceiling
 
 // Feature modules own their handlers; names must not collide (checked at registration).
-const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, prescreenHandlers, atsHandlers]
+const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers]
 
 /** Folders returned by the native picker this session; setRoot accepts only these. */
 const pickedDirs = new Set<string>()

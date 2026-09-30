@@ -297,3 +297,7 @@ export type AtsPreview = { diff: { before: string; after: string }; factCheck: {
 export type AtsPhase = 'parse' | 'extract' | 'agent' | 'score' | 'done'
 export type AtsEvent = { runId: string; phase: AtsPhase; message: string; questions?: AtsQuestion[] }
 export type AtsAnalyzeInput = { jd?: string; jobId?: string; templateId?: string }
+
+// ————— Job page —————
+export type { JobPosting, JobView, KeywordStatus, JobViewMeta, MatchStatus, ReportBlock, ReportGap, ReportSection, ReportView } from './job-view/types'
+export type { Artifact, DocKind, DocsEvent, DocsOptions } from './docs-gen/types'

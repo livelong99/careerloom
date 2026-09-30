@@ -65,6 +65,15 @@ describe('detectEntrypoints', () => {
     expect(found.some(f => f.rel === 'AGENTS.md')).toBe(true)
   })
 
+  it('finds a root SKILL.md (a repo that is one skill, like blader/humanizer)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-root-'))
+    fs.writeFileSync(path.join(dir, 'SKILL.md'), '---\nname: humanizer\ndescription: |\n  Rewrite AI-sounding text.\n---\n# body')
+    const found = detectEntrypoints(dir)
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ rel: 'SKILL.md', name: 'humanizer' })
+    expect(found[0]!.description).toContain('Rewrite AI-sounding text')
+  })
+
   it('returns [] for a dir with none of the expected files', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-empty-'))
     expect(detectEntrypoints(dir)).toEqual([])
