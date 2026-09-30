@@ -1,12 +1,23 @@
-// Contract stub (WP0): interface only. The owning work package implements it in this file.
+// STT adapter contract (plan §6) and a tiny emitter the concrete adapters share.
 import type { SourceId } from '../types'
 
 export type SttEvent = { text: string; t0: number; t1: number; confidence?: number; retrying?: boolean; message?: string }
+export type SttEventName = 'partial' | 'final' | 'endOfTurn' | 'error' | 'closed'
+export type SttStartOpts = { source: SourceId; language: string; vocab: string[]; endSilenceMs: number }
+
 /** Owner: WP3. One adapter instance per source; 16 kHz mono PCM16 in (plan §6). */
 export interface SttAdapter {
   readonly id: 'moonshine' | 'whisper-mlx' | 'faster-whisper' | 'soniox' | 'assemblyai' | 'deepgram' | 'apple' | 'fake'
-  start(opts: { source: SourceId; language: string; vocab: string[]; endSilenceMs: number }): Promise<void>
+  start(opts: SttStartOpts): Promise<void>
   push(pcm16: ArrayBuffer): void
-  on(ev: 'partial' | 'final' | 'endOfTurn' | 'error' | 'closed', cb: (e: SttEvent) => void): void
+  on(ev: SttEventName, cb: (e: SttEvent) => void): void
   stop(): Promise<void>
+}
+
+export function createEmitter() {
+  const subs = new Map<SttEventName, Array<(e: SttEvent) => void>>()
+  return {
+    on(ev: SttEventName, cb: (e: SttEvent) => void) { subs.set(ev, [...(subs.get(ev) ?? []), cb]) },
+    emit(ev: SttEventName, e: SttEvent) { for (const cb of subs.get(ev) ?? []) cb(e) },
+  }
 }
