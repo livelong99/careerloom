@@ -68,6 +68,14 @@ export async function resolveJd(id: string): Promise<string | null> {
   return jd || null
 }
 
+/** What generation needs about a job: the listing, its parsed report and its structured posting (cached, else deterministic). */
+export function jobContext(id: string) {
+  const job = listJobs().find(j => j.id === id)
+  if (!job) throw new Error('That job is no longer in your list')
+  const v = snapshot(job)
+  return { job, report: v.report, posting: v.posting, keywords: v.keywords }
+}
+
 const find = (raw: unknown): JobListing => {
   const id = str(raw, 'job id')
   const job = listJobs().find(j => j.id === id)
