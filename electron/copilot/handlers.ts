@@ -4,23 +4,19 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { shell, systemPreferences } from 'electron'
-
-import { broadcast, Handler, readApiKey, str, userFile } from '../context'
-import { readCv } from '../resume-agent'
-import { jobContext } from '../job-view/handlers'
-import { runText } from '../job-view/agent'
+import { broadcast, Handler, str } from '../context'
 import type { ModelCall } from '../job-view/jdStructure'
 import type { JobPosting, ReportView } from '../job-view/types'
 import { copilotSupported } from './capabilities'
 import { CONSENT_TEXT_VERSION, validateConsent } from './consent'
 import { readCopilotConfig, writeCopilotConfig } from './config'
 import { applyDebrief, scoreSession } from './debrief'
+import { buildDefaults } from './defaults'
 import { createPracticeRunner, questionsFromReport, selectQuestions, type PracticeExtras, type PracticeRunner } from './practice'
 import { buildContext } from './setup'
 import { createRecorder, openSessionStore, type SessionStore } from './store'
 import type {
-  ContextPreview, CopilotApi, CopilotConfig, DeepPartial, InterviewType, NotImplemented, PermStatus, SessionDetail, SourceHealth, SourceId, StartRequest, StopReason, TranscriptLine,
+  Anchor, ContextPreview, CopilotApi, CopilotConfig, DeepPartial, InterviewType, NotImplemented, OverlayCommand, PermStatus, SessionDetail, SourceHealth, SourceId, StartRequest, StopReason, TranscriptLine,
 } from './types'
 
 const SESSION_ID = /^[\w-]{1,80}$/
@@ -50,13 +46,21 @@ export type CopilotDeps = {
   probe?(source: SourceId, ms: number): Promise<SourceHealth> | SourceHealth
   sttModels?(): unknown
   benchmark?(sel: unknown): Promise<unknown> | unknown
+  installStt?(model?: string): Promise<{ runId: string }> | { runId: string }
+  // WP2: model list / test for the answer-model pickers
+  listLlmModels?(): Promise<unknown> | unknown
+  testLlmModel?(id: string): Promise<unknown> | unknown
   // WP2: engine + context
   answer?(kind: (typeof ANSWER_KINDS)[number], questionId?: string): void
   context?: { preview(jobId: string): Promise<ContextPreview> | ContextPreview }
   /** Text in, text out (engine provider, collected); drives practice follow-ups. */
   complete?(system: string, user: string): Promise<string>
   // WP1: overlay + hotkeys + privacy notice
-  overlay?(cmd: Record<string, unknown>): void
+  overlay?(cmd: OverlayCommand): void
+  /** Reopen speech recognition for the running session (overlay Retry). */
+  retry?(): Promise<void> | void
+  /** Records the Privacy mode notice ack (and refreshes the overlay); without it the ack is written straight to config. */
+  ackNotice?(version: string): { ok: boolean }
   checkHotkey?(accel: string): { ok: boolean; reason?: 'in-use' | 'reserved' | 'invalid' }
   currentNotice?: string
 }
@@ -77,6 +81,30 @@ const oneOf = <T extends string>(v: unknown, allowed: readonly T[], name: string
   return v as T
 }
 
+const ANCHORS: readonly Anchor[] = ['tl', 'tc', 'tr', 'ml', 'c', 'mr', 'bl', 'bc', 'br']
+const flag = (v: unknown, name: string): boolean | undefined => {
+  if (v === undefined) return undefined
+  if (typeof v !== 'boolean') throw new Error(`${name} must be a boolean`)
+  return v
+}
+/** Overlay command from the renderer: known keys only, typed. `{}` is the overlay's heartbeat. */
+function overlayCmd(raw: unknown): OverlayCommand {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw new Error('cmd must be an object')
+  const c = raw as Record<string, unknown>
+  if (c.moveTo !== undefined && !ANCHORS.includes(c.moveTo as Anchor)) throw new Error('moveTo must be an anchor')
+  return {
+    collapse: flag(c.collapse, 'collapse'), hide: flag(c.hide, 'hide'), quickHide: flag(c.quickHide, 'quickHide'), passive: flag(c.passive, 'passive'),
+    moveTo: c.moveTo as Anchor | undefined, start: flag(c.start, 'start'), retry: flag(c.retry, 'retry'),
+  }
+}
+/** Only `copilotAckPrivacyNotice` may record that the Privacy mode notice was seen. */
+function withoutNoticeAck(patch: DeepPartial<CopilotConfig>): DeepPartial<CopilotConfig> {
+  const mode = patch.privacy?.mode
+  if (!mode || !('noticeVersion' in mode)) return patch
+  const { noticeVersion: _dropped, ...rest } = mode
+  return { ...patch, privacy: { ...patch.privacy, mode: rest } }
+}
+
 export function createCopilot(deps: CopilotDeps) {
   const now = deps.now ?? Date.now
   let opened: SessionStore | null = null
@@ -84,6 +112,7 @@ export function createCopilot(deps: CopilotDeps) {
   const store: SessionStore = new Proxy({} as SessionStore, { get: (_t, k) => (opened ??= openSessionStore(deps.dir()))[k as keyof SessionStore] })
   const recorder = createRecorder(store, now)
   let practice: PracticeRunner | null = null
+  let lastPractice: StartRequest | null = null
   let swept = false
   const scoring = new Set<string>()
   const lastScoreTry = new Map<string, number>()
@@ -95,8 +124,12 @@ export function createCopilot(deps: CopilotDeps) {
     void scoreSession({ store, call: deps.call, cv: deps.cv }, id).finally(() => scoring.delete(id))
   }
 
-  const stopAll = async (reason: StopReason): Promise<void> => {
-    if (!recorder.active()) return
+  let stopping: Promise<void> | null = null
+  /** One stop at a time: the capture stop itself raises a 'stopped' state event that lands back here. */
+  const stopAll = (reason: StopReason): Promise<void> => (stopping ??= Promise.resolve().then(() => doStop(reason)).finally(() => { stopping = null })) // deferred: `stopping` must be set before doStop can re-enter
+  const doStop = async (reason: StopReason): Promise<void> => {
+    // The kill switch must run even when no session is recorded (overlay stop button, panic): capture stop is idempotent.
+    if (!recorder.active()) { try { await deps.session?.stop(reason) } catch (err) { console.error('copilot capture stop failed:', err instanceof Error ? err.message : String(err)) }; return }
     // Capture off first, then everything else; a failing capture stop must not keep a session open.
     try { await deps.session?.stop(reason) } catch (err) { console.error('copilot capture stop failed:', err instanceof Error ? err.message : String(err)) }
     practice?.stop(); practice = null
@@ -143,7 +176,7 @@ export function createCopilot(deps: CopilotDeps) {
     try {
       await deps.session?.start({ mode, jobId, interviewType, consent: mode === 'live' ? r.consent! : null }, sessionId)
     } catch (err) { recorder.end(); store.remove(sessionId); throw err }
-    if (mode === 'practice') startPractice(jobId, job, cfg, extras)
+    if (mode === 'practice') { startPractice(jobId, job, cfg, extras); lastPractice = { mode, jobId, interviewType, consent: null, ...extras } }
     if (!deps.session) broadcast('careerloom:copilotState', { state: 'listening', mode, sessionId, sources: ['mic'], startedAt: now() })
     return { sessionId }
   }
@@ -154,7 +187,8 @@ export function createCopilot(deps: CopilotDeps) {
       questions, followups: cfg.practice.followups, answerMs: cfg.practice.answerMinutes * 60_000, complete: deps.complete, now,
       sink: {
         question: q => { recorder.question(q); broadcast('careerloom:copilotQuestion', q) },
-        line: l => { recorder.line(l); broadcast('careerloom:copilotTranscript', l) },
+        // The candidate's own lines are already recorded and shown by the capture session; only the mock interviewer's are new.
+        line: l => { if (l.speaker === 'you' && deps.session) return; recorder.line(l); broadcast('careerloom:copilotTranscript', l) },
         done: () => { void stopAll('user') },
       },
     })
@@ -189,7 +223,7 @@ export function createCopilot(deps: CopilotDeps) {
     copilotGetConfig: () => readCopilotConfig(),
     copilotSetConfig: (patch: unknown) => {
       if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) throw new Error('patch must be an object')
-      const next = writeCopilotConfig(patch as DeepPartial<CopilotConfig>)
+      const next = writeCopilotConfig(withoutNoticeAck(patch as DeepPartial<CopilotConfig>))
       if ('privacy' in patch && typeof patch.privacy === 'object' && patch.privacy !== null && 'retentionDays' in patch.privacy) sweep()
       return next
     },
@@ -214,12 +248,20 @@ export function createCopilot(deps: CopilotDeps) {
       const q = questionId === undefined ? undefined : sessionIdOf(questionId, 'question id')
       return deps.answer ? void deps.answer(k, q) : notImplemented('copilotAnswer')
     },
-    copilotOverlay: (cmd: unknown) => {
-      if (typeof cmd !== 'object' || cmd === null || Array.isArray(cmd)) throw new Error('cmd must be an object')
-      return deps.overlay ? void deps.overlay(cmd as Record<string, unknown>) : notImplemented('copilotOverlay')
+    copilotOverlay: async (raw: unknown) => {
+      const cmd = overlayCmd(raw)
+      if (cmd.start) {
+        if (recorder.active()) return
+        if (!lastPractice) return broadcast('careerloom:copilotError', { kind: 'capture', message: 'Start a live session from Careerloom: it needs your confirmation first', retrying: false })
+        await start(lastPractice)
+        return
+      }
+      if (cmd.retry) return void (await deps.retry?.())
+      return deps.overlay ? void deps.overlay(cmd) : notImplemented('copilotOverlay')
     },
     copilotAckPrivacyNotice: (version: unknown) => {
       const v = str(version, 'version')
+      if (deps.ackNotice) return deps.ackNotice(v)
       if (v === '' || v.length > 40 || (deps.currentNotice !== undefined && v !== deps.currentNotice)) return { ok: false }
       writeCopilotConfig({ privacy: { mode: { noticeVersion: v } } })
       return { ok: true }
@@ -242,6 +284,9 @@ export function createCopilot(deps: CopilotDeps) {
       const id = jobIdOf(jobId)
       return questionsFromReport(deps.job(id)?.report ?? null, [], lastScores(id))
     },
+    copilotListLlmModels: () => deps.listLlmModels ? deps.listLlmModels() : notImplemented('copilotListLlmModels'),
+    copilotTestLlmModel: (id: unknown) => deps.testLlmModel ? deps.testLlmModel(str(id, 'model id')) : notImplemented('copilotTestLlmModel'),
+    copilotInstallStt: (model: unknown) => deps.installStt ? deps.installStt(model === undefined ? undefined : str(model, 'model')) : notImplemented('copilotInstallStt'),
     copilotListSttModels: () => deps.sttModels ? deps.sttModels() : notImplemented('copilotListSttModels'),
     copilotBenchmarkStt: (sel: unknown) => deps.benchmark ? deps.benchmark(sel) : notImplemented('copilotBenchmarkStt'),
     copilotCheckHotkey: (accel: unknown) => {
@@ -253,8 +298,8 @@ export function createCopilot(deps: CopilotDeps) {
       applyDebrief({ store: store, cv: deps.cv, dir: deps.dir() }, sessionIdOf(sessionId), sessionIdOf(questionId, 'question id'), oneOf(action, DEBRIEF_ACTIONS, 'debrief action')),
   }
 
-  /** Untouched WP0 stubs (WP2's model list/test, M3 screenshot) keep their typed not-implemented result. */
-  const STUBS = ['copilotScreenshot', 'copilotListLlmModels', 'copilotTestLlmModel'] as const
+  /** Untouched WP0 stubs (M3 screenshot) keep their typed not-implemented result. */
+  const STUBS = ['copilotScreenshot'] as const
   for (const m of STUBS) impl[m] = () => notImplemented(m)
 
   const handlers: Record<string, Handler> = Object.fromEntries(Object.entries(impl).map(([name, fn]) => [name, async (...args: unknown[]): Promise<unknown> => {
@@ -265,32 +310,18 @@ export function createCopilot(deps: CopilotDeps) {
 
   return {
     handlers, store, recorder,
+    /** Ends the running session (capture off, persist, sweep, score). Safe to call from a 'stopped' state event. */
+    stop: stopAll,
     /** STT → practice: call with the final "you" lines (endOfTurn when the answer finished). */
     feed: async (line: TranscriptLine, endOfTurn: boolean): Promise<void> => { await practice?.feed(line, endOfTurn) },
   }
 }
 
-// ————— Default wiring (Electron + career-ops) —————
+// ————— Default wiring (Electron + career-ops): see defaults.ts —————
 
-const PRIVACY_PANE: Record<(typeof PANES)[number], string> = { microphone: 'Privacy_Microphone', 'system-audio': 'Privacy_AudioCapture', screen: 'Privacy_ScreenCapture' }
-
-function defaultDeps(): CopilotDeps {
-  return {
-    dir: () => userFile('copilot'),
-    job: id => {
-      try { const c = jobContext(id); return { id, title: c.job.title, company: c.job.company, report: c.report, posting: c.posting } } catch { return null }
-    },
-    cv: () => readCv()?.markdown ?? '',
-    permission: kind => { try { return systemPreferences.getMediaAccessStatus(kind) } catch { return 'unknown' } },
-    hasKey: () => readApiKey() !== null,
-    sttInstalled: () => false, // WP3 replaces this with the engine's install check
-    call: prompt => runText(prompt, { tier: 'helper', label: 'Score interview practice' }),
-    openSettings: pane => { void shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${PRIVACY_PANE[pane]}`); return true },
-  }
-}
-
-const instance = createCopilot(defaultDeps())
+let instance: ReturnType<typeof createCopilot>
+instance = createCopilot(buildDefaults(() => instance))
 export const copilotHandlers = instance.handlers
-/** Integration seams for WP1–3: feed practice answers, record live transcript/questions/suggestions. */
+/** Integration seams: the live wiring feeds practice answers and records transcript/questions/suggestions through these. */
 export const copilotFeed = instance.feed
 export const copilotRecorder = instance.recorder

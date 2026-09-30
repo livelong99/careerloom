@@ -149,6 +149,7 @@ const bridge = {
   copilotPracticeQuestions: (...a: unknown[]) => invoke('copilotPracticeQuestions', ...a),
   copilotListSttModels: (...a: unknown[]) => invoke('copilotListSttModels', ...a),
   copilotBenchmarkStt: (...a: unknown[]) => invoke('copilotBenchmarkStt', ...a),
+  copilotInstallStt: (...a: unknown[]) => invoke('copilotInstallStt', ...a),
   copilotListLlmModels: (...a: unknown[]) => invoke('copilotListLlmModels', ...a),
   copilotTestLlmModel: (...a: unknown[]) => invoke('copilotTestLlmModel', ...a),
   copilotCheckHotkey: (...a: unknown[]) => invoke('copilotCheckHotkey', ...a),
