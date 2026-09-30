@@ -120,7 +120,7 @@ export type InterviewType = 'recruiter' | 'behavioural' | 'technical' | 'system-
 export interface CopilotApi {
   copilotGetConfig(): CopilotConfig
   copilotSetConfig(patch: DeepPartial<CopilotConfig>): CopilotConfig
-  copilotReadiness(jobId: string): { context: ContextSummary; mic: PermStatus; system: PermStatus; stt: 'ready' | 'no-key'; engine: 'ready' | 'no-key' }
+  copilotReadiness(jobId: string): { context: ContextSummary; mic: PermStatus; system: PermStatus; stt: 'ready' | 'not-installed'; engine: 'ready' | 'no-key' }
   copilotContextPreview(jobId: string): { tokens: number; posting: number; strengths: number; gaps: number; facts: number; stories: number; text: string }
   copilotProbeAudio(source: SourceId, ms: number): SourceHealth           // "Test for 3 seconds"
   copilotOpenSystemSettings(pane: 'microphone' | 'system-audio' | 'screen'): boolean
@@ -159,6 +159,8 @@ export type CopilotEvents = {
   copilotLevel: { source: SourceId; level: number }     // 0..1, ≤ 15/s
 }
 ```
+
+Frozen as `copilot-contract-v1` (`electron/copilot/types.ts` is authoritative). WP0 deviations: `copilotReadiness.stt` is `'ready' | 'not-installed'` (local STT has no key); hotkeys are Electron accelerators (`Control+Alt+A`, panic fixed to `Control+Alt+Shift+X`); unimplemented handlers resolve `{status:'not-implemented',method}` and every `copilot*` call is refused off macOS.
 
 Validation: every handler validates input with the existing `str()` style guards; `copilotStart(live)` re-checks the consent record server-side (two confirmations true, `textVersion` current, ≤ 10 min old).
 
