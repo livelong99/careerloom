@@ -1,5 +1,5 @@
 // Apply / Undo / Dismiss: atomic cv.md writes with a persisted undo stack, then a rescore that never calls the agent. Serialised.
-import type { AtsAnswer, AtsApplyResult, AtsPreview } from '../contract'
+import type { AtsAnswer, AtsApplyResult, AtsHistoryItem, AtsPreview } from '../contract'
 import { applyOp, OVERRIDE_ID, previewOp, pushUndo, type Answers } from './apply'
 import { buildReport, type Deps } from './analyze'
 import { sha, type Analysis } from './store'
@@ -9,6 +9,8 @@ let chain: Promise<unknown> = Promise.resolve()
 const serial = <T>(fn: () => Promise<T>): Promise<T> => { const next = chain.then(fn, fn); chain = next.catch(() => undefined); return next }
 
 export const toAnswers = (list: AtsAnswer[] = []): Answers => Object.fromEntries(list.map(a => [a.id, a.value]))
+/** Answers given during the analysis plus the ones sent with this call (the latter win). */
+const withStored = (a: Analysis, list: AtsAnswer[] = []) => toAnswers([...(a.answers ?? []), ...list])
 const STALE = 'Your résumé changed since this analysis. Run the analysis again before applying.'
 
 function context(deps: Deps, findingId: string) {
@@ -30,10 +32,10 @@ async function rescored(deps: Deps, a: Analysis, cv: string, status?: { id: stri
 }
 
 export async function previewFinding(deps: Deps, findingId: string, answers: AtsAnswer[] = []): Promise<AtsPreview> {
-  const { cv, f } = context(deps, findingId)
+  const { a, cv, f } = context(deps, findingId)
   if (!f.apply) throw new Error('This finding has no automatic change. Use the advice to edit your résumé yourself.')
   if (f.apply.op === 'rebuild-profile') return { diff: { before: 'Template data from the original extraction', after: 'Rebuilt from your cv.md: all sections, grouped skills, awards and contact links' }, factCheck: { ok: true, violations: [] } }
-  const p = previewOp(cv, f.apply, toAnswers(answers))
+  const p = previewOp(cv, f.apply, withStored(a, answers))
   if (p.error) throw new Error(p.unmet.length ? `Answer first: ${p.unmet.join(', ')}` : p.error)
   return { diff: p.diff, factCheck: p.factCheck }
 }
@@ -42,7 +44,7 @@ export const applyFinding = (deps: Deps, findingId: string, answers: AtsAnswer[]
   try {
     const { a, cv, f } = context(deps, findingId)
     if (!f.apply) return { ok: false, error: 'This finding has no automatic change.' }
-    const ans = toAnswers(answers)
+    const ans = withStored(a, answers)
     if (f.apply.op === 'rebuild-profile') {
       if (!deps.rebuildProfile(cv)) return { ok: false, error: 'Could not read a name heading in cv.md to rebuild the template data from.' }
       const next = await rescored(deps, a, cv, { id: f.id, to: 'applied' })
@@ -75,6 +77,12 @@ export const undoApply = (deps: Deps, undoId: string): Promise<AtsApplyResult> =
     return { ok: true, newCv: e.before, rescore }
   } catch (err) { return { ok: false, error: (err as Error).message } }
 })
+
+/** Changes that can still be undone, newest first. */
+export function history(deps: Deps): AtsHistoryItem[] {
+  const titles = new Map((deps.store.current()?.report.findings ?? []).map(f => [f.id, f.title]))
+  return deps.store.undo().map(e => ({ undoId: e.undoId, findingId: e.findingId, title: titles.get(e.findingId) ?? 'Earlier change', at: e.at })).reverse()
+}
 
 export function dismissFinding(deps: Deps, findingId: string): boolean {
   const a = deps.store.current()

@@ -40,7 +40,7 @@ const evidenceBullets = (cv: string) => parseCv(cv).bullets.filter(b => b.eviden
 
 type Built = { report: AtsReport; match: MatchResult | null }
 
-export async function buildReport(deps: Deps, a: Pick<Analysis, 'id' | 'createdAt' | 'templateId' | 'jd' | 'extraction' | 'agentFindings' | 'hints' | 'courses' | 'plan' | 'notes' | 'session' | 'key'>, cv: string, prior: AtsFinding[] = []): Promise<Built> {
+export async function buildReport(deps: Deps, a: Pick<Analysis, 'id' | 'createdAt' | 'templateId' | 'jd' | 'extraction' | 'agentFindings' | 'hints' | 'courses' | 'plan' | 'notes' | 'session' | 'key' | 'questions'>, cv: string, prior: AtsFinding[] = []): Promise<Built> {
   const model = parseCv(cv)
   let pages: PdfPage[] | null = null
   let html: string | null = null
@@ -71,7 +71,7 @@ export async function buildReport(deps: Deps, a: Pick<Analysis, 'id' | 'createdA
     hashes: { cv: sha(cv), jd: a.jd ? sha(a.jd) : undefined, tpl: sha(`${a.templateId}:${html ?? ''}`) },
     parse: parseBlock, ...(match ? { match: matchBlock as AtsReport['match'] } : {}),
     degraded: { embeddings: !!match?.degraded.embeddings, pdfText: parse.degraded.pdfText },
-    findings, skillGaps: gaps, courses: a.courses, plan: a.plan, ...(notes.length ? { notes } : {}),
+    findings, skillGaps: gaps, courses: a.courses, plan: a.plan, ...(notes.length ? { notes } : {}), ...(a.questions?.length ? { questions: a.questions } : {}),
     ...(a.session && a.session.questions.length ? { session: { runId: a.id, sessionId: a.session.sessionId, round: a.session.round, questions: a.session.questions } } : {}),
   }
   return { report, match }
@@ -157,7 +157,7 @@ async function afterRun(deps: Deps, id: string, run: AgentRun): Promise<void> {
   const out = v.out
   const asked = session.asked + out.questions.length
   if (out.status === 'needs_input' && session.round < MAX_ROUNDS && asked <= MAX_QUESTIONS) {
-    const next = await save(deps, { ...a, session: { ...session, asked, questions: out.questions, partial: text!.slice(0, 8000) }, extraction: out.extraction, agentFindings: out.findings }, cv)
+    const next = await save(deps, { ...a, questions: [...(a.questions ?? []), ...out.questions], session: { ...session, asked, questions: out.questions, partial: text!.slice(0, 8000) }, extraction: out.extraction, agentFindings: out.findings }, cv)
     deps.emit({ runId: id, phase: 'agent', message: `The agent needs ${out.questions.length} answer${out.questions.length > 1 ? 's' : ''} to continue`, questions: out.questions })
     void next
     return
@@ -199,6 +199,6 @@ export async function answerAnalysis(deps: Deps, runId: string, answers: AtsAnsw
     // Stateless path (codex, or a different runner than the one that asked): everything is re-sent with the answers injected.
     : buildPrompt({ cv, jd: a.jd, canSearch: canSearch(runner), answers: all, partial: s.partial, finalRound })
   deps.emit({ runId, phase: 'agent', message: 'The agent is using your answers' })
-  launch(deps, { ...a, session: { ...s, runner, round, answers: all, questions: [] } }, prompt, resume)
+  launch(deps, { ...a, answers: all, session: { ...s, runner, round, answers: all, questions: [] } }, prompt, resume)
   return { runId }
 }
