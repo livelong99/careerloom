@@ -6,7 +6,7 @@ const at = (d: number, h: number, m: number): number => { const x = new Date(now
 let config: Record<string, unknown> = {
   version: 1,
   audio: { micDeviceId: null, useSystem: false, systemSource: 'loopback', virtualDeviceId: null },
-  stt: { engine: 'moonshine', model: 'small-streaming', device: 'auto', language: 'en', lastBenchmark: { at: now, p50FinalMs: 82, realTimeFactor: 0.08, ramMb: 610, wer: null }, endSilenceMs: 800, vocab: ['Kubernetes', 'Northwind', 'Terraform'] },
+  stt: { engine: 'whisper-mlx', model: 'small', device: 'auto', language: 'en', lastBenchmark: { at: now, p50FinalMs: 772, realTimeFactor: 0.06, ramMb: null, wer: 0.114 }, endSilenceMs: 650, vocab: ['Kubernetes', 'Northwind', 'Terraform'] },
   engine: { tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter', openrouter: { dataCollection: 'deny', zdr: false, sort: 'latency' }, models: { fast: 'provider/small-fast-model', balanced: 'provider/mid-model', deep: 'provider/large-model' }, factCheck: true, vision: 'vision', autoAnswer: false },
   coaching: { shape: 'cues+star', length: 2, tone: 'direct', persona: '', quoteResume: true },
   overlay: { layout: 'strip', anchor: 'tr', displayId: null, width: 440, fontPx: 14, opacity: 0.94, theme: 'app', clickThroughIdle: true, aboveFullscreen: true },
@@ -50,7 +50,15 @@ const impl: Record<string, (...a: unknown[]) => unknown> = {
     { id: 'q3', text: 'Design a deploy system for 200 engineers across three regions.', type: 'system-design', source: 'report', lastScore: null },
     { id: 'q4', text: 'What gap in your background worries you most for this role?', type: 'behavioural', source: 'report', lastScore: null },
   ],
-  copilotListSttModels: () => ({ status: 'not-implemented', method: 'copilotListSttModels' }),
+  // ?stt=missing shows the not-installed state (with the size warning); default = small installed
+  copilotListSttModels: () => {
+    const installed = new URLSearchParams(location.search).get('stt') !== 'missing'
+    const bench = (config.stt as { lastBenchmark: unknown }).lastBenchmark
+    return [
+      { engine: 'whisper-mlx', model: 'small', sizeMb: 481, installed, devices: [], lastBenchmark: installed ? bench : null, recommended: true },
+      { engine: 'whisper-mlx', model: 'turbo', sizeMb: 1600, installed: false, devices: [], lastBenchmark: null, recommended: false },
+    ]
+  },
   copilotListLlmModels: () => ({ status: 'not-implemented', method: 'copilotListLlmModels' }),
   copilotOverlay: () => ({ status: 'not-implemented', method: 'copilotOverlay' }),
   copilotCheckHotkey: () => ({ ok: true }),
