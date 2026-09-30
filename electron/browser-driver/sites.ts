@@ -25,7 +25,7 @@ function linkedinExtract(doc: Doc): RawJob[] {
     const card = cards[i]!
     const id = card.getAttribute('data-occludable-job-id') || card.getAttribute('data-job-id') || ''
     const link = card.querySelector('a[href*="/jobs/view/"]')
-    const title = (link?.getAttribute('aria-label') || text(link)).trim()
+    const title = (link?.getAttribute('aria-label') || text(link)).replace(/ with verification$/, '').trim()
     if (!/^\d+$/.test(id) || !title || seen[id]) continue
     seen[id] = true
     out.push({
