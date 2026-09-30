@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { TextCall } from '../humanizer'
 import { aiTells, gateLetter, inCv } from './gate'
-import { tailorResume, writeCover } from './generate'
+import { readDraft, tailorResume, writeCover } from './generate'
 import { applyEdits, parseEdits } from './resumeEdits'
 
 const CV = `# Jane Doe
@@ -86,9 +86,17 @@ describe('résumé edits', () => {
 
 describe('cover letter', () => {
   const claim = { sentence: 'At Initech I ran Kubernetes clusters on AWS for 40 internal teams.', cv_source_quote: 'Ran Kubernetes clusters on AWS serving 40 internal teams' }
-  const draft = json({ paragraphs: [claim.sentence, 'Acme Corp needs that kind of platform work.'], claims: [claim], learning: [] })
+  const tagged = (paragraphs: string[], claims: Array<{ sentence: string; cv_source_quote: string }> = [], learning: string[] = []) => `<letter>\n${paragraphs.join('\n\n')}\n</letter>\n<claims>\n${claims.map(c => `${c.sentence} ||| ${c.cv_source_quote}`).join('\n')}\n</claims>\n<learning>${learning.join(', ')}</learning>`
+  const draft = tagged([claim.sentence, 'Acme Corp needs that kind of platform work.'], [claim])
   const input = { ...INPUT, candidate: 'Jane Doe', strengths: [], tone: 'warm' as const, length: 'short' as const, allow: ['Acme Corp', 'Platform Engineer'] }
 
+  it('reads the tagged draft, with quotes and line breaks that would break JSON', () => {
+    const d = readDraft(`thinking...\n<letter>\nShe said "hi"\nand left.\n\nSecond.\n</letter>\n<claims>\nShe said "hi" and left. ||| said hi to everyone\nbad line\n</claims>\n<learning>Rust, Go</learning>`)
+    expect(d.paragraphs).toEqual(['She said "hi" and left.', 'Second.'])
+    expect(d.claims).toEqual([{ sentence: 'She said "hi" and left.', cv_source_quote: 'said hi to everyone' }])
+    expect(d.learning).toEqual(['Rust', 'Go'])
+    expect(() => readDraft('no tags')).toThrow(/letter/)
+  })
   it('drafts, gates and humanizes, reporting both token costs', async () => {
     const polish = ok('<final>At Initech I ran Kubernetes clusters on AWS for 40 internal teams.\n\nAcme Corp needs platform work like that.</final>', 400)
     const r = await writeCover(input, { humanize: true }, ok(draft, 900), polish)
@@ -98,7 +106,7 @@ describe('cover letter', () => {
     expect(r.paragraphs[1]).toContain('platform work like that')
   })
   it('refuses a draft that invents facts (after one repair)', async () => {
-    const bad = json({ paragraphs: ['At Globex I cut costs by 90%.'], claims: [], learning: [] })
+    const bad = tagged(['At Globex I cut costs by 90%.'])
     const write = vi.fn(ok(bad))
     await expect(writeCover(input, { humanize: false }, write, ok(''))).rejects.toThrow(/Blocked/)
     expect(write).toHaveBeenCalledTimes(2)
@@ -131,5 +139,43 @@ describe('cover letter', () => {
     const r = await writeCover(input, { humanize: false }, ok(draft), polish)
     expect(polish).not.toHaveBeenCalled()
     expect(r.humanizeUsage).toBeNull()
+  })
+})
+
+describe('tolerant draft parsing', () => {
+  it('accepts a JSON reply with |||-joined claim strings and a string `learning` (seen from a free model)', () => {
+    const d = readDraft('thinking\n```json\n{"paragraphs":["One.","Two."],"claims":["One. ||| a real quote here",{"sentence":"Two.","cv_source_quote":"another quote"}],"learning":"Go, GCP"}\n```')
+    expect(d.paragraphs).toEqual(['One.', 'Two.'])
+    expect(d.claims).toHaveLength(2)
+    expect(d.learning).toEqual(['Go', 'GCP'])
+  })
+  it('accepts missing closing tags and keeps the pre-humanizer draft', async () => {
+    const d = readDraft('<letter>\nOne.\n\nTwo.\n<claims>\nOne. ||| real quote here\n<learning>')
+    expect(d.paragraphs).toEqual(['One.', 'Two.'])
+    expect(d.claims).toHaveLength(1)
+    const claim = { sentence: 'At Initech I ran Kubernetes clusters on AWS for 40 internal teams.', cv_source_quote: 'Ran Kubernetes clusters on AWS serving 40 internal teams' }
+    const text = `<letter>\n${claim.sentence} I am thrilled — truly.\n</letter>\n<claims>\n${claim.sentence} ||| ${claim.cv_source_quote}\n</claims>\n<learning></learning>`
+    const r = await writeCover({ ...INPUT, candidate: 'J', strengths: [], tone: 'warm', length: 'short', allow: ['Acme Corp'] }, { humanize: true }, ok(text), ok(`<final>${claim.sentence} Acme Corp hires for this.</final>`))
+    expect(r.humanized).toBe(true)
+    expect(r.tellsBefore.length).toBeGreaterThan(0)
+    expect(r.tells).toEqual([])
+    expect(r.draftParagraphs[0]).toContain('thrilled')
+  })
+  it('explains an empty reply (a reasoning model that spent its output budget thinking)', async () => {
+    await expect(writeCover({ ...INPUT, candidate: 'J', strengths: [], tone: 'warm', length: 'short', allow: [] }, { humanize: false }, ok('  '), ok(''))).rejects.toThrow(/output budget/)
+  })
+  it('says a readable-letter problem, not a fact problem, when the reply has no letter', async () => {
+    await expect(writeCover({ ...INPUT, candidate: 'J', strengths: [], tone: 'warm', length: 'short', allow: [] }, { humanize: false }, ok('just chatter'), ok(''))).rejects.toThrow(/readable letter/)
+  })
+})
+
+describe('prompts', () => {
+  it('never start like a CLI flag (startAgentPrompt refuses those) and say there are no tools', async () => {
+    const { resumePrompt, coverPrompt } = await import('./prompts')
+    const { fillPrompt } = await import('../job-view/jdStructure')
+    for (const p of [resumePrompt(INPUT), coverPrompt({ ...INPUT, candidate: 'J', strengths: [], tone: 'warm', length: 'short' }), fillPrompt('jd', ['summary'])]) {
+      expect(p).toMatch(/^[A-Za-z]/)
+      expect(p).toContain('no tools')
+    }
   })
 })

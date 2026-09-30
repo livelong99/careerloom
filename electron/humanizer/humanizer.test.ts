@@ -17,6 +17,8 @@ describe('humanizer', () => {
     expect(p).toContain('Hello there.')
     expect(p).toContain('<sample>\nmy style')
     expect(humanizePrompt('x')).not.toContain('<sample>')
+    // startAgentPrompt refuses a prompt that begins with "-": the skill file itself starts with "---"
+    expect(humanizePrompt('x')).toMatch(/^[A-Za-z]/)
   })
   it('reads the last <final> block', () => {
     expect(readFinal('thinking <final>draft</final> then <final> done </final>')).toBe('done')

@@ -2,6 +2,9 @@
 // rule list folded into generation prompts so the first draft is already closer.
 import { HUMANIZER_SKILL } from './skill'
 
+/** Small models like to "check" with a shell command; a text-only run rejects it and the reply never comes. */
+export const NO_TOOLS = 'You have no tools here: do not run commands or read files. Write your whole answer directly in this reply.'
+
 export const HUMANIZER_VERSION = '3.1.0'
 export const HUMANIZER_UPSTREAM = 'https://github.com/blader/humanizer'
 
@@ -22,7 +25,10 @@ export const CONDENSED_RULES = `Writing rules (plain, specific, human):
 const FINAL = /<final>([\s\S]*?)<\/final>/g
 
 export function humanizePrompt(text: string, voiceSample?: string): string {
-  return `${HUMANIZER_SKILL}
+  // The runner refuses prompts that start like a flag, and the skill file starts with "---": lead with a fixed sentence.
+  return `Apply the humanizer skill below to one text. ${NO_TOOLS}
+
+${HUMANIZER_SKILL}
 
 ---
 TASK (embedded mode: return only the final text)
