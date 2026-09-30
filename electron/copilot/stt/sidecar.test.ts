@@ -61,7 +61,7 @@ describe('sidecar adapter', () => {
 
   it('stop kills the child, emits closed once and does not restart', async () => {
     const c = makeChild()
-    const a = createSidecarAdapter({ id: 'moonshine', spawn: () => c.child, config: () => ({}) })
+    const a = createSidecarAdapter({ id: 'moonshine', spawn: () => c.child, config: () => ({}), stopGraceMs: 10 })
     let closed = 0; a.on('closed', () => closed++)
     const p = a.start(opts); c.say({ ev: 'ready' }); await p
     await a.stop(); c.die(0); await a.stop(); await tick()
