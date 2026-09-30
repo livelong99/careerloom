@@ -68,11 +68,13 @@ if __name__ == '__main__':
         emit({'ev': 'error', 'message': str(e)}); sys.exit(1)
 `
 
-/** Write the script into `dir` (once per content change) and return its path. */
-export function sidecarScript(dir: string): string {
+/** Write `content` as careerloom_stt.py into `dir` (once per content change) and return its path. */
+export function writeScript(dir: string, content: string): string {
   const file = path.join(dir, 'careerloom_stt.py')
   let cur = ''
   try { cur = fs.readFileSync(file, 'utf8') } catch { /* first run */ }
-  if (cur !== SCRIPT) { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(file, SCRIPT) }
+  if (cur !== content) { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(file, content) }
   return file
 }
+
+export const sidecarScript = (dir: string): string => writeScript(dir, SCRIPT)

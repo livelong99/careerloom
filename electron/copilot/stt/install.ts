@@ -6,13 +6,26 @@ import path from 'node:path'
 import { launchTask, runs, summary } from '../../context'
 import { assertMemory, findPython, MIN_PYTHON } from '../../prescreen-model'
 import { spawnSpec, startRun, type SpawnSpec } from '../../runner'
-import { DEFAULT_MOONSHINE_MODEL, engineDir, findSttRuntime, MOONSHINE_MODELS, MOONSHINE_PIN, readyFile, venvPython } from './runtime'
-import { sidecarScript } from './sidecar-script'
+import type { SttEngineId } from '../types'
+import { engineDir, findSttRuntime, PINS, readyFile, STT_MODELS, venvPython, WHISPER_MODELS } from './runtime'
+import { sidecarScript, writeScript } from './sidecar-script'
+import { SCRIPT as WHISPER_SCRIPT } from './whisper-script'
+
+type Installable = Exclude<SttEngineId, 'faster-whisper'>
+const PIP = ['-m', 'pip', 'install', '--disable-pip-version-check']
 
 /** Steps after `python -m venv`: [label, argv for the venv's python]. */
-export function installCommands(script: string, cache: string, model: string): Array<[string, string[]]> {
+export function installCommands(engine: Installable, script: string, cache: string, model: string): Array<[string, string[]]> {
+  if (engine === 'whisper-mlx') {
+    const m = WHISPER_MODELS[model as keyof typeof WHISPER_MODELS]
+    return [
+      ['Packages (about 1.1 GB: Whisper needs PyTorch)', [...PIP, PINS['whisper-mlx']]],
+      ['Model', [script, 'fetch', m.repo, m.rev, cache]],
+      ['Self-test', [script, 'selftest', m.repo, m.rev, cache]],
+    ]
+  }
   return [
-    ['Packages', ['-m', 'pip', 'install', '--disable-pip-version-check', MOONSHINE_PIN]],
+    ['Packages', [...PIP, PINS.moonshine]],
     ['Model', [script, 'fetch', model, cache]],
     ['Self-test', [script, 'selftest', model, cache]],
   ]
@@ -20,24 +33,25 @@ export function installCommands(script: string, cache: string, model: string): A
 
 let installRun: string | null = null
 
-export async function installStt(model: string = DEFAULT_MOONSHINE_MODEL) {
-  if (!(MOONSHINE_MODELS as readonly string[]).includes(model)) throw new Error(`Unknown Moonshine model: ${model}`)
+export async function installStt(engine: SttEngineId, model: string) {
+  if (engine === 'faster-whisper') throw new Error('faster-whisper is not available on this computer')
+  if (!STT_MODELS[engine].includes(model)) throw new Error(`Unknown ${engine === 'moonshine' ? 'Moonshine' : 'Whisper'} model: ${model}`)
   if (installRun && runs.get(installRun)?.status === 'running') return summary(runs.get(installRun)!)
   const { ok } = await findPython()
   if (!ok) throw new Error(`Python ${MIN_PYTHON.join('.')} or newer is needed — install it, then check again`)
   await assertMemory()
-  const dir = engineDir('moonshine')
-  const script = sidecarScript(path.join(dir, 'bin'))
+  const dir = engineDir(engine)
+  const script = engine === 'whisper-mlx' ? writeScript(path.join(dir, 'bin'), WHISPER_SCRIPT) : sidecarScript(path.join(dir, 'bin'))
   const cache = path.join(dir, 'models')
   fs.mkdirSync(dir, { recursive: true })
-  const prev = findSttRuntime()
+  const prev = findSttRuntime(engine)
   fs.rmSync(readyFile(dir), { force: true })
   const env = { ...process.env, PIP_DISABLE_PIP_VERSION_CHECK: '1', HF_HUB_DISABLE_TELEMETRY: '1', PYTHONUNBUFFERED: '1' }
   const steps: Array<[string, SpawnSpec]> = [
     ['Python', spawnSpec(ok.bin, [...ok.pre, '-m', 'venv', path.join(dir, 'venv')])],
-    ...installCommands(script, cache, model).map(([label, args]): [string, SpawnSpec] => [label, { bin: venvPython(dir), args, env }]),
+    ...installCommands(engine, script, cache, model).map(([label, args]): [string, SpawnSpec] => [label, { bin: venvPython(dir), args, env }]),
   ]
-  const run = launchTask({ runner: 'setup', mode: 'setup', label: 'Install local speech model', input: `moonshine ${model}` }, async (log, run) => {
+  const run = launchTask({ runner: 'setup', mode: 'setup', label: 'Install local speech model', input: `${engine} ${model}` }, async (log, run) => {
     for (const [i, [label, spec]] of steps.entries()) {
       if (run.status !== 'running') return
       log(`\n▸ ${label} (${i + 1}/${steps.length}): ${path.basename(spec.bin)} ${spec.args.slice(0, 6).join(' ')}\n`)
@@ -46,7 +60,7 @@ export async function installStt(model: string = DEFAULT_MOONSHINE_MODEL) {
       if (code !== 0) throw new Error(`${label} step failed (exit ${code ?? 'signal'}) — check your connection and try again`)
     }
     const models = [...new Set([...(prev?.models ?? []), model])]
-    fs.writeFileSync(readyFile(dir), JSON.stringify({ pin: MOONSHINE_PIN, models, installedAt: new Date().toISOString() }))
+    fs.writeFileSync(readyFile(dir), JSON.stringify({ pin: PINS[engine], models, installedAt: new Date().toISOString() }))
     log('\n✓ Local speech model installed\n')
   })
   installRun = run.id

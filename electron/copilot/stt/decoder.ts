@@ -1,20 +1,21 @@
 // Request/response decoder over a long-lived python child (Whisper): frames in (config, decode, flush), JSON lines out
 // ({ev:'ready'} | {ev:'decoded', id, text} | {ev:'error', id?, message}). One restart after a crash, resending what was
 // unanswered (the audio is held here), a second crash rejects everything pending.
+import type { SttStartOpts } from './adapter'
 import type { Decoder } from './buffer'
 import { encodeFrame, FRAME, lineSplitter } from './framing'
 import type { SidecarChild } from './sidecar'
 
-export type DecoderSpec = { spawn: () => SidecarChild; config: () => object; readyTimeoutMs?: number; stopGraceMs?: number }
+export type DecoderSpec = { spawn: () => SidecarChild; config: (o: SttStartOpts) => object; readyTimeoutMs?: number; stopGraceMs?: number }
 type Pending = { frame: Buffer; resolve: (t: string) => void; reject: (e: Error) => void }
 type Line = { ev: string; id?: number; text?: string; message?: string }
 
 export function createSidecarDecoder(spec: DecoderSpec): Decoder {
   const pending = new Map<number, Pending>()
-  let child: SidecarChild | null = null, closing = false, restarts = 0, nextId = 1
+  let child: SidecarChild | null = null, opts: SttStartOpts | null = null, closing = false, restarts = 0, nextId = 1
   let exited: Promise<void> = Promise.resolve()
 
-  function launch(): Promise<void> {
+  function launch(o: SttStartOpts): Promise<void> {
     const c = spec.spawn()
     child = c
     let onReady: () => void = () => {}
@@ -33,7 +34,7 @@ export function createSidecarDecoder(spec: DecoderSpec): Decoder {
       else p.reject(new Error(l.message ?? 'Speech recognition failed'))
     }))
     exited = new Promise<void>(res => c.onExit(code => { res(); if (child === c && !closing) void crashed(code) }))
-    c.write(encodeFrame(FRAME.config, Buffer.from(JSON.stringify(spec.config()))))
+    c.write(encodeFrame(FRAME.config, Buffer.from(JSON.stringify(spec.config(o)))))
     return ready
   }
 
@@ -44,13 +45,13 @@ export function createSidecarDecoder(spec: DecoderSpec): Decoder {
     if (restarts >= 1) return failAll(`Speech recognition stopped unexpectedly (exit ${code ?? 'signal'})`)
     restarts++
     try {
-      await launch()
+      await launch(opts!)
       for (const p of pending.values()) child?.write(p.frame)
     } catch (err) { child?.kill(); child = null; failAll((err as Error).message) }
   }
 
   return {
-    ready: () => { closing = false; restarts = 0; return launch() },
+    ready: o => { opts = o; closing = false; restarts = 0; return launch(o) },
     decode(pcm, kind) {
       if (!child) return Promise.reject(new Error('Speech recognition is not running'))
       const id = nextId++
