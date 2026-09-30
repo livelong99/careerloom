@@ -1,0 +1,74 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import { createSessionController } from './session'
+import { createFakeAdapter, parseFixture } from './stt/fake'
+import type { CopilotEvents, StartRequest } from './types'
+
+const FIXTURE = [
+  { atMs: 300, ev: 'partial', text: 'tell me', t0: 0, t1: 300 },
+  { atMs: 900, ev: 'final', text: 'Tell me about yourself.', t0: 0, t1: 900 },
+  { atMs: 1500, ev: 'final', text: 'And why us?', t0: 1200, t1: 1500 },
+].map(e => JSON.stringify(e)).join('\n')
+const REQ: StartRequest = { mode: 'practice', jobId: 'j1', interviewType: 'mixed', consent: null }
+const chunk = (ms: number, v = 0) => new Int16Array(16 * ms).fill(v).buffer
+
+function setup(createAdapter = () => createFakeAdapter(parseFixture(FIXTURE))) {
+  const events: Array<[string, unknown]> = []
+  const emit = <K extends keyof CopilotEvents>(ev: K, p: CopilotEvents[K]) => void events.push([ev, p])
+  let t = 0
+  const s = createSessionController({
+    createAdapter, emit, now: () => t, newId: () => 'S1',
+    stt: () => ({ engine: 'moonshine', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 700, vocab: [] }),
+  })
+  return { s, events, advance: (ms: number) => { t += ms }, of: (name: string) => events.filter(e => e[0] === name).map(e => e[1]) }
+}
+
+describe('session controller (mic-only, fake STT)', () => {
+  it('walks idle → armed → listening → stopped and replays transcript parity through audio chunks', async () => {
+    const { s, of, advance } = setup()
+    expect(s.state()).toBe('idle')
+    expect(await s.start(REQ)).toEqual({ sessionId: 'S1' })
+    expect(s.state()).toBe('listening')
+    for (let i = 0; i < 20; i++) { advance(100); s.audio({ source: 'mic', pcm16: chunk(100, 500), t: i * 100 }) }
+    const lines = of('copilotTranscript') as Array<{ id: string; speaker: string; text: string; final: boolean; t1: number | null }>
+    expect(lines.map(l => [l.speaker, l.text, l.final])).toEqual([['you', 'tell me', false], ['you', 'Tell me about yourself.', true], ['you', 'And why us?', true]])
+    expect(lines[0]!.id).toBe(lines[1]!.id)            // partial and its final share an id
+    expect(lines[2]!.id).not.toBe(lines[1]!.id)
+    expect(of('copilotState').map(e => (e as { state: string }).state)).toEqual(['armed', 'listening'])
+    await s.stop('user')
+    expect(s.state()).toBe('stopped')
+    s.audio({ source: 'mic', pcm16: chunk(100), t: 0 })  // ignored after stop
+    expect(of('copilotTranscript')).toHaveLength(3)
+  })
+
+  it('throttles levels to ≤15/s and reports a dead source as silent', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(0)
+    const events: Array<[string, unknown]> = []
+    const s = createSessionController({
+      createAdapter: () => createFakeAdapter([]), now: Date.now, newId: () => 'S',
+      emit: (ev, p) => void events.push([ev, p]),
+      stt: () => ({ engine: 'moonshine', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 700, vocab: [] }),
+    })
+    await s.start(REQ)
+    for (let i = 0; i < 40; i++) { vi.advanceTimersByTime(10); s.audio({ source: 'mic', pcm16: chunk(10, 100), t: i }) } // 400 ms of audio
+    expect(events.filter(e => e[0] === 'copilotLevel').length).toBeLessThanOrEqual(7)
+    vi.advanceTimersByTime(3000) // the track goes dead
+    expect(events.filter(e => e[0] === 'copilotHealth').map(e => (e[1] as { status: string }).status)).toEqual(['silent'])
+    await s.stop('user'); vi.useRealTimers()
+  })
+
+  it('a failing adapter start tears down, reports a stt error and stops', async () => {
+    const bad = () => ({ ...createFakeAdapter([]), start: async () => { throw new Error('Local speech model is not installed') } })
+    const { s, of } = setup(bad)
+    await expect(s.start(REQ)).rejects.toThrow(/not installed/)
+    expect(s.state()).toBe('stopped')
+    expect(of('copilotError')).toEqual([{ kind: 'stt', message: 'Local speech model is not installed', retrying: false }])
+  })
+
+  it('refuses a second start while running, allows restart after stop', async () => {
+    const { s } = setup()
+    await s.start(REQ)
+    await expect(s.start(REQ)).rejects.toThrow(/already running/)
+    await s.stop('panic'); await expect(s.start(REQ)).resolves.toBeTruthy()
+  })
+})
