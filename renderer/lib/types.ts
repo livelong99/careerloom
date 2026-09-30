@@ -97,6 +97,15 @@ export type CareerloomBridge = {
   /** Firecrawl-fetches the profile's links, then the agent writes a research summary. */
   researchProfile(): Promise<Run>
   readResearch(): Promise<ProfileResearch>
+  // ————— ATS / Resume —————
+  atsAnalyze(input: AtsAnalyzeInput): Promise<{ runId: string }>
+  atsGet(): Promise<AtsReport | null>
+  atsAnswer(runId: string, answers: AtsAnswer[]): Promise<{ runId: string }>
+  atsPreviewApply(findingId: string, answers?: AtsAnswer[]): Promise<AtsPreview>
+  atsApply(findingId: string, answers?: AtsAnswer[]): Promise<AtsApplyResult>
+  atsUndo(undoId: string): Promise<AtsApplyResult>
+  atsDismiss(findingId: string): Promise<boolean>
+  onAtsEvent(cb: (event: AtsEvent) => void): () => void
   /** The template filled with the current résumé, as PDF bytes (for the in-app viewer). */
   renderTemplatePdf(name: string): Promise<Uint8Array>
   /** Save dialog → writes that PDF; resolves to the saved path or null if cancelled. */
@@ -204,4 +213,5 @@ export type SpendFlow = {
 // Feature contracts live in electron/contract.ts (types only) so the main
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
+import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsPreview, AtsReport } from '../../electron/contract'
 import type { AtsResult, CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow } from '../../electron/contract'

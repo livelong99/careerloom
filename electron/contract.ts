@@ -244,3 +244,54 @@ export type LocalModelStatus = {
   /** Id of an install run still in progress. */
   installRun: string | null
 }
+
+// ————— ATS / Resume (electron/ats/*, electron/resume.ts) —————
+export type ScoreBlockPart = { id: string; label: string; got: number; max: number; evidence?: string }
+export type ScoreCap = { id: string; max: number; reason: string }
+/** A score the code computed: `score` sits in [low, high]; `caps` are the hard ceilings that applied. */
+export type ScoreBlock = { score: number; low: number; high: number; confidence: 'low' | 'medium' | 'high'; parts: ScoreBlockPart[]; caps: ScoreCap[] }
+export type AtsSeverity = 'critical' | 'major' | 'minor' | 'info'
+export type AtsCategory = 'parse' | 'keyword' | 'evidence' | 'bullet' | 'date' | 'section' | 'seniority' | 'skill'
+export type ApplyOp = {
+  op: 'replace' | 'insert' | 'append' | 'delete'
+  /** Exact cv.md text to change (replace/delete) or the heading/line to anchor on (insert/append). */
+  target: string
+  before?: string
+  after: string
+  /** ids of AtsQuestions the user must answer before this can be applied. */
+  requires_answers: string[]
+}
+export type AtsFinding = {
+  id: string
+  severity: AtsSeverity
+  category: AtsCategory
+  title: string
+  detail: string
+  evidence?: string
+  apply?: ApplyOp
+  status: 'open' | 'applied' | 'dismissed'
+}
+export type SkillGap = { skill: string; canonical: string; required: boolean; bucket: 'gap' | 'supported' | 'existing'; lowConfidence?: boolean; howToAdd: string }
+export type Course = { title: string; provider: string; url: string; verified_at: number; free: boolean; hours?: number; skill: string; why: string }
+export type AtsQuestion = { id: string; finding_id?: string; text: string; type: 'text' | 'choice' | 'number'; options?: string[]; why: string }
+export type AtsAnswer = { id: string; value: string | number }
+export type AtsReport = {
+  id: string
+  createdAt: number
+  hashes: { cv: string; jd?: string; tpl: string }
+  label: 'parse-risk heuristic'
+  parse: ScoreBlock
+  match?: ScoreBlock
+  /** What was unavailable: semantic similarity (no local model) or the real PDF text layer. */
+  degraded: { embeddings: boolean; pdfText: boolean }
+  findings: AtsFinding[]
+  skillGaps: SkillGap[]
+  courses: Course[]
+  plan?: string
+  session?: { runId: string; sessionId: string | null; round: number; questions: AtsQuestion[] }
+}
+export type AtsApplyResult = { ok: boolean; error?: string; undoId?: string; newCv?: string; rescore?: AtsReport }
+export type AtsPreview = { diff: { before: string; after: string }; factCheck: { ok: boolean; violations: string[] } }
+export type AtsPhase = 'parse' | 'extract' | 'agent' | 'score' | 'done'
+export type AtsEvent = { runId: string; phase: AtsPhase; message: string; questions?: AtsQuestion[] }
+export type AtsAnalyzeInput = { jd?: string; jobId?: string; templateId?: string }

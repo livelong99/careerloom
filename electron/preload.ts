@@ -65,6 +65,15 @@ const bridge = {
   readResearch: () => invoke('readResearch'),
   renderTemplatePdf: (name: string) => invoke('renderTemplatePdf', name),
   savePdf: (name: string) => invoke('savePdf', name),
+  // ————— ATS / Resume —————
+  atsAnalyze: (input: unknown) => invoke('atsAnalyze', input),
+  atsGet: () => invoke('atsGet'),
+  atsAnswer: (runId: string, answers: unknown[]) => invoke('atsAnswer', runId, answers),
+  atsPreviewApply: (findingId: string, answers?: unknown[]) => invoke('atsPreviewApply', findingId, answers),
+  atsApply: (findingId: string, answers?: unknown[]) => invoke('atsApply', findingId, answers),
+  atsUndo: (undoId: string) => invoke('atsUndo', undoId),
+  atsDismiss: (findingId: string) => invoke('atsDismiss', findingId),
+  onAtsEvent: (cb: (event: unknown) => void) => subscribe('atsEvents', cb),
   // Jobs
   listJobs: () => invoke('listJobs'),
   listPortals: () => invoke('listPortals'),
