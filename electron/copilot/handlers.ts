@@ -1,6 +1,7 @@
-import type { Handler } from '../context'
+import { str, type Handler } from '../context'
 import { copilotSupported } from './capabilities'
 import { readCopilotConfig, writeCopilotConfig } from './config'
+import { listLiveModels, testLiveModel } from './live'
 import type { CopilotApi, DeepPartial, CopilotConfig, NotImplemented } from './types'
 
 const METHODS = [
@@ -23,6 +24,8 @@ const stub = (method: string): Handler => guarded((): NotImplemented => ({ statu
 /** WP0 stubs. WP1–4 replace entries here with real behaviour; names and shapes are the frozen contract. */
 export const copilotHandlers: Record<string, Handler> = {
   ...Object.fromEntries(METHODS.map(m => [m, stub(m)])),
+  copilotListLlmModels: guarded(() => listLiveModels()),
+  copilotTestLlmModel: guarded((id: unknown) => testLiveModel(str(id, 'model id'))),
   copilotGetConfig: guarded(() => readCopilotConfig()),
   copilotSetConfig: guarded((patch: unknown) => {
     if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) throw new Error('patch must be an object')
