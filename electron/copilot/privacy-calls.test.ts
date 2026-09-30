@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { DEFAULT_CONFIG } from './config'
 import type { AnswerProvider } from './engine'
-import { blockWhenLocalOnly, createScoreCall } from './privacy-calls'
+import { blockWhenLocalOnly, createScoreCall, nameFromCv, redactIfOn } from './privacy-calls'
 import { LlmError } from './providers/openrouter'
 import type { CopilotConfig } from './types'
 
@@ -56,5 +56,24 @@ describe('createScoreCall (debrief scoring goes through the configured provider,
     const provider = vi.fn(() => fake().provider)
     createScoreCall({ provider, config: () => cfg(), model: () => 'm' })
     expect(provider).not.toHaveBeenCalled()
+  })
+})
+
+describe('redactIfOn', () => {
+  it('masks only while the setting is on, read per call', () => {
+    let on = true
+    const mask = redactIfOn(() => cfg({ redact: on }))
+    expect(mask('mail a@b.co')).toBe('mail [EMAIL]')
+    on = false
+    expect(mask('mail a@b.co')).toBe('mail a@b.co')
+  })
+})
+
+describe('nameFromCv', () => {
+  it('takes the first heading or a short first line, never a sentence', () => {
+    expect(nameFromCv('# Ada Lovelace\n- Led migration')).toEqual(['Ada Lovelace', 'Ada', 'Lovelace'])
+    expect(nameFromCv('Ada Lovelace\nengineer')).toEqual(['Ada Lovelace', 'Ada', 'Lovelace'])
+    expect(nameFromCv('Experienced engineer with 10 years building platforms and teams\n')).toEqual([])
+    expect(nameFromCv('')).toEqual([])
   })
 })

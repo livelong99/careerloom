@@ -1,6 +1,6 @@
 ---
 name: 20261001-copilot-review
-description: Independent review of the Interview Copilot (copilot-int); 3 HIGH fixed (stop-while-arming race, scoring via agent CLI, localOnly unenforced), MEDIUM/LOW listed in docs/plans/interview-copilot/review.md
+description: Independent review of the Interview Copilot (copilot-int); 3 HIGH + M1-M8 fixed with tests, M9/M10 documented as follow-ups in docs/plans/interview-copilot/review.md
 type: project
 ---
 
@@ -10,6 +10,7 @@ type: project
 - `electron/copilot/session.ts`: generation counter so stop during arming can never reach `listening` (kill-switch race).
 - `electron/copilot/privacy-calls.ts` (+test): `blockWhenLocalOnly` provider wrapper, `createScoreCall` (scoring via configured provider, redacted).
 - `electron/copilot/live.ts`, `defaults.ts`: wired both; scoring no longer uses `runText` (agent CLI).
+- `store.ts` (sweep clears answers/notes, stray-file safe), `overlay-host.ts` (hotkeys freed on stop), `panic.ts` (uncaughtExceptionMonitor), `context.ts` (neutralize posting text), `handlers.ts` (assertSupported live, consent after dup check), `privacy-calls.ts` (redactIfOn, nameFromCv), `THIRD_PARTY_NOTICES.md` (moonshine, Whisper alternates, Open-Cluely).
 - `docs/plans/interview-copilot/review.md`: findings H1-H3 fixed, M1-M10, LOW, checked-OK list.
 
 **Decisions made:**
@@ -20,4 +21,4 @@ type: project
 **State:** done
 
 **Next steps:**
-- Decide on M1 (sweep must also clear suggestions/scorecard text), M2 (unregister hotkeys on stop), M3 (uncaughtException listener), M5 (neutralize posting text), M8 (THIRD_PARTY_NOTICES for moonshine-voice + Open-Cluely).
+- M9 (hash-pin moonshine-voice, offline model check; stt/** is WP3b's) and M10 (narrow entitlements at signing): recipes in review.md.

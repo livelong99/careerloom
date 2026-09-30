@@ -97,6 +97,23 @@ describe('copilotStart', () => {
     await c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null })
     await expect(c.handlers.copilotStart({ mode: 'practice', jobId: 'job-2', interviewType: 'mixed', consent: null })).rejects.toThrow(/already/i)
   })
+  it('live needs Apple silicon, enforced in main', async () => {
+    const arch = process.arch
+    Object.defineProperty(process, 'arch', { value: 'x64' })
+    try {
+      const { c } = setup({ session: { start: vi.fn(), stop: vi.fn() } })
+      await expect(c.handlers.copilotStart({ mode: 'live', jobId: 'job-1', interviewType: 'mixed', consent: consent() })).rejects.toThrow(/Apple silicon/i)
+      expect(await c.handlers.copilotListSessions()).toEqual([])
+    } finally { Object.defineProperty(process, 'arch', { value: arch }) }
+  })
+  it('a rejected duplicate session id leaves no extra consent record', async () => {
+    const { c } = setup()
+    await c.handlers.copilotStart({ mode: 'live', jobId: 'job-1', interviewType: 'mixed', consent: consent() })
+    await c.handlers.copilotStop('user')
+    await expect(c.handlers.copilotStart({ mode: 'live', jobId: 'job-1', interviewType: 'mixed', consent: consent({ id: 'c2' }) })).rejects.toThrow(/exists/i)
+    const exported = JSON.parse(fs.readFileSync(await c.handlers.copilotExportConsents() as string, 'utf8')) as ConsentRecord[]
+    expect(exported).toHaveLength(1)
+  })
   it('refuses to reuse an existing session id', async () => {
     const { c } = setup()
     await c.handlers.copilotStart({ mode: 'live', jobId: 'job-1', interviewType: 'mixed', consent: consent() })

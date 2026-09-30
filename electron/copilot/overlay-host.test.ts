@@ -138,6 +138,17 @@ describe('overlay host wiring', () => {
     expect(published.at(-1)).toEqual(['copilotState', expect.objectContaining({ state: 'stopped' })])
   })
 
+  it('a normal stop frees the global hotkeys, and a config change while stopped does not claim them again', async () => {
+    const { host, hotkeys, setConfig } = setup()
+    host.publishState(listening)
+    hotkeys.registerAll.mockClear()
+    await host.stop('user')
+    expect(hotkeys.unregisterAll).toHaveBeenCalled()
+    setConfig({ ...DEFAULT_CONFIG, overlay: { ...DEFAULT_CONFIG.overlay, width: 500 } })
+    host.overlayCommand({})
+    expect(hotkeys.registerAll).not.toHaveBeenCalled()
+  })
+
   it('copilotStop(panic|error) is the kill switch', async () => {
     const { host, overlay } = setup()
     host.publishState(listening)

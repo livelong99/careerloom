@@ -19,7 +19,7 @@ import { createLiveWiring } from './live-wiring'
 import { listLiveModels, liveProvider, testLiveModel } from './live'
 import { parseAudioMsg } from './audio-in'
 import { getOverlayHost } from './overlay-runtime'
-import { createScoreCall } from './privacy-calls'
+import { createScoreCall, nameFromCv, redactIfOn } from './privacy-calls'
 import { PRIVACY_NOTICE_VERSION } from './privacy-mode'
 import { collectText } from './providers/openrouter'
 import { createSessionController } from './session'
@@ -48,6 +48,9 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
   const provider = lazy(liveProvider)
   const context = lazy(() => createContextBuilder(defaultContextDeps()))
   const fastModel = (): string => readCopilotConfig().engine.models.fast ?? defaultModelFor('fast')
+  const cv = (): string => readCv()?.markdown ?? ''
+  const names = (): string[] => nameFromCv(cv())
+  const mask = redactIfOn(readCopilotConfig, names)
 
   let jobId = ''
   let grounding: Promise<GroundingContext> | null = null
@@ -63,7 +66,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
 
   const live = lazy(() => {
     const host = getOverlayHost()
-    const detector = createDetector({ classify: text => createLlmClassifier(provider(), fastModel())(text) })
+    const detector = createDetector({ classify: text => createLlmClassifier(provider(), fastModel())(mask(text)) })
     const wiring = createLiveWiring({
       host, recorder: getInstance().recorder, feed: (l, eot) => getInstance().feed(l, eot), engine: engineProxy, detector,
       config: readCopilotConfig, onStopped: () => { if (!starting && getInstance().recorder.active()) void getInstance().stop('user') },
@@ -91,12 +94,12 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     job: id => {
       try { const c = jobContext(id); return { id, title: c.job.title, company: c.job.company, report: c.report, posting: c.posting } } catch { return null }
     },
-    cv: () => readCv()?.markdown ?? '',
+    cv,
     permission: kind => { try { return systemPreferences.getMediaAccessStatus(kind) } catch { return 'unknown' } },
     hasKey: () => e2e() !== null || readApiKey() !== null,
     sttInstalled: sttReady,
     // Same provider, redaction and local-only rule as live answers: the transcript never goes to an agent CLI.
-    call: createScoreCall({ provider, config: readCopilotConfig, model: fastModel }),
+    call: createScoreCall({ provider, config: readCopilotConfig, model: fastModel, names }),
     openSettings: pane => { void shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${PANE[pane]}`); return true },
 
     session: {
@@ -106,7 +109,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
         starting = true
         try {
           jobId = req.jobId; grounding = null; nextId = sessionId
-          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, grounding: () => (grounding ??= context().build(jobId)), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD })
+          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD })
           await ctl.start(req)
         } finally { starting = false }
       },
@@ -120,7 +123,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     },
     answer: (kind, questionId) => { void live().wiring.answer(kind, questionId) },
     context: { preview: id => context().preview(id) },
-    complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: user }], model: fastModel(), maxTokens: 120, signal: AbortSignal.timeout(8000) })).text,
+    complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: mask(user) }], model: fastModel(), maxTokens: 120, signal: AbortSignal.timeout(8000) })).text,
 
     overlay: cmd => getOverlayHost().overlayCommand(cmd),
     ackNotice: version => getOverlayHost().ackPrivacyNotice(version),

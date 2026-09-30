@@ -103,12 +103,31 @@ describe('retention sweep', () => {
     expect(store.get('done')?.transcript).toEqual([])
     expect(store.get('running')?.transcript).toHaveLength(1)
   })
+  it('also clears the generated answers and debrief tips (they echo the conversation) but keeps scores and cost', () => {
+    const sug = { questionId: 'q1', model: 'm', tier: 'fast' as const, say: 'Tell them about the migration', bullets: ['40 services'], star: { s: 's', t: 't', a: 'a', r: 'r' }, proof: [{ quote: 'Led migration', source: 'cv' }], flags: [], done: true, firstTokenMs: 10, totalMs: 50, costUsd: 0.002 }
+    store.save(detail('old', { startedAt: NOW - 100 * DAY, endedAt: NOW - 100 * DAY, transcript: [], questionsList: [], suggestions: [sug], scorecard: { structure: 3, specifics: 3, evidence: 3, concision: 3, notes: [{ questionId: 'q1', tip: 'You said X', suggestedLine: 'Try Y' }] } }))
+    expect(store.expiring(90, NOW)).toBe(1)
+    expect(store.sweep(90, NOW)).toBe(1)
+    const old = store.get('old')!
+    expect(old.suggestions).toEqual([{ ...sug, say: '', bullets: [], star: null, proof: [] }])
+    expect(old.scorecard).toEqual({ structure: 3, specifics: 3, evidence: 3, concision: 3, notes: [] })
+    expect(store.sweep(90, NOW)).toBe(0)
+  })
   it('counts how many sessions a lower value would newly affect without deleting', () => {
     store.save(detail('a', { startedAt: NOW - 50 * DAY, endedAt: NOW - 50 * DAY })); store.save(detail('b', { startedAt: NOW - 10 * DAY, endedAt: NOW - 10 * DAY }))
     expect(store.expiring(30, NOW)).toBe(1)
     expect(store.expiring(5, NOW)).toBe(2)
     expect(store.expiring(null, NOW)).toBe(0)
     expect(store.get('a')?.transcript).toHaveLength(1)
+  })
+})
+
+describe('stray files', () => {
+  it('a file in sessions/ that is not a session id does not break listing', () => {
+    store.save(detail('a'))
+    fs.writeFileSync(path.join(dir, 'sessions', 'a.b.json'), '{}')
+    fs.rmSync(path.join(dir, 'index.json'))
+    expect(openSessionStore(dir).list().map(x => x.id)).toEqual(['a'])
   })
 })
 
