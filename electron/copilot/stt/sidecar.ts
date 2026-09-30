@@ -1,7 +1,7 @@
 // Long-lived STT child process (plan §3.2): framed PCM16 in, JSON lines out. One restart per session,
 // replaying the last 10 s from the ring; a second crash surfaces as error{retrying:false} + closed.
 import { createEmitter, type SttAdapter, type SttEvent, type SttStartOpts } from './adapter'
-import { encodeFrame, FRAME } from './framing'
+import { encodeFrame, FRAME, lineSplitter } from './framing'
 import { PcmRing } from './ring'
 
 export type SidecarChild = {
@@ -41,17 +41,9 @@ export function createSidecarAdapter(spec: SidecarSpec): SttAdapter {
     ready = false
     const c = spec.spawn()
     child = c
-    let tail = Buffer.alloc(0)
-    c.onData(chunk => {
-      tail = Buffer.concat([tail, chunk])
-      let nl: number
-      while ((nl = tail.indexOf(10)) >= 0) {
-        const raw = tail.subarray(0, nl).toString('utf8').trim()
-        tail = tail.subarray(nl + 1)
-        if (!raw) continue
-        try { handle(JSON.parse(raw) as Line) } catch { /* ponytail: non-JSON chatter from native libs is ignored */ }
-      }
-    })
+    c.onData(lineSplitter(raw => {
+      try { handle(JSON.parse(raw) as Line) } catch { /* ponytail: non-JSON chatter from native libs is ignored */ }
+    }))
     exited = new Promise<void>(res => c.onExit(code => { res(); if (child === c && !stopping) void crashed(code) }))
     c.write(encodeFrame(FRAME.config, Buffer.from(JSON.stringify(spec.config(o)))))
     return new Promise<void>((resolve, reject) => {
