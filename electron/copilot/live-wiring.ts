@@ -44,14 +44,15 @@ export function createLiveWiring(d: WiringDeps) {
   let lastQuestion: DetectedQuestion | null = null
   let turn: TranscriptLine[] = []
   let manual = 0
+  const answeredLines = new Set<string>() // transcript lines already answered on demand: their final is not a new question
   let current: AbortController | null = null
 
-  const reset = (): void => { lines = []; questions = new Map(); lastQuestion = null; turn = []; current?.abort(); current = null; d.detector.reset() }
+  const reset = (): void => { lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; d.detector.reset() }
   const error = (message: string): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false })
   const addQuestion = (q: DetectedQuestion): void => { questions.set(q.id, q); lastQuestion = q; d.recorder.question(q); d.host.publish('copilotQuestion', q) }
 
   /** Mic-only live has no interviewer channel: the mic hears both sides, so its finals are candidates too (rules filter chatter). */
-  const detectable = (l: TranscriptLine): boolean => mode === 'live' && l.final && (l.speaker === 'interviewer' || !sources.includes('system'))
+  const detectable = (l: TranscriptLine): boolean => mode === 'live' && l.final && !answeredLines.has(l.id) && (l.speaker === 'interviewer' || !sources.includes('system'))
 
   async function detect(l: TranscriptLine): Promise<void> {
     const q = await d.detector.feed({ ...l, speaker: 'interviewer' })
@@ -63,9 +64,11 @@ export function createLiveWiring(d: WiringDeps) {
   async function answer(kind: PromptKind, questionId?: string): Promise<void> {
     let q = (questionId ? questions.get(questionId) : undefined) ?? lastQuestion
     if (!q) {
-      const heard = kind === 'summarise' ? undefined : [...lines].reverse().find(l => l.final && l.text.trim() !== '')
+      // Flush what is still being said: the key is often pressed before the engine has finalised the question.
+      const heard = kind === 'summarise' ? undefined : [...lines].reverse().find(l => l.text.trim() !== '')
       if (!heard && kind !== 'summarise') return error('Nothing to answer yet: no question has been heard')
       const text = heard?.text.trim() ?? SUMMARISE_PROMPT
+      if (heard) answeredLines.add(heard.id)
       q = { id: `qm${++manual}`, text, type: questionType(text), confidence: 0.5, at: now(), auto: false }
       addQuestion(q)
     }

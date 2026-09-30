@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { CopilotActions } from '../components/copilot/CopilotActions'
-import { GOTO_EVENT } from '../components/copilot/selection'
+import { GOTO_EVENT, takePendingPage } from '../components/copilot/selection'
 
 import { EmptyNote } from '../components/EmptyState'
 import { ScrollArea } from '../components/ui/scroll-area'
@@ -34,9 +34,9 @@ type PageId = (typeof PAGES)[number][0]
 
 /** Interview Copilot config workspace: side navigation, one full-width page at a time (same shell as Resume). */
 export function Copilot() {
-  const [page, setPage] = useState<PageId>('setup')
+  const [page, setPage] = useState<PageId>(() => { const p = takePendingPage(); return PAGES.some(([id]) => id === p) ? (p as PageId) : 'setup' })
   useEffect(() => {
-    const go = (e: Event): void => { const id = (e as CustomEvent<string>).detail; if (PAGES.some(([p]) => p === id)) setPage(id as PageId) }
+    const go = (e: Event): void => { const id = (e as CustomEvent<string>).detail; takePendingPage(); if (PAGES.some(([p]) => p === id)) setPage(id as PageId) }
     window.addEventListener(GOTO_EVENT, go)
     return () => window.removeEventListener(GOTO_EVENT, go)
   }, [])

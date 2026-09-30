@@ -12,8 +12,8 @@ export function useDebriefLink(): void {
     const sub = (window.careerloom as { onCopilotEvent?: Subscribe } | undefined)?.onCopilotEvent
     if (!sub) return
     return sub('copilotOpenDebrief', () => {
+      gotoPage('sessions') // remembered until the Copilot screen mounts, then taken by it
       navigate('copilot')
-      setTimeout(() => gotoPage('sessions'), 0) // the Copilot screen mounts first
     })
   }, [])
 }

@@ -27,7 +27,10 @@ export const useSelection = (): Selection => useSyncExternalStore(cb => { listen
 
 export const GOTO_EVENT = 'careerloom:copilot-goto'
 /** Switch the Copilot workspace to another page (links such as "Fix system audio" or "View sessions"). */
-export const gotoPage = (id: string): void => { window.dispatchEvent(new CustomEvent(GOTO_EVENT, { detail: id })) }
+let pendingPage: string | null = null
+/** A page asked for before the Copilot screen mounted (deep link from the overlay): the screen takes it on mount. */
+export const takePendingPage = (): string | null => { const p = pendingPage; pendingPage = null; return p }
+export const gotoPage = (id: string): void => { pendingPage = id; window.dispatchEvent(new CustomEvent(GOTO_EVENT, { detail: id })) }
 
 // Which practice questions are ticked, plus your own (session-only, not persisted): shared by the Practice page and the header's Start practice.
 export type PracticePick = { ids: string[] | null; custom: string[] }

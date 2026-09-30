@@ -51,6 +51,18 @@ describe('overlay host wiring', () => {
     expect(published.at(-1)).toEqual(['copilotState', expect.objectContaining({ state: 'stopped' })])
   })
 
+  it('replays the state again on the first heartbeat after a load: the page may not have subscribed yet at load time', () => {
+    const { host, overlay, published } = setup()
+    host.publishState(listening)
+    const loaded = (overlay.onLoaded.mock.calls.at(0) as unknown as [() => void])[0]
+    loaded()
+    const before = published.filter(p => p[0] === 'copilotState').length
+    host.overlayCommand({}) // the renderer is alive and subscribed
+    expect(published.filter(p => p[0] === 'copilotState').length).toBe(before + 1)
+    host.overlayCommand({})
+    expect(published.filter(p => p[0] === 'copilotState').length).toBe(before + 1) // only once per load
+  })
+
   it('replays the current state once the overlay page has loaded', () => {
     const { host, overlay, published } = setup()
     host.publishState(listening)

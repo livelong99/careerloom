@@ -109,6 +109,18 @@ describe('live wiring', () => {
     expect(of('copilotSuggestion')).toHaveLength(2)
   })
 
+  it('pressing answer while the question is still a partial answers that text, and its final is not detected a second time', async () => {
+    const { w, of } = setup()
+    w.emit('copilotState', state('listening'))
+    w.emit('copilotTranscript', line('a', 'you', 'Tell me about a time you led a team?', false))
+    await w.answer('answer')
+    expect(of('copilotQuestion')).toHaveLength(1)
+    expect(of('copilotSuggestion')).toHaveLength(2)
+    w.emit('copilotTranscript', line('a', 'you', 'Tell me about a time you led a team?', true))
+    await new Promise(r => setTimeout(r, 10))
+    expect(of('copilotQuestion')).toHaveLength(1)
+  })
+
   it('hotkey actions drive the engine', async () => {
     const { w, actions, of } = setup()
     w.emit('copilotState', state('listening'))

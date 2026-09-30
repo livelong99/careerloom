@@ -1,0 +1,6 @@
+{"atMs":1000,"ev":"partial","text":"tell me about a","t0":500,"t1":1000}
+{"atMs":2500,"ev":"final","text":"Tell me about a time you led a migration under pressure?","t0":500,"t1":2500}
+{"atMs":2700,"ev":"endOfTurn","text":"","t0":2500,"t1":2700}
+{"atMs":9000,"ev":"partial","text":"I led the","t0":8000,"t1":9000}
+{"atMs":11000,"ev":"final","text":"I led the migration of forty services to Kubernetes and kept releases weekly.","t0":8000,"t1":11000}
+{"atMs":11300,"ev":"endOfTurn","text":"","t0":11000,"t1":11300}
