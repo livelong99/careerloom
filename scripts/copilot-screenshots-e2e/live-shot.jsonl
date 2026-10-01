@@ -1,0 +1,4 @@
+{"atMs":1500,"ev":"final","text":"Hi, thanks for joining, can you see my screen okay?","t0":500,"t1":1500}
+{"atMs":4000,"ev":"partial","text":"Look at the code on my","t0":2500,"t1":4000}
+{"atMs":6000,"ev":"final","text":"Look at the code on my screen. What is the time complexity of this function?","t0":2500,"t1":6000}
+{"atMs":6200,"ev":"endOfTurn","text":"","t0":6000,"t1":6200}
