@@ -169,11 +169,10 @@ describe('Local models page', () => {
     { engine: 'moonshine', model: 'small', sizeMb: 120, installed: true, devices: ['cpu'], lastBenchmark: null, recommended: false },
   ]
   const base = { localModelStatus: { installed: true, model: 'm', dir: '/d', platform: 'darwin', arch: 'arm64', python: null, oldPython: null, downloadGb: { packages: 1, weights: 1 }, installRun: null }, prescreenStatus: { available: true, model: null, labels: { pos: 1, neg: 2 } }, dataLocations: [{ id: 'models', label: 'Local models', path: '/home/me/.careerloom/models' }], diagnostics: { rows: [], memory: { totalBytes: 16 * 1024 ** 3, freeBytes: 2 * 1024 ** 3 } }, copilotListSttModels: stt, copilotGetConfig: { stt: { engine: 'whisper-mlx' } }, revealPath: true }
-  it('installs only for the configured engine, warns on low memory, reveals the folder', async () => {
+  it('installs only for the configured engine and reveals the folder', async () => {
     bridge.current = fakeBridge({ ...base, copilotInstallStt: { runId: 'r1' } })
     mount(<LocalModelsPage {...props()} />)
     expect(await screen.findByText(/2.0 GB free of 16.0 GB/)).toBeTruthy()
-    expect(screen.getByText(/Memory is tight/)).toBeTruthy()
     const installs = await screen.findAllByRole('button', { name: 'Install' })
     expect(installs).toHaveLength(1)
     await userEvent.click(installs[0]!)

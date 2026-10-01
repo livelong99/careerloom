@@ -29,7 +29,6 @@ export function LocalModelsPage(_props: PageProps) {
   const modelsDir = locations.data?.find(l => l.id === 'models')?.path ?? null
   const model = status.data?.model
   const mem = diag.data?.memory
-  const lowMemory = mem !== undefined && mem.freeBytes < 4 * 1024 ** 3
   const engine = config.data?.stt.engine
 
   const installStt = async (m: SttModelInfo) => {
@@ -44,11 +43,10 @@ export function LocalModelsPage(_props: PageProps) {
     <>
       <Group title="Memory" focus="memory">
         {diag.error ? <p className="m-0 text-xs text-muted-foreground">Memory check not available yet: {diag.error.message}</p> : mem ? (
-          <Row label="This computer" hint="Install and run one model at a time. Models load into memory while they work.">
-            <ReadinessBadge state={lowMemory ? 'needs-setup' : 'ready'} label={`${gb(mem.freeBytes)} GB free of ${gb(mem.totalBytes)} GB`} />
+          <Row label="This computer" hint="Install and run one model at a time; models load into memory while they work. macOS keeps cached files in memory, so “free” reads low.">
+            <ReadinessBadge state="ready" label={`${gb(mem.freeBytes)} GB free of ${gb(mem.totalBytes)} GB`} />
           </Row>
         ) : <p className="m-0 text-xs text-muted-foreground">Checking…</p>}
-        {lowMemory && <div className="mt-2"><Note tone="warn">Memory is tight. Close other apps before installing or running a model.</Note></div>}
       </Group>
 
       <Group title="Pre-screen model" focus="prescreen-model" action={<>
