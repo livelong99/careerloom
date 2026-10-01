@@ -61,7 +61,7 @@ export function TranscriptionPage() {
       <Group title="Speech model" action={<Button variant="outline" disabled={running || !model} onClick={() => void benchmark()}>{running ? 'Benchmarking…' : 'Benchmark on this computer'}</Button>}>
         <Row label="Engine" hint={engine.hint} htmlFor="stt-engine">
           <select id="stt-engine" className={selectClass} value={engine.id} onChange={e => void save({ stt: { engine: e.target.value as SttEngineId, model: null, device: 'auto' } })}>
-            {STT_ENGINES.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
+            {STT_ENGINES.map(e => <option key={e.id} value={e.id} disabled={e.id === 'faster-whisper'}>{e.label}{e.id === 'faster-whisper' ? ' · not available' : ''}</option>)}
           </select>
         </Row>
         <Row label="Model" hint="Pick the smallest model that is accurate enough for you. Latency is measured on this computer." stack>

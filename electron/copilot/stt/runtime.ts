@@ -29,6 +29,9 @@ export const sttDir = () => process.env.CAREERLOOM_STT_DIR || path.join(os.userI
 export const engineDir = (engine: SttEngineId, root = sttDir()) => path.join(root, engine)
 export const readyFile = (dir: string) => path.join(dir, 'ready.json')
 
+/** Shown (toast / overlay error) when a session starts without the chosen local model. */
+export const STT_NOT_INSTALLED = 'Speech recognition is not installed yet. Install the speech model in Settings → Local models, then start again.'
+
 export type SttRuntime = { python: string; script: string; cache: string; pin: string; models: string[] }
 
 /** A finished install of the pinned package, or null (also null for engines with no local install). */

@@ -1,0 +1,35 @@
+{
+  "label": "before",
+  "options": [
+    "System default",
+    "Fake Default Audio Input",
+    "Fake Audio Input 1",
+    "Fake Audio Input 2"
+  ],
+  "systemGroup": "offers system audio controls",
+  "meterWhileTesting": {
+    "max": 0,
+    "samples": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "afterTest": [
+    "The interviewer comes from system audio, you come from the microphone. Keeping them apart removes guesswork about who is speaking.",
+    "Your microphone",
+    "No input device found.",
+    "Careerloom can't hear system audio yet. macOS stays silent instead of showing an error until you allow it.",
+    "Open System Settings → Privacy & Security → System Audio Recording.",
+    "Open System Settings"
+  ]
+}
