@@ -44,6 +44,13 @@ describe('tts service', () => {
     expect(engines[0].calls.length).toBe(1) // queued sentence never rendered
     expect(sent.length).toBe(1) // aborted render emits nothing
   })
+  it('cancel() after rendering finished still tells the renderer (buffered audio is still playing)', async () => {
+    const { svc, sent } = setup()
+    svc.speak('u', 'Rendered long before the cancel.'); await vi.runAllTimersAsync()
+    svc.cancel()
+    expect(sent.at(-1)).toMatchObject({ utteranceId: 'u', seq: -1, last: true })
+    svc.cancel(); expect(sent.filter(m => m.seq === -1).length).toBe(1) // idempotent
+  })
   it('cancel() when idle sends nothing; speak after cancel works again', async () => {
     const { svc, sent } = setup()
     svc.cancel(); expect(sent).toEqual([])

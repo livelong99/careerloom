@@ -87,11 +87,11 @@ export function createTtsService(o: TtsServiceOpts): TtsService {
     speak(id, text) { lastId = id; queue.push({ kind: 'say', id, text }); void pump() },
     end(id) { queue.push({ kind: 'end', id }); void pump() },
     cancel() {
-      if (!running && queue.length === 0) return
+      if (!lastId) return // nothing spoken since the last cancel (the renderer may still be playing buffered audio even when rendering is done)
       epoch++
       queue = []; sticky = null
       ctl?.abort()
-      if (lastId) { o.send({ utteranceId: lastId, seq: CANCEL_SEQ, pcm16: EMPTY, sampleRate: 24000, last: true }); seq.delete(lastId) }
+      o.send({ utteranceId: lastId, seq: CANCEL_SEQ, pcm16: EMPTY, sampleRate: 24000, last: true }); seq.delete(lastId); lastId = null
     },
   }
 }
