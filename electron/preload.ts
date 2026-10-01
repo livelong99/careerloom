@@ -35,6 +35,7 @@ const bridge = {
   readReport: (rel: string) => invoke('readReport', rel),
   listRuns: () => invoke('listRuns'),
   getRunLog: (id: string) => invoke('getRunLog', id),
+  deleteRuns: (ids: string[]) => invoke('deleteRuns', ids),
   startRun: (req: { mode: string; input?: string }) => invoke('startRun', req),
   evaluateJob: (input: string) => invoke('evaluateJob', input),
   cancelRun: (id: string) => invoke('cancelRun', id),

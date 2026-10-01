@@ -24,5 +24,5 @@ export function fakeBridge(impl: Record<string, unknown> = {}) {
   })
 }
 
-const runs: Runs = { runs: [], logs: {}, generation: 0, start: async () => null, evaluate: async () => null, adopt: () => {}, cancel: () => {} }
+const runs: Runs = { runs: [], loaded: true, forget: async () => 0, logs: {}, generation: 0, start: async () => null, evaluate: async () => null, adopt: () => {}, cancel: () => {} }
 export const WithRuns = ({ children, value = runs }: { children: ReactNode; value?: Runs }) => <RunsContext.Provider value={value}>{children}</RunsContext.Provider>

@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { dropRunLines } from './runs-prune'
 import { defaultPrefs, normalizeKeyMeta, normalizePrefs } from './settings/prefs'
 import type { KeyId, KeyTest, Prefs } from './settings/types'
 import { agyDenied, ensureAgyProject } from './agy-project'
@@ -196,6 +197,23 @@ export function runLog(id: string): string {
   const live = runs.get(id)?.log
   if (live !== undefined) return live
   try { return fs.readFileSync(runLogFile(id), 'utf8') } catch { return '' }
+}
+
+/** Forget finished runs: their history lines, saved log tails and in-memory records. Running runs are kept. Returns how many went. */
+export function deleteRunRecords(ids: string[]): number {
+  const gone = new Set(ids.filter(id => runs.get(id)?.status !== 'running'))
+  if (!gone.size) return 0
+  let removed: string[] = []
+  try {
+    const res = dropRunLines(fs.readFileSync(userFile(HISTORY_FILE), 'utf8'), gone)
+    removed = res.removed
+    fs.writeFileSync(userFile(HISTORY_FILE), res.text)
+  } catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') console.error('run history rewrite failed:', err) }
+  for (const id of gone) {
+    if (runs.delete(id)) removed.push(id)
+    try { fs.rmSync(runLogFile(id), { force: true }) } catch { /* already gone */ }
+  }
+  return new Set(removed).size
 }
 
 function appendRunHistory(run: RunSummary): void {

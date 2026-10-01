@@ -6,6 +6,8 @@ import type { Run } from '../lib/types'
 
 export type Runs = {
   runs: Run[]
+  /** False until the first history load has answered (success or not). */
+  loaded: boolean
   logs: Record<string, string>
   /** Bumps whenever a run ends, so file-backed views reload what the agent wrote. */
   generation: number
@@ -14,6 +16,8 @@ export type Runs = {
   evaluate: (input: string) => Promise<Run | null>
   adopt: (run: Run) => void
   cancel: (id: string) => void
+  /** Forget finished runs (history + saved logs); resolves with how many went. */
+  forget: (ids: string[]) => Promise<number>
 }
 
 /** Live agent runs: the list, their streamed logs, and a refresh signal. */
@@ -21,9 +25,10 @@ export function useRunsState(): Runs {
   const [runs, setRuns] = useState<Run[]>([])
   const [logs, setLogs] = useState<Record<string, string>>({})
   const [generation, setGeneration] = useState(0)
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    void careerloom.listRuns().then(setRuns).catch(() => {})
+    void careerloom.listRuns().then(setRuns).catch(() => {}).finally(() => setLoaded(true))
     const known = new Set<string>()
     return careerloom.onRun(event => {
       // Main can start runs on its own (e.g. the next job in a batch) — pick them up.
@@ -37,7 +42,7 @@ export function useRunsState(): Runs {
       }
       setRuns(prev => prev.map(r => (r.id === event.id ? { ...r, status: event.status, endedAt: Date.now() } : r)))
       setGeneration(g => g + 1)
-      if (event.status === 'failed') showToast('A run failed — see Agent for the log', 'error')
+      if (event.status === 'failed') showToast('A run failed — open Runs for the log', 'error')
     })
   }, [])
 
@@ -69,7 +74,14 @@ export function useRunsState(): Runs {
 
   const cancel = useCallback((id: string) => { void careerloom.cancelRun(id) }, [])
 
-  return { runs, logs, generation, start, evaluate, adopt, cancel }
+  const forget = useCallback(async (ids: string[]) => {
+    const n = await careerloom.deleteRuns(ids)
+    setRuns(await careerloom.listRuns())
+    setLogs(prev => Object.fromEntries(Object.entries(prev).filter(([id]) => !ids.includes(id))))
+    return n
+  }, [])
+
+  return { runs, loaded, logs, generation, forget, start, evaluate, adopt, cancel }
 }
 
 export const RunsContext = createContext<Runs | null>(null)
