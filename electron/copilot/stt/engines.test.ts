@@ -81,12 +81,12 @@ describe('not-installed engines fail with a message that says what to do', () =>
   const opts = { source: 'mic' as const, language: 'en', vocab: [], endSilenceMs: 650 }
   it('whisper without a runtime, or without the chosen model', async () => {
     const { whisperAdapter } = await import('./whisper-mlx')
-    await expect(whisperAdapter('small', null).start(opts)).rejects.toThrow(/Settings → Copilot → Transcription.*Install/)
+    await expect(whisperAdapter('small', null).start(opts)).rejects.toThrow(/Settings → Local models/)
     const rt = { python: '/nope', script: '/nope', cache: '/nope', pin: 'x', models: ['turbo'] }
-    await expect(whisperAdapter('small', rt).start(opts)).rejects.toThrow(/Install/)
+    await expect(whisperAdapter('small', rt).start(opts)).rejects.toThrow(/Local models/)
   })
   it('moonshine without a runtime', async () => {
     const { moonshineAdapter } = await import('./moonshine')
-    await expect(moonshineAdapter('small', 'auto', null).start(opts)).rejects.toThrow(/Settings → Copilot → Transcription.*Install/)
+    await expect(moonshineAdapter('small', 'auto', null).start(opts)).rejects.toThrow(/Settings → Local models/)
   })
 })
