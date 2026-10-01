@@ -21,7 +21,7 @@ export type RootCheck = { ok: true; root: string; dataRoot: string } | { ok: fal
 export type CliRunner = Exclude<RunnerId, 'api' | 'zen'>
 /** Runners with a model setting. */
 export type ModelRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; helperModels: Partial<Record<ModelRunner, string>>; hasApiKey: boolean; hasOpencodeKey: boolean; rootCheck: RootCheck | null }
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; helperModels: Partial<Record<ModelRunner, string>>; hasApiKey: boolean; hasOpencodeKey: boolean; rootCheck: RootCheck | null; prefs: Prefs; keyMeta: Partial<Record<KeyId, KeyTest>> }
 export type ModelOption = { id: string; label: string }
 export type RunnerStatus = Record<'claude' | 'codex' | 'antigravity' | 'opencode' | 'node' | 'git', string | null>
 export type ProfileStatus = { cv: boolean; profile: boolean; portals: boolean }
@@ -182,6 +182,25 @@ export type CareerloomBridge = {
   /** Picked browser boards' domains still needing the one-time terms acknowledgement. */
   browserConsentNeeded(ids: string[]): Promise<string[]>
   acknowledgeBrowser(domains: string[]): Promise<boolean>
+  // ————— Settings rebuild —————
+  /** Keys with masked status only (hasKey + last four) — never a secret. */
+  keysList(): Promise<KeyInfo[]>
+  /** Save (value) or remove (null) a key after format validation; resolves with the fresh row. */
+  keysSet(id: KeyId, value: string | null): Promise<KeyInfo>
+  /** Cheapest possible call (no tokens); persists the result as the key's last test. */
+  keysTest(id: KeyId): Promise<KeyTest>
+  prefsGet(): Promise<Prefs>
+  prefsSet(patch: PrefsPatch): Promise<Prefs>
+  browserAcks(): Promise<string[]>
+  browserRevoke(domain: string): Promise<string[]>
+  dataLocations(): Promise<DataLocation[]>
+  dataStats(): Promise<DataStats>
+  dataClear(scope: ClearScope): Promise<PruneResult>
+  /** Applies prefs.retention now (no-op while it is 'forever'). */
+  retentionPrune(): Promise<PruneResult>
+  settingsReset(scope: ResetScope): Promise<Settings>
+  diagnostics(): Promise<Diagnostics>
+  checkForUpdates(): Promise<UpdateStatus>
   // Pipeline
   setStatus(nums: number[], status: CanonicalStatus): Promise<{ updated: number[]; failed: Array<{ num: number; error: string }> }>
   getUpdateStatus(): Promise<UpdateStatus>
@@ -227,6 +246,6 @@ export type SpendFlow = {
 // Feature contracts live in electron/contract.ts (types only) so the main
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
-import type { CopilotBridge } from '../../electron/contract'
+import type { CopilotBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
 import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
 import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'

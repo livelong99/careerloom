@@ -7,6 +7,8 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { defaultPrefs, normalizeKeyMeta, normalizePrefs } from './settings/prefs'
+import type { KeyId, KeyTest, Prefs } from './settings/types'
 import { agyDenied, ensureAgyProject } from './agy-project'
 import { checkRoot } from './careerops'
 import { logTail } from './scan-history'
@@ -26,29 +28,47 @@ export const str = (v: unknown, name: string): string => {
 export type { CliRunner }
 /** Runners with a model setting (every one but career-ops' OpenRouter script). */
 export type ModelRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; /** Cheap model per runner for structuring/humanizing calls (unset = built-in default). */ helperModels: Partial<Record<ModelRunner, string>> }
-const DEFAULT_SETTINGS: Settings = { root: null, runner: 'claude', models: {}, helperModels: {} }
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; /** Cheap model per runner for structuring/humanizing calls (unset = built-in default). */ helperModels: Partial<Record<ModelRunner, string>>; /** Operational preferences (additive: a v0.1.1 file has none). */ prefs: Prefs; /** Last connection test per key — never the key. */ keyMeta: Partial<Record<KeyId, KeyTest>> }
+const defaultSettings = (): Settings => ({ root: null, runner: 'claude', models: {}, helperModels: {}, prefs: defaultPrefs(), keyMeta: {} })
 
 export const userFile = (name: string) => path.join(app.getPath('userData'), name)
 
-export function readSettings(): Settings {
-  try {
-    const raw = JSON.parse(fs.readFileSync(userFile('settings.json'), 'utf8')) as Partial<Settings>
-    return {
-      root: typeof raw.root === 'string' ? raw.root : null,
-      runner: isRunner(raw.runner) ? raw.runner : DEFAULT_SETTINGS.runner,
-      models: Object.fromEntries(Object.entries(raw.models ?? {}).filter(([k, v]) => k !== 'api' && (RUNNERS as string[]).includes(k) && isModelId(v))),
-      helperModels: Object.fromEntries(Object.entries(raw.helperModels ?? {}).filter(([k, v]) => k !== 'api' && (RUNNERS as string[]).includes(k) && isModelId(v))),
-    }
-  } catch {
-    return DEFAULT_SETTINGS
+const modelMap = (v: unknown) => Object.fromEntries(Object.entries(v ?? {}).filter(([k, m]) => k !== 'api' && (RUNNERS as string[]).includes(k) && isModelId(m)))
+
+function parseSettings(raw: Partial<Settings>): Settings {
+  return {
+    root: typeof raw.root === 'string' ? raw.root : null,
+    runner: isRunner(raw.runner) ? raw.runner : 'claude',
+    models: modelMap(raw.models),
+    helperModels: modelMap(raw.helperModels),
+    prefs: normalizePrefs(raw.prefs),
+    keyMeta: normalizeKeyMeta(raw.keyMeta),
   }
 }
 
+const readRaw = (file: string): Record<string, unknown> | null => {
+  try {
+    const v = JSON.parse(fs.readFileSync(file, 'utf8')) as unknown
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+  } catch { return null }
+}
+
+/** Never throws: a missing, corrupt or old (v0.1.1) file loads as defaults filled in from whatever is valid. A corrupt file falls back to the last good `.bak`. */
+export function readSettings(): Settings {
+  const file = userFile('settings.json')
+  return parseSettings((readRaw(file) ?? readRaw(`${file}.bak`) ?? {}) as Partial<Settings>)
+}
+
+/** Atomic (tmp + rename) shallow merge. Fields this version doesn't know are preserved; the previous good file is kept once as `.bak`. */
 export function writeSettings(patch: Partial<Settings>): Settings {
+  const file = userFile('settings.json')
+  const existing = readRaw(file)
   const next = { ...readSettings(), ...patch }
   fs.mkdirSync(app.getPath('userData'), { recursive: true })
-  fs.writeFileSync(userFile('settings.json'), JSON.stringify(next, null, 2))
+  const tmp = `${file}.${process.pid}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify({ ...existing, ...next }, null, 2))
+  if (existing) fs.copyFileSync(file, `${file}.bak`)
+  fs.renameSync(tmp, file)
   return next
 }
 
