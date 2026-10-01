@@ -6,7 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { checkRoot } from './careerops'
-import { broadcast, launch, summary, writeSettings, type Handler } from './context'
+import { broadcast, launch, summary, writeSettings, type Handler, type RunSummary } from './context'
 import type { DirState, Prerequisites, ToolCheck } from './contract'
 import { resolveBin, spawnSpec } from './runner'
 
@@ -30,7 +30,7 @@ export function dirState(dir: string): DirState {
 
 // ————— Probes —————
 
-function probe(name: string): Promise<ToolCheck> {
+export function probe(name: string): Promise<ToolCheck> {
   const bin = resolveBin(name)
   if (!bin) return Promise.resolve({ path: null, version: null, ok: false })
   const spec = spawnSpec(name, ['--version'])
@@ -42,11 +42,34 @@ function probe(name: string): Promise<ToolCheck> {
   })
 }
 
-const defaultDir = () => path.join(app.getPath('documents'), 'career-ops')
+export const defaultDir = () => path.join(app.getPath('documents'), 'career-ops')
 
 function adopt(root: string): void {
   writeSettings({ root })
   broadcast('careerloom:settings', null)
+}
+
+const hasDeps = (dir: string) => fs.existsSync(path.join(dir, 'node_modules'))
+export const careerOpsReady = (dir: string) => checkRoot(dir).ok && hasDeps(dir)
+
+/** Make `dir` a working career-ops checkout and adopt it: clone if missing, `npm install` if deps are missing.
+ *  A clone that dies partway is removed so a retry never sees a half-made folder. */
+export function installCareerOps(dir: string): { run: RunSummary | null; root: string } {
+  const state = dirState(dir)
+  if (state === 'valid' && hasDeps(dir)) { adopt(dir); return { run: null, root: dir } }
+  if (state === 'occupied') throw new Error(`${dir} already has other files in it. Move them, or choose an existing career-ops folder instead.`)
+  const npm = { spec: spawnSpec('npm', ['install', '--no-audit', '--no-fund']), cwd: dir }
+  const cloning = state !== 'valid'
+  if (cloning) fs.mkdirSync(path.dirname(dir), { recursive: true })
+  const run = launch(
+    { runner: 'setup', mode: 'setup', label: 'Set up career-ops', input: dir },
+    cloning ? [{ spec: spawnSpec('git', ['clone', '--depth', '1', CAREER_OPS_REPO, dir]), cwd: path.dirname(dir) }, npm] : [npm],
+    {
+      onSuccess: () => adopt(dir),
+      onExit: r => { if (cloning && r.status !== 'done' && !checkRoot(dir).ok) fs.rmSync(dir, { recursive: true, force: true }) },
+    },
+  )
+  return { run: summary(run), root: dir }
 }
 
 export const onboardingHandlers: Record<string, Handler> = {
@@ -55,20 +78,5 @@ export const onboardingHandlers: Record<string, Handler> = {
     const dir = defaultDir()
     return { node: { ...node, ok: nodeVersionOk(node.version) }, npm, git, platform: process.platform, defaultCareerOpsDir: dir, defaultDirState: dirState(dir) }
   },
-  installCareerOpsDefault: () => {
-    const dir = defaultDir()
-    const state = dirState(dir)
-    if (state === 'valid') { adopt(dir); return { run: null, root: dir } }
-    if (state === 'occupied') throw new Error(`${dir} already has other files in it. Move them, or choose an existing career-ops folder instead.`)
-    fs.mkdirSync(path.dirname(dir), { recursive: true })
-    const run = launch(
-      { runner: 'setup', mode: 'setup', label: 'Set up career-ops', input: dir },
-      [
-        { spec: spawnSpec('git', ['clone', '--depth', '1', CAREER_OPS_REPO, dir]), cwd: path.dirname(dir) },
-        { spec: spawnSpec('npm', ['install', '--no-audit', '--no-fund']), cwd: dir },
-      ],
-      { onSuccess: () => adopt(dir) },
-    )
-    return { run: summary(run), root: dir }
-  },
+  installCareerOpsDefault: () => installCareerOps(defaultDir()),
 }

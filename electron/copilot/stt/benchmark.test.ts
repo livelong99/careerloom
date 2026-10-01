@@ -19,7 +19,8 @@ describe('parseSelection', () => {
   it('accepts an installable engine/model/device and rejects the rest', () => {
     expect(parseSelection({ engine: 'whisper-mlx', model: 'turbo', device: 'auto' })).toEqual({ engine: 'whisper-mlx', model: 'turbo', device: 'auto' })
     expect(() => parseSelection({ engine: 'whisper-mlx', model: 'huge', device: 'auto' })).toThrow(/model/)
-    expect(() => parseSelection({ engine: 'faster-whisper', model: 'small', device: 'auto' })).toThrow(/engine/)
+    expect(parseSelection({ engine: 'faster-whisper', model: 'turbo', device: 'cuda' })).toEqual({ engine: 'faster-whisper', model: 'turbo', device: 'cuda' })
+    expect(() => parseSelection({ engine: 'soniox', model: 'small', device: 'auto' })).toThrow(/engine/)
     expect(() => parseSelection({ engine: 'moonshine', model: 'small', device: 'tpu' })).toThrow(/device/)
     expect(() => parseSelection(null)).toThrow()
   })

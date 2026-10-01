@@ -23,9 +23,13 @@ export const STT_ENGINES: ReadonlyArray<{ id: SttEngineId; label: string; hint: 
     ],
   },
   {
-    id: 'faster-whisper', label: 'faster-whisper', hint: 'Needs an NVIDIA GPU for real-time use; not available on this Mac.',
+    id: 'faster-whisper', label: 'Whisper (NVIDIA GPU)', hint: 'Default on Windows and Linux with an NVIDIA GPU. Runs Whisper on the GPU (CUDA), no CUDA toolkit to install; falls back to the CPU if the GPU cannot be used. Installs about 1.3 GB of NVIDIA libraries.',
     devices: ['cpu', 'cuda'],
-    models: [{ id: 'small', label: 'Small', hint: 'balanced' }],
+    models: [
+      { id: 'turbo', label: 'Turbo · most accurate', hint: 'default with a GPU · large-v3-turbo · measure speed with Benchmark', recommended: true },
+      { id: 'distil', label: 'Distil · English, a little faster', hint: 'distil-large-v3 · fewer decoder layers, similar accuracy on short sentences' },
+      { id: 'small', label: 'Small · CPU fallback', hint: 'small English model · light enough for a CPU' },
+    ],
   },
 ]
 export const DEVICE_LABEL: Record<SttDevice, string> = { auto: 'Auto', cpu: 'CPU', coreml: 'Apple Neural Engine (CoreML)', cuda: 'NVIDIA GPU (CUDA)' }

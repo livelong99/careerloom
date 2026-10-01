@@ -54,6 +54,8 @@ function benchmark(v: unknown): SttBenchmark | null {
   return {
     at: b.at, p50FinalMs: b.p50FinalMs, realTimeFactor: b.realTimeFactor,
     ramMb: typeof b.ramMb === 'number' ? b.ramMb : null, wer: typeof b.wer === 'number' ? b.wer : null,
+    ...(typeof b.p95FinalMs === 'number' ? { p95FinalMs: b.p95FinalMs } : {}), ...(typeof b.p50DecodeMs === 'number' ? { p50DecodeMs: b.p50DecodeMs } : {}),
+    ...(typeof b.p95DecodeMs === 'number' ? { p95DecodeMs: b.p95DecodeMs } : {}), ...(b.device === 'cuda' || b.device === 'cpu' ? { device: b.device } : {}),
   }
 }
 
@@ -71,7 +73,7 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
       systemSource: pick(audio.systemSource, ['loopback', 'virtual'], d.audio.systemSource), virtualDeviceId: strOrNull(audio.virtualDeviceId, d.audio.virtualDeviceId),
     },
     stt: {
-      engine: pick(stt.engine, ['moonshine', 'whisper-mlx'], d.stt.engine), model: strOrNull(stt.model, d.stt.model), // faster-whisper has no adapter: a stale value would fail every session start
+      engine: pick(stt.engine, ['moonshine', 'whisper-mlx', 'faster-whisper'], d.stt.engine), model: strOrNull(stt.model, d.stt.model),
       device: pick(stt.device, ['auto', 'cpu', 'coreml', 'cuda'], d.stt.device), language: 'en',
       lastBenchmark: benchmark(stt.lastBenchmark), endSilenceMs: num(stt.endSilenceMs, d.stt.endSilenceMs, 200, 3000), vocab: words(stt.vocab, d.stt.vocab),
     },

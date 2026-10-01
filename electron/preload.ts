@@ -43,6 +43,9 @@ const bridge = {
   installCareerOpsDefault: () => invoke('installCareerOpsDefault'),
   onRun: (cb: (event: unknown) => void) => subscribe('run', cb),
   onSettings: (cb: () => void) => subscribe('settings', cb),
+  bootstrapStatus: () => invoke('bootstrapStatus'),
+  bootstrapStart: (arg?: { retry?: string }) => invoke('bootstrapStart', arg),
+  onBootstrap: (cb: (status: unknown) => void) => subscribe('bootstrap', cb),
   getReadiness: (force?: boolean) => invoke('getReadiness', force),
   onReadiness: (cb: (event: unknown) => void) => subscribe('readiness', cb),
   // Resume

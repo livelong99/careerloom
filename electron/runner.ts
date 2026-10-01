@@ -3,6 +3,8 @@ import { accessSync, constants, readdirSync, statSync } from 'node:fs'
 import { homedir, platform } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 
+import { runtimeBinDirs } from './runtime/paths'
+
 /** Who does the work. CLI runners use the user's own subscription; `api` runs
  *  career-ops' OpenRouter runner with an API key; `zen` is Careerloom's own agent loop
  *  on the OpenCode Zen API (zen-agent.ts) — free models need no key. */
@@ -163,6 +165,7 @@ function isExecutable(p: string): boolean {
 function searchDirs(): string[] {
   const home = homedir()
   const dirs = [
+    ...runtimeBinDirs(), // Careerloom's own node/python/git/npm CLIs win over whatever the system has
     ...(process.env.PATH || '').split(delimiter),
     '/opt/homebrew/bin', '/usr/local/bin',
     join(home, '.local', 'bin'), join(home, '.claude', 'local'),

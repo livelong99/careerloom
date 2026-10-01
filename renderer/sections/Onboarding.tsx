@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import loomi from '../assets/loomi.svg'
 
+import { SetupStep } from '../components/bootstrap/SetupStep'
 import { AgentStep } from '../components/onboarding/AgentStep'
-import { ModelStep } from '../components/onboarding/ModelStep'
-import { PrereqStep } from '../components/onboarding/PrereqStep'
 import { ResumeStep } from '../components/onboarding/ResumeStep'
 import { WorkspaceStep } from '../components/onboarding/WorkspaceStep'
 import { Footer, PRIMARY, StepHeader } from '../components/onboarding/parts'
@@ -13,10 +12,9 @@ import type { Settings } from '../lib/types'
 
 const STEPS = [
   { id: 'welcome', label: 'Welcome' },
-  { id: 'tools', label: 'Tools' },
+  { id: 'tools', label: 'Install' },
   { id: 'workspace', label: 'Workspace' },
   { id: 'agent', label: 'Agent' },
-  { id: 'model', label: 'Local model' },
   { id: 'resume', label: 'Résumé' },
 ] as const
 type StepId = typeof STEPS[number]['id']
@@ -86,15 +84,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           {!s || !current ? <p className="m-0 text-muted-foreground">Loading…</p>
             : current === 'welcome' ? (
               <>
-                <StepHeader title="Welcome to Careerloom" lead="Careerloom finds and evaluates jobs for you and tailors your résumé to each one, using an AI agent that runs on your computer. Setup takes about five minutes." />
+                <StepHeader title="Welcome to Careerloom" lead="Careerloom finds and evaluates jobs for you and tailors your résumé to each one, using an AI agent that runs on your computer. Careerloom installs everything it needs by itself first." />
                 <Footer><button type="button" className={PRIMARY} onClick={next}>Get started</button></Footer>
               </>
             )
-              : current === 'tools' ? <PrereqStep hasApiKey={s.hasApiKey} hasOpencodeKey={s.hasOpencodeKey} onKeySaved={settings.refresh} onNext={next} />
+              : current === 'tools' ? <SetupStep onNext={next} />
                 : current === 'workspace' ? <WorkspaceStep settings={s} onChanged={settings.refresh} onNext={next} />
                   : current === 'agent' ? <AgentStep settings={s} onChanged={settings.refresh} onNext={next} />
-                    : current === 'model' ? <ModelStep onNext={next} />
-                      : <ResumeStep onDone={finish} />}
+                    : <ResumeStep onDone={finish} />}
         </div>
       </div>
     </div>

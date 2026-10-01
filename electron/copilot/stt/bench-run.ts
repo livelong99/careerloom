@@ -55,7 +55,7 @@ export async function runBenchmark(o: { make: () => SttAdapter; fixture: BenchFi
     if (f) { latencies.push(f.at - u.endMs); next++ }
   }
   return {
-    at: Date.now(), p50FinalMs: Math.round(percentile(latencies, 0.5)), realTimeFactor: Math.round((fast.wallMs / audioMs) * 100) / 100,
+    at: Date.now(), p50FinalMs: Math.round(percentile(latencies, 0.5)), p95FinalMs: Math.round(percentile(latencies, 0.95)), realTimeFactor: Math.round((fast.wallMs / audioMs) * 100) / 100,
     ramMb: null, wer: Math.round(werOf(fixture.refText, fast.finals.map(f => f.text).join(' ')) * 1000) / 1000,
   }
 }

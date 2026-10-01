@@ -6,6 +6,7 @@ import { checkRoot, listReports, readPipeline, readReport, readTracker } from '.
 import { broadcast, dataRoot, launch, setSkillContext, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSettings, type Handler } from './context'
 import { chatHandlers } from './chat'
 import { onboardingHandlers } from './onboarding'
+import { bootstrapHandlers, onBootstrapIdle, runBootstrap } from './runtime/bootstrap'
 import { prescreenHandlers, stopPrescreen } from './prescreen'
 import { integrationsHandlers } from './integrations'
 import { jobsHandlers } from './jobs'
@@ -57,6 +58,9 @@ async function refreshReadiness(): Promise<Readiness | null> {
   return readiness
 }
 
+// After every bootstrap pass the agent CLIs may have appeared (opencode) or the root may have been set.
+onBootstrapIdle(() => void refreshReadiness().catch(err => console.error('readiness check failed:', err)))
+
 let opencodeModels: Array<{ id: string; label: string }> | null = null
 /** `opencode models` prints one provider/model id per line. */
 function listOpencodeModels(): Promise<Array<{ id: string; label: string }>> {
@@ -64,7 +68,8 @@ function listOpencodeModels(): Promise<Array<{ id: string; label: string }>> {
   const bin = resolveBin('opencode')
   if (!bin) return Promise.resolve([])
   return new Promise(resolve => {
-    execFile(bin, ['models'], { timeout: 30_000, env: spawnSpec('opencode', []).env }, (err, stdout) => {
+    const spec = spawnSpec('opencode', ['models'])
+    execFile(spec.bin, spec.args, { timeout: 30_000, env: spec.env, windowsHide: true, windowsVerbatimArguments: spec.verbatim }, (err, stdout) => {
       if (err) return resolve([])
       opencodeModels = stdout.split('\n').map(l => l.trim()).filter(id => id.includes('/') && isModelId(id)).map(id => ({ id, label: id }))
       resolve(opencodeModels)
@@ -100,7 +105,8 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
   const bin = resolveBin('agy')
   if (!bin) return Promise.resolve([])
   return new Promise(resolve => {
-    execFile(bin, ['models'], { timeout: 15_000, env: spawnSpec('agy', []).env }, (err, stdout) => {
+    const spec = spawnSpec('agy', ['models'])
+    execFile(spec.bin, spec.args, { timeout: 15_000, env: spec.env, windowsHide: true, windowsVerbatimArguments: spec.verbatim }, (err, stdout) => {
       if (err) return resolve([])
       agyModels = stdout.split('\n').map(l => l.split('\t')).filter(([id]) => isModelId(id?.trim())).map(([id, label]) => ({ id: id!.trim(), label: (label ?? id!).trim() }))
       resolve(agyModels)
@@ -109,7 +115,7 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
 } // stays under promptFor's 20k input ceiling
 
 // Feature modules own their handlers; names must not collide (checked at registration).
-const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, settingsHandlers]
+const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, settingsHandlers]
 
 /** Folders returned by the native picker this session; setRoot accepts only these. */
 const pickedDirs = new Set<string>()
@@ -340,6 +346,7 @@ function bootstrap(): void {
     // Same rule for the synchronous check (device labels, enumerateDevices): without it Chromium answers from the request handler's absence.
     session.defaultSession.setPermissionCheckHandler((_wc, permission, origin, details) => permission === 'media' ? isAllowedPermission(permission, origin, details.mediaType === 'video' ? ['video'] : undefined) : true)
     void refreshReadiness().catch(err => console.error('readiness check failed:', err))
+    void runBootstrap() // installs every missing dependency itself; never blocks the UI (CAREERLOOM_NO_BOOTSTRAP skips it)
     Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate()))
     createWindow()
     startFakeOverlayIfRequested() // dev only: CL_COPILOT_FAKE=cycle|<state>

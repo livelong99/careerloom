@@ -48,7 +48,8 @@ export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: In
 export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean; debrief?: boolean }
 export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper'
 export type SttDevice = 'auto' | 'cpu' | 'coreml' | 'cuda'
-export type SttBenchmark = { at: number; p50FinalMs: number; realTimeFactor: number; ramMb: number | null; wer: number | null }
+/** p95FinalMs: tail of end-of-speech → final text. faster-whisper adds the device that really ran and per-decode p50/p95 (GPU time without the endpoint wait). */
+export type SttBenchmark = { at: number; p50FinalMs: number; realTimeFactor: number; ramMb: number | null; wer: number | null; p95FinalMs?: number; p50DecodeMs?: number; p95DecodeMs?: number; device?: 'cuda' | 'cpu' }
 export type SttModelInfo = { engine: SttEngineId; model: string; sizeMb: number | null; installed: boolean; devices: Array<'cpu' | 'coreml' | 'cuda'>; lastBenchmark: SttBenchmark | null; recommended: boolean }
 /** What the user can do about a model/provider error (rendered as buttons). */
 export type ErrorAction = 'change-model' | 'privacy-settings' | 'manage-key'

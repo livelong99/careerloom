@@ -78,7 +78,7 @@ export function LocalModelsPage(_props: PageProps) {
             )
           })}
         </div>
-        <div className="mt-2"><Note>Whisper installs about 1.3 GB of Python packages (PyTorch) plus the model into a folder in your home directory. Nothing is bundled with the app.</Note></div>
+        <div className="mt-2"><Note>{engine === 'faster-whisper' ? 'Whisper on an NVIDIA GPU installs about 1.3 GB of NVIDIA runtime libraries (no PyTorch, no CUDA toolkit) plus the model' : 'Whisper installs about 1.3 GB of Python packages (PyTorch) plus the model'} into a folder in your home directory. Nothing is bundled with the app.</Note></div>
       </Group>
     </>
   )

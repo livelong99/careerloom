@@ -74,6 +74,10 @@ export type CareerloomBridge = {
   installCareerOpsDefault(): Promise<{ run: Run | null; root: string }>
   onRun(cb: (event: RunEvent) => void): () => void
   onSettings(cb: () => void): () => void
+  /** First-launch dependency installer (electron/runtime/bootstrap.ts). */
+  bootstrapStatus(): Promise<BootstrapStatus>
+  bootstrapStart(arg?: { retry?: BootstrapStepId }): Promise<BootstrapStatus>
+  onBootstrap(cb: (status: BootstrapStatus) => void): () => void
   /** Per-CLI readiness for the chosen folder (install, sign-in, skill, headless setup). */
   getReadiness(force?: boolean): Promise<Readiness | null>
   onReadiness(cb: (event: { readiness: Readiness; switchedTo: string | null }) => void): () => void
@@ -250,6 +254,7 @@ export type SpendFlow = {
 // Feature contracts live in electron/contract.ts (types only) so the main
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
+import type { BootstrapStatus, BootstrapStepId } from '../../electron/contract'
 import type { CopilotBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
 import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
 import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'
