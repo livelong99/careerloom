@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 
 import { createBudget } from './research/budget'
 import { createBraveBackend } from './research/search/brave'
-import { retrieve } from './retrieve'
 import { selectNext } from '../interviewer/select'
 import { createTtsService } from '../tts/service'
 
@@ -16,7 +15,6 @@ const MODULES = ['kb/store', 'kb/bm25', 'kb/retrieve', 'kb/hash', 'kb/sources', 
 describe('module stubs (WP0)', () => {
   it.each(MODULES)('%s loads', async m => { await expect(import(`../${m}`)).resolves.toBeDefined() })
   it('stub functions throw a named owner, never return a fake value', () => {
-    expect(() => retrieve('j', 'q')).toThrow(/WP1/)
     expect(() => createBudget({ usd: 1, minutes: 1 })).toThrow(/WP2/)
     expect(() => createBraveBackend({})).toThrow(/WP2/)
     expect(() => selectNext([], {} as never, {} as never)).toThrow(/WP4/)
