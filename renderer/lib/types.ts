@@ -194,6 +194,10 @@ export type CareerloomBridge = {
   browserAcks(): Promise<string[]>
   browserRevoke(domain: string): Promise<string[]>
   dataLocations(): Promise<DataLocation[]>
+  /** Opens one of the `dataLocations()` folders in Finder/Explorer; any other path is refused. */
+  revealPath(path: string): Promise<boolean>
+  /** Last N (≤200) lines of a run's log with credential-like lines dropped. */
+  runLogTail(id: string, lines?: number): Promise<string>
   dataStats(): Promise<DataStats>
   dataClear(scope: ClearScope): Promise<PruneResult>
   /** Applies prefs.retention now (no-op while it is 'forever'). */
