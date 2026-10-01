@@ -69,6 +69,24 @@ describe('research service', () => {
     expect(h.commits).toBe(1)
     expect(h.data.manifest).toMatchObject({ status: 'complete', jobId: JOB.jobId, runner: 'research', model: 'fake-model' })
     expect(h.svc.running(JOB.jobId)).toBeNull()
+    expect(h.svc.progress(JOB.jobId)).toBeNull() // cleared once the run ends
+  })
+
+  it('exposes the latest progress while running (for kbSummary.progress): phase, done/total, spend, elapsed', async () => {
+    let release!: () => void
+    const gate = new Promise<void>(r => { release = r })
+    const slow = createFakeBackend({ results: () => ALL_RESULTS })
+    const orig = slow.search.bind(slow)
+    let calls = 0
+    slow.search = async (q, s) => { if (++calls === 3) await gate; return orig(q, s) }
+    const h = harness({ backends: () => [slow] })
+    expect(h.svc.progress(JOB.jobId)).toBeNull()
+    const { runId } = h.svc.start(JOB.jobId, OPTS)
+    await new Promise(r => setTimeout(r, 20))
+    expect(h.svc.progress(JOB.jobId)).toMatchObject({ runId, phase: 'search', total: 18, spentUsd: expect.any(Number), elapsedMs: expect.any(Number) })
+    release()
+    await h.done.get(runId)
+    expect(h.svc.progress(JOB.jobId)).toBeNull()
   })
 
   it('refuses without consent, without a search path, twice for one job, and for bad ids', async () => {
