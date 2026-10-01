@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { makeItem } from './fixtures/golden'
+import { kbJobDir } from './hash'
 import { LIMITS } from './schema-guard'
 import { openKbStore } from './store'
 import type { KbManifest } from './types'
@@ -29,8 +30,8 @@ describe('kb store', () => {
     expect(b.items).toEqual([item])
     expect(b.manifest).toEqual(manifest)
     expect(b.notes.company).toEqual(['c'])
-    expect(statSync(join(dir, 'job-1', 'items.json')).mode & 0o777).toBe(0o600)
-    expect(statSync(join(dir, 'job-1')).mode & 0o777).toBe(0o700)
+    expect(statSync(join(dir, kbJobDir('job-1'), 'items.json')).mode & 0o777).toBe(0o600)
+    expect(statSync(join(dir, kbJobDir('job-1'))).mode & 0o777).toBe(0o700)
   })
   it('merge-by-id keeps user.* and stats.* (and an edited item\'s own fields) when research re-finds an item', () => {
     const s = openKbStore(() => dir)
@@ -74,35 +75,35 @@ describe('kb store', () => {
     const s = openKbStore(() => dir)
     const fat = Array.from({ length: LIMITS.items }, (_, i) => makeItem(`fat ${i}`, { idealOutline: Array.from({ length: 12 }, () => 'x'.repeat(280)) }))
     expect(() => s.commit('job-1', { items: fat, sources: Array.from({ length: 30000 }, (_, i) => ({ id: `s${i}`, url: `https://e.dev/${'p'.repeat(300)}${i}`, title: 't'.repeat(200), host: 'e.dev', kind: 'other' as const, licence: null, fetchedAt: 1, contentHash: 'h'.repeat(64), trust: 1 as const })) })).toThrow(/budget/)
-    expect(existsSync(join(dir, 'job-1', 'items.json'))).toBe(false) // nothing half-written
+    expect(existsSync(join(dir, kbJobDir('job-1'), 'items.json'))).toBe(false) // nothing half-written
   })
   it('atomic write keeps the previous good file as .bak and leaves no temp file', () => {
     const s = openKbStore(() => dir)
     s.commit('job-1', { items: [makeItem('Q one')] })
     s.commit('job-1', { items: [makeItem('Q two')] })
-    expect(readdirSync(join(dir, 'job-1')).sort()).toEqual(['items.json', 'items.json.bak'])
-    expect(JSON.parse(readFileSync(join(dir, 'job-1', 'items.json.bak'), 'utf8'))).toHaveLength(1)
+    expect(readdirSync(join(dir, kbJobDir('job-1'))).sort()).toEqual(['items.json', 'items.json.bak'])
+    expect(JSON.parse(readFileSync(join(dir, kbJobDir('job-1'), 'items.json.bak'), 'utf8'))).toHaveLength(1)
   })
   it('a corrupt file restores from .bak; with no .bak it loads as empty (never throws)', () => {
     const s = openKbStore(() => dir)
     s.commit('job-1', { items: [makeItem('Q one')] })
     s.commit('job-1', { items: [makeItem('Q two')] })
-    writeFileSync(join(dir, 'job-1', 'items.json'), '{not json')
+    writeFileSync(join(dir, kbJobDir('job-1'), 'items.json'), '{not json')
     expect(openKbStore(() => dir).read('job-1').items.map(i => i.text)).toEqual(['Q one'])
-    rmSync(join(dir, 'job-1', 'items.json.bak'))
-    writeFileSync(join(dir, 'job-1', 'items.json'), '[1,2,"x"]')
+    rmSync(join(dir, kbJobDir('job-1'), 'items.json.bak'))
+    writeFileSync(join(dir, kbJobDir('job-1'), 'items.json'), '[1,2,"x"]')
     expect(openKbStore(() => dir).read('job-1').items).toEqual([])
   })
   it('drops malformed rows but keeps valid ones; revision bumps on every write; remove deletes the folder', () => {
     const s = openKbStore(() => dir)
     s.commit('job-1', { items: [makeItem('Q one')] })
     const r0 = s.revision('job-1')
-    writeFileSync(join(dir, 'job-1', 'items.json'), JSON.stringify([makeItem('Q ok'), { text: 5 }, null]))
+    writeFileSync(join(dir, kbJobDir('job-1'), 'items.json'), JSON.stringify([makeItem('Q ok'), { text: 5 }, null]))
     expect(openKbStore(() => dir).read('job-1').items.map(i => i.text)).toEqual(['Q ok'])
     s.commit('job-1', { notes: { company: ['n'], role: [], interviewerStyle: [], loop: [] } })
     expect(s.revision('job-1')).toBeGreaterThan(r0)
     s.remove('job-1')
-    expect(existsSync(join(dir, 'job-1'))).toBe(false)
+    expect(existsSync(join(dir, kbJobDir('job-1')))).toBe(false)
     expect(s.read('job-1').items).toEqual([])
   })
 })
