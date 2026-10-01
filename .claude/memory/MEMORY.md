@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261001 Fix models](session_20261001_fix-models.md) — OpenRouter data-policy fix: free models flagged, friendly errors + actions, paid defaults, allow-free toggle
 - [20261001 Settings QA](session_20261001_settings-qa.md) — real-app QA on cloned profile (74 checks pass), search ranking + registry-id fixes, chip/attribute dedupe, STT install defers to Local models
 - [20261001 Settings C AI pages](session_20261001_settings-c-ai.md) — Runners & models, API keys manager, Local models pages; shared KeyField; revealPath + runLogTail IPC
 - [20261001 Settings WP-A](session_20261001_settings-wpa.md) — contract, atomic migration-safe settings.json, key manager + no-token tests, prefs, data/retention, reset, diagnostics
