@@ -33,8 +33,8 @@ function formatSpec(c: CopilotConfig['coaching'], kind: PromptKind, type: Questi
   if (kind === 'clarify') return '[SAY]\nOne or two short clarifying questions the candidate can ask back. Make no claims about the candidate.\n[BULLETS]\n- assumptions to state out loud (max 3)'
   const star = c.shape === 'cues+star' && type === 'behavioural'
   const say = c.shape === 'script'
-    ? `[SAY]\nA complete speakable answer, ${SENTENCES[c.length]} sentences.`
-    : `[SAY]\nThe opening line to say (one sentence).`
+    ? `[SAY]\nHeadline first: sentence one is the direct answer in at most 15 words, then a complete speakable answer, ${SENTENCES[c.length]} sentences in total.`
+    : `[SAY]\nThe opening line to say: the direct answer in one sentence of at most 15 words.`
   const bullets = `[BULLETS]\n- ${c.shape === 'script' ? 'talking points if probed' : 'cue to say next'}, one line each (${BULLETS[c.length]} items)`
   const starSpec = star ? '\n[STAR]\nS: situation (one line)\nT: task\nA: action, what the candidate personally did\nR: result, only numbers that appear in the facts' : ''
   const proof = c.quoteResume ? '\n[PROOF]\n- "verbatim quote from CANDIDATE FACTS or INTERVIEW PLAN" | where it came from\n(Only exact quotes. Omit the section if nothing supports the answer.)' : ''
@@ -55,7 +55,9 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
     clarify: `The question may be ambiguous. Help the candidate clarify it.`,
     summarise: `Summarise the conversation so far.`,
   }[kind]
-  const user = `${task} Tone: ${TONE[c.tone]} Question type: ${question.type}.${input.variant === 'brief' ? ' Keep it to two short sentences.' : ''}\n\nFORMAT (exactly these sections):\n${formatSpec(c, kind, question.type)}\n\n${OPEN}\n${lines.length ? `Recent conversation:\n${lines.join('\n')}\n\n` : ''}QUESTION: ${neutralize(question.text.trim())}\n${CLOSE}`
+  // Prefix-stable order: everything above (system) is identical for the whole session; in the user message the per-session format
+  // comes first and the parts that change every turn (task, transcript, question) come last.
+  const user = `FORMAT (exactly these sections):\n${formatSpec(c, kind, question.type)}\n\n${task} Tone: ${TONE[c.tone]} Question type: ${question.type}.${input.variant === 'brief' ? ' Keep it to two short sentences.' : ''}\n\n${OPEN}\n${lines.length ? `Recent conversation:\n${lines.join('\n')}\n\n` : ''}QUESTION: ${neutralize(question.text.trim())}\n${CLOSE}`
   return { system, messages: [{ role: 'user', content: user }] }
 }
 

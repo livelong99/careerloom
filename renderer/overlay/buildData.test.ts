@@ -28,6 +28,12 @@ describe('buildOverlayData', () => {
     expect(d.sys).toBe(false)
   })
 
+  it('prefers the end-of-speech -> first-line time, then request -> first line, over first token', () => {
+    const t = (trace: Record<string, number | null>) => buildOverlayData(run([listening(), { type: 'copilotSuggestion', payload: { ...sug(), trace: trace as never } }]), ctx()).latency
+    expect(t({ endToSay: 1400, firstSay: 600 })).toBe('1.4 s')
+    expect(t({ endToSay: null, firstSay: 600 })).toBe('0.6 s')
+  })
+
   it('no answer yet: latency dash', () => {
     expect(buildOverlayData(run([listening()]), ctx()).latency).toBe('— s')
   })

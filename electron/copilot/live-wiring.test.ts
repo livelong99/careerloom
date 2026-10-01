@@ -250,3 +250,73 @@ describe('live wiring: auto-ask, routing and speculative start (PERF-2)', () => 
   })
 })
 
+describe('pre-warm and trace marks (PERF-1)', () => {
+  it('warms the connection when a session arms, keeps it warm while listening, and stops on stop', async () => {
+    vi.useFakeTimers()
+    try {
+      const warm = vi.fn(async () => undefined)
+      const eng: AnswerEngine = { answer: async function* () { /* none */ }, cancelAll: vi.fn(), warm }
+      const { w } = setup({ warmEveryMs: 1000 }, eng)
+      w.emit('copilotState', state('armed'))
+      expect(warm).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(2500)
+      expect(warm).toHaveBeenCalledTimes(3)
+      w.emit('copilotState', state('stopped'))
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(warm).toHaveBeenCalledTimes(3)
+    } finally { vi.useRealTimers() }
+  })
+  it('auto-ask passes speech-end, STT-final and detector times to the engine', async () => {
+    const seen: unknown[] = []
+    const eng: AnswerEngine = { answer: async function* (req) { seen.push(req.marks); yield suggestion(req.question.id, true) }, cancelAll: vi.fn() }
+    const { w, cfg, of } = setup({}, eng)
+    cfg.engine.autoAnswer = true
+    w.emit('copilotState', { ...state('listening'), sources: ['mic', 'system'] })
+    w.emit('copilotTranscript', line('a', 'interviewer', 'What is your biggest weakness?'))
+    await vi.waitFor(() => expect(of('copilotSuggestion')).toHaveLength(1))
+    expect(seen[0]).toEqual({ speechEndAt: 1, sttFinalAt: 1000, detectedAt: 1000 })
+  })
+
+  describe('turn info and speculation in the trace (PERF-2)', () => {
+    const capture = () => {
+      const reqs: Array<{ marks?: Record<string, number>; info?: Record<string, unknown> }> = []
+      const engine: AnswerEngine = { cancelAll: vi.fn(), answer: req => { reqs.push({ marks: req.marks as never, info: req.info as never }); return (async function* () { yield suggestion(req.question.id, true) })() } }
+      return { engine, reqs }
+    }
+    const live = (): CopilotEvents['copilotState'] => ({ ...state('listening'), sources: ['mic', 'system'] })
+
+    it('an auto-ask turn carries kind, tier, gate and no speculation', async () => {
+      const { engine, reqs } = capture()
+      const { w, cfg, of } = setup({}, engine)
+      cfg.engine.autoAnswer = true
+      w.emit('copilotState', live())
+      w.emit('copilotTranscript', line('a', 'interviewer', 'Design a URL shortener.'))
+      await vi.waitFor(() => expect(of('copilotSuggestion')).toHaveLength(1))
+      expect(reqs[0]!.info).toEqual({ kind: 'system-design', tier: 'deep', auto: true, spec: null, gate: 'heuristic', gateMs: null })
+    })
+
+    it('a speculative hit fills the early request’s marks (speech end, STT final, detector, release) and says hit', async () => {
+      const { engine, reqs } = capture()
+      const { w, cfg, of } = setup({}, engine)
+      cfg.engine.autoAnswer = true; cfg.engine.speculativeStart = true
+      w.emit('copilotState', live())
+      w.emit('copilotTranscript', line('a', 'interviewer', 'Why do you want to work here?', false))
+      w.emit('copilotTranscript', line('a', 'interviewer', 'Why do you want to work here?', true))
+      await vi.waitFor(() => expect(of('copilotSuggestion')).toHaveLength(1))
+      expect(reqs).toHaveLength(1)
+      expect(reqs[0]!.marks).toMatchObject({ speechEndAt: 1, sttFinalAt: 1000, detectedAt: 1000, releasedAt: 1000 })
+      expect(reqs[0]!.info).toMatchObject({ spec: 'hit', auto: true, kind: 'behavioural' })
+    })
+
+    it('after a miss the restarted request is labelled miss', async () => {
+      const { engine, reqs } = capture()
+      const { w, cfg, of } = setup({}, engine)
+      cfg.engine.autoAnswer = true; cfg.engine.speculativeStart = true
+      w.emit('copilotState', live())
+      w.emit('copilotTranscript', line('a', 'interviewer', 'Tell me about a time.', false))
+      w.emit('copilotTranscript', line('a', 'interviewer', 'Tell me about a time you led a migration across three teams?', true))
+      await vi.waitFor(() => expect(of('copilotSuggestion').length).toBeGreaterThan(0))
+      expect(reqs.at(-1)!.info).toMatchObject({ spec: 'miss', auto: true })
+    })
+  })
+})

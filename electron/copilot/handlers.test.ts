@@ -149,6 +149,7 @@ describe('job-linked sessions', () => {
     const a = await c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null }) as { sessionId: string }
     await c.handlers.copilotStop('user')
     expect(await c.handlers.copilotGetSession(a.sessionId)).toMatchObject({ id: a.sessionId })
+    expect((await c.handlers.copilotGetSession(a.sessionId) as SessionDetail).latency).toMatchObject({ turns: 0, ttft: null, cacheHitRate: null })
     expect(await c.handlers.copilotGetSession('nope')).toBeNull()
     expect(await c.handlers.copilotDeleteSession(a.sessionId)).toBe(1)
     expect(await c.handlers.copilotDeleteSession('all')).toBe(0)

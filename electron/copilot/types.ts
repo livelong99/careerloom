@@ -12,17 +12,20 @@ export type Anchor = 'tl' | 'tc' | 'tr' | 'ml' | 'c' | 'mr' | 'bl' | 'bc' | 'br'
 export type StopReason = 'user' | 'panic' | 'error'
 /** Mirrors Electron's `systemPreferences.getMediaAccessStatus`. */
 export type PermStatus = 'granted' | 'denied' | 'not-determined' | 'restricted' | 'unknown'
+import type { StageMs, TraceSummary } from './trace'
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends readonly unknown[] ? T[K] : T[K] extends object ? DeepPartial<T[K]> : T[K] }
 
 export type TranscriptLine = { id: string; speaker: Speaker; text: string; final: boolean; t0: number; t1: number | null }
 /** What the question gate learned about a turn (PERF-2); advisory, never authority. Additive, absent on older sessions. */
-export type QuestionHint = { kind: 'coding' | 'system-design' | 'behavioural' | 'factual' | 'small-talk'; complete: boolean; needsScreenshot: boolean; deep: boolean; source: 'heuristic' | 'jev' }
+export type QuestionHint = { kind: 'coding' | 'system-design' | 'behavioural' | 'factual' | 'small-talk'; complete: boolean; needsScreenshot: boolean; deep: boolean; source: 'heuristic' | 'jev'; /** model round trip, when a model answered */ gateMs?: number }
 export type DetectedQuestion = { id: string; text: string; type: QuestionType; confidence: number; at: number; auto: boolean; hint?: QuestionHint }
 export type Suggestion = {
   questionId: string; model: string; tier: 'fast' | 'balanced' | 'deep'
   say: string; bullets: string[]; star: { s: string; t: string; a: string; r: string } | null
   proof: Array<{ quote: string; source: string }>; flags: Array<{ kind: 'unsupported-number' | 'unsupported-skill' | 'unsupported-name'; text: string }>
   done: boolean; firstTokenMs: number | null; totalMs: number | null; costUsd: number | null
+  /** Numbers-only stage timings of this turn (PERF-1); additive, absent on older sessions. */
+  trace?: StageMs
 }
 export type SourceHealth = { source: SourceId; status: 'ok' | 'silent' | 'denied' | 'missing'; level: number }
 
@@ -35,7 +38,9 @@ export type ConsentRecord = {
 /** `jobId` is required: every session belongs to exactly one Job. Title/company are snapshots that survive job deletion. */
 export type SessionSummary = { id: string; startedAt: number; endedAt: number | null; mode: CopilotMode; jobId: string; jobTitle: string; company: string; questions: number; durationSec: number; score: number | null }
 export type Scorecard = { structure: number; specifics: number; evidence: number; concision: number; notes: Array<{ questionId: string; tip: string; suggestedLine: string | null }> }
-export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; questionsList: DetectedQuestion[]; suggestions: Suggestion[]; scorecard: Scorecard | null }
+export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; questionsList: DetectedQuestion[]; suggestions: Suggestion[]; scorecard: Scorecard | null
+  /** p50/p95 stage latencies over this session's answers, derived on read from `suggestions[].trace`. */
+  latency?: TraceSummary }
 
 /** `questionIds`/`custom` (practice only): the chosen report questions and the user's own. Additive to the frozen contract. */
 export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[] }

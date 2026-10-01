@@ -20,6 +20,12 @@ function problemOf(m: OverlayModel, state: OverlayViewData['state']): OverlayPro
 }
 
 /** Model + config → what the overlay draws. Pure, so every state is testable without a window. */
+/** Headline latency: speech end -> first visible line when the turn was auto-asked, else request -> first visible line, else first token. */
+const latencyLabel = (s: OverlayModel['suggestion']): string => {
+  const ms = s?.trace?.endToSay ?? s?.trace?.firstSay ?? s?.firstTokenMs
+  return ms != null ? `${(ms / 1000).toFixed(1)} s` : '— s'
+}
+
 export function buildOverlayData(m: OverlayModel, { cfg, layout, now, wiped }: Ctx): OverlayViewData {
   const state = deriveView(m)
   const started = m.session?.startedAt ?? now
@@ -32,7 +38,7 @@ export function buildOverlayData(m: OverlayModel, { cfg, layout, now, wiped }: C
     indicator: effectiveIndicator(cfg.privacy.mode),
     passive: cfg.overlay.clickThroughIdle && state === 'listening',
     time: formatElapsed(now - started),
-    latency: s?.firstTokenMs != null ? `${(s.firstTokenMs / 1000).toFixed(1)} s` : '— s',
+    latency: latencyLabel(s),
     cost: `$${sessionCost(m).toFixed(2)}`,
     question: m.question ? { type: TYPE_LABEL[m.question.type], text: m.question.text } : null,
     suggestion: s,

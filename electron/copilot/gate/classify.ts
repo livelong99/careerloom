@@ -9,5 +9,5 @@ export const gateClassify = (gate: QuestionGate): Classify => async text => {
   const v = await gate.decide({ text, speaker: 'interviewer' })
   if (v.source === 'heuristic' || v.isQuestion === null) return null
   const kind = v.kind ?? 'factual'
-  return { isQuestion: v.isQuestion, type: TYPE[kind] ?? 'other', hint: { kind, complete: v.complete, needsScreenshot: v.needsScreenshot ?? false, deep: v.deep ?? (kind === 'coding' || kind === 'system-design'), source: v.source } }
+  return { isQuestion: v.isQuestion, type: TYPE[kind] ?? 'other', hint: { kind, complete: v.complete, needsScreenshot: v.needsScreenshot ?? false, deep: v.deep ?? (kind === 'coding' || kind === 'system-design'), source: v.source, gateMs: v.ms } }
 }

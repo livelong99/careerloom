@@ -8,6 +8,7 @@
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
 - [20261001 Copilot PERF-2](session_20261001_copilot-perf2.md) — adaptive endpointing (real Whisper −460 ms), auto-ask policy, heuristic/Jev gate, speculative start, per-turn routing
+- [20261001 Copilot PERF-1](session_20261001_copilot-perf1.md) — latency trace, headline-first/prefix-stable prompt, reasoning-param ladder, pre-warm, cached-token cost + report
 - [20261001 Fix UI layout](session_20261001_fix-ui-layout.md) — Copilot Appearance/Settings Copilot/Agent layout fixes, 19-page audit, no dead controls
 - [20261001 Fix models](session_20261001_fix-models.md) — OpenRouter data-policy fix: free models flagged, friendly errors + actions, paid defaults, allow-free toggle
 - [20261001 Settings QA](session_20261001_settings-qa.md) — real-app QA on cloned profile (74 checks pass), search ranking + registry-id fixes, chip/attribute dedupe, STT install defers to Local models

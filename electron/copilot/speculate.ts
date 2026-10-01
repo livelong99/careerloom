@@ -6,10 +6,17 @@ import { classifyByRules, heuristicHint, questionType } from './detector'
 import type { AnswerEngine } from './engine'
 import { routeQuestion } from './routing'
 import { isSentenceFinal, normFinal } from './stt/endpoint'
+import { stageMs, type TraceMarks, type TurnInfo } from './trace'
 import type { CopilotConfig, DetectedQuestion, Suggestion, TranscriptLine } from './types'
 
 export type SpecStats = { started: number; hits: number; misses: number; hitRate: number | null; wastedTokens: number; disabled: boolean }
-export type SpecRun = { stream: AsyncIterable<Suggestion>; abort(): void }
+export type SpecRun = {
+  stream: AsyncIterable<Suggestion>; abort(): void
+  /** Shared with the engine request: fill in speech end / STT final / detector times and `info`, then call `release()`. */
+  marks: TraceMarks; info: TurnInfo
+  /** The held answer is being handed over now: stamps the release time and lets the engine write the trace record. */
+  release(): void
+}
 export type SpeculatorDeps = { engine: AnswerEngine; transcript: () => TranscriptLine[]; config: () => CopilotConfig; now?: () => number }
 
 const MATCH_RATIO = 0.2 // up to one word in five may differ
@@ -29,7 +36,7 @@ export function wordDistanceRatio(a: string, b: string): number {
 }
 
 type Held = { items: Suggestion[]; done: boolean; error: unknown; wake: (() => void) | null }
-type Entry = { text: string; ac: AbortController; held: Held; failed: boolean }
+type Entry = { text: string; ac: AbortController; held: Held; failed: boolean; marks: TraceMarks; info: TurnInfo; released: () => void }
 
 export function createSpeculator(d: SpeculatorDeps) {
   const runs = new Map<string, Entry>()
@@ -45,9 +52,11 @@ export function createSpeculator(d: SpeculatorDeps) {
     })()
   }
 
-  async function* release(h: Held, questionId: string): AsyncGenerator<Suggestion> {
+  async function* release(e: Entry, questionId: string): AsyncGenerator<Suggestion> {
+    const h = e.held
     for (let i = 0; ; ) {
-      if (i < h.items.length) { yield { ...h.items[i++]!, questionId }; continue }
+      // The held items were stamped before the speech end and release were known: restate their trace with the marks as they are now.
+      if (i < h.items.length) { const s = h.items[i++]!; yield { ...s, questionId, ...(s.trace ? { trace: stageMs(e.marks, { promptTokens: s.trace.promptTokens, cachedTokens: s.trace.cachedTokens }, e.info) } : {}) }; continue }
       if (h.done) { if (h.error) throw h.error; return }
       await new Promise<void>(r => { h.wake = r })
       h.wake = null
@@ -65,22 +74,24 @@ export function createSpeculator(d: SpeculatorDeps) {
       const route = routeQuestion(q, cfg.engine)
       if (route.skipLlm) return
       const ac = new AbortController()
-      const entry: Entry = { text, ac, held: { items: [], done: false, error: null, wake: null }, failed: false }
+      let released: () => void = () => undefined
+      const afterRelease = new Promise<void>(r => { released = r })
+      const entry: Entry = { text, ac, held: { items: [], done: false, error: null, wake: null }, failed: false, marks: {}, info: { kind: route.kind, tier: route.tier, auto: true, spec: 'hit', gate: q.hint?.source ?? 'heuristic', gateMs: null }, released }
       runs.set(l.id, entry)
       started++
-      consume(entry, d.engine.answer({ question: q, transcript: d.transcript().filter(t => t.final), kind: 'answer', signal: ac.signal, route }))
+      consume(entry, d.engine.answer({ question: q, transcript: d.transcript().filter(t => t.final), kind: 'answer', signal: ac.signal, route, marks: entry.marks, info: entry.info, afterRelease }))
     },
-    /** The final for `lineId` arrived: adopt the held run (hit) or abort it (miss). Null means "start the normal request". */
-    take(lineId: string, finalText: string, questionId: string): SpecRun | null {
+    /** The final for `lineId` arrived: adopt the held run (hit) or abort it (miss). No run means "start the normal request"; `outcome` tells the trace. */
+    take(lineId: string, finalText: string, questionId: string): { run: SpecRun | null; outcome: 'hit' | 'miss' | null } {
       const e = runs.get(lineId)
-      if (!e) return null
+      if (!e) return { run: null, outcome: null }
       runs.delete(lineId)
       if (!e.failed && wordDistanceRatio(e.text, finalText) <= MATCH_RATIO) {
         hits++; streak = 0
-        return { stream: release(e.held, questionId), abort: () => e.ac.abort() }
+        return { outcome: 'hit', run: { stream: release(e, questionId), abort: () => e.ac.abort(), marks: e.marks, info: e.info, release: () => { e.marks.releasedAt ??= (d.now ?? Date.now)(); e.released() } } }
       }
       e.ac.abort(); misses++; streak++; wasted += streamedTokens(e.held)
-      return null
+      return { run: null, outcome: 'miss' }
     },
     cancel(): void { for (const e of runs.values()) e.ac.abort(); runs.clear() },
     stats: (): SpecStats => ({ started, hits, misses, hitRate: hits + misses ? hits / (hits + misses) : null, wastedTokens: wasted, disabled: disabled() }),
