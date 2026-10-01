@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { MicHandle } from './capture/mic'
@@ -8,8 +8,9 @@ import { useMicCapture } from './useMicCapture'
 function fakeMic() {
   const stop = vi.fn()
   let onFrame: (b: ArrayBuffer) => void = () => undefined
-  const start = vi.fn(async (o: { deviceId?: string | null; onFrame: (b: ArrayBuffer) => void }): Promise<MicHandle> => { onFrame = o.onFrame; return { stop } })
-  return { start, stop, frame: (b: ArrayBuffer) => onFrame(b) }
+  let onEnded: () => void = () => undefined
+  const start = vi.fn(async (o: { deviceId?: string | null; onFrame: (b: ArrayBuffer) => void; onEnded?: () => void }): Promise<MicHandle> => { onFrame = o.onFrame; onEnded = o.onEnded ?? onEnded; return { stop } })
+  return { start, stop, frame: (b: ArrayBuffer) => onFrame(b), end: () => onEnded() }
 }
 
 describe('useMicCapture', () => {
@@ -40,5 +41,35 @@ describe('useMicCapture', () => {
     const onError = vi.fn()
     renderHook(() => useMicCapture({ active: true, sessionId: 'S1', deviceId: null, send: vi.fn(), start: async () => { throw new Error('denied') }, onError }))
     await waitFor(() => expect(onError).toHaveBeenCalledWith('denied'))
+  })
+
+  it('reopens the mic when the device disappears mid-session (unplugged headset), and stops after repeated failures', async () => {
+    vi.useFakeTimers()
+    const m = fakeMic(), onError = vi.fn()
+    renderHook(() => useMicCapture({ active: true, sessionId: 'S1', deviceId: 'usb', send: vi.fn(), start: m.start, onError }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(m.start).toHaveBeenCalledTimes(1)
+    act(() => m.end())
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
+    expect(m.start).toHaveBeenCalledTimes(2)
+    expect(m.stop).toHaveBeenCalledTimes(1) // the dead handle is released
+    m.start.mockRejectedValue(new Error('No microphone found'))
+    act(() => m.end())
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+    expect(onError).toHaveBeenCalledWith('No microphone found')
+    expect(m.start.mock.calls.length).toBeLessThanOrEqual(2 + 5)
+    vi.useRealTimers()
+  })
+
+  it('does not reopen after the session ended', async () => {
+    vi.useFakeTimers()
+    const m = fakeMic()
+    const { rerender } = renderHook((p: { active: boolean }) => useMicCapture({ active: p.active, sessionId: 'S1', deviceId: null, send: vi.fn(), start: m.start }), { initialProps: { active: true } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    act(() => m.end())
+    rerender({ active: false })
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+    expect(m.start).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
   })
 })

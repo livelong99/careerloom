@@ -71,7 +71,10 @@ export function createSessionController(deps: SessionDeps) {
       const a = deps.createAdapter()
       adapters.set(source, a)
       wire(source, a)
-      const h = createSourceHealth(source, hl => deps.emit('copilotHealth', hl), now)
+      const h = createSourceHealth(source, hl => {
+        deps.emit('copilotHealth', hl)
+        if (hl.status === 'missing') deps.emit('copilotError', { kind: 'capture', message: `Careerloom is getting no audio from the ${source === 'mic' ? 'microphone' : 'system audio source'}. The device may be unplugged or in use by another app, or access is blocked in System Settings.`, retrying: false })
+      }, now)
       health.set(source, h)
       const cfg = deps.stt()
       await a.start({ source, language: cfg.language, vocab: cfg.vocab, endSilenceMs: cfg.endSilenceMs })

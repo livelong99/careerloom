@@ -42,7 +42,7 @@ export function reduceOverlay(m: OverlayModel, e: OverlayEvent): OverlayModel {
       const cost = e.payload.costUsd
       return { ...m, suggestion: e.payload, costs: cost === null ? m.costs : { ...m.costs, [e.payload.questionId]: cost } }
     }
-    case 'copilotHealth': return { ...m, health: { ...m.health, [e.payload.source]: e.payload } }
+    case 'copilotHealth': return { ...m, health: { ...m.health, [e.payload.source]: e.payload }, error: e.payload.status === 'ok' && m.error?.kind === 'capture' ? null : m.error }
     case 'copilotError': return { ...m, error: e.payload }
     case 'copilotLevel': return { ...m, levels: { ...m.levels, [e.payload.source]: e.payload.level } }
   }

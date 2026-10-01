@@ -45,6 +45,12 @@ describe('overlay reducer and derived view state', () => {
     expect(deriveView(run([{ type: 'copilotHealth', payload: { source: 'system', status: 'ok', level: 0.3 } }], m))).toBe('listening')
   })
 
+  it('a "no audio" capture error clears once that source delivers sound again', () => {
+    const m = run([state('listening'), { type: 'copilotHealth', payload: { source: 'mic', status: 'missing', level: 0 } }, { type: 'copilotError', payload: { kind: 'capture', message: 'no audio', retrying: false } }])
+    expect(deriveView(m)).toBe('error')
+    expect(deriveView(run([{ type: 'copilotHealth', payload: { source: 'mic', status: 'ok', level: 0.2 } }], m))).toBe('listening')
+  })
+
   it('errors win over everything; a retrying error clears when text arrives again', () => {
     const base = run([state('listening'), { type: 'copilotQuestion', payload: q() }, { type: 'copilotError', payload: { kind: 'stt', message: 'lost', retrying: true, attempt: 2 } }])
     expect(deriveView(base)).toBe('error')

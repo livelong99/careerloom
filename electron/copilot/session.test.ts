@@ -57,6 +57,21 @@ describe('session controller (mic-only, fake STT)', () => {
     await s.stop('user'); vi.useRealTimers()
   })
 
+  it('a mic that never delivers a frame is reported as missing, with a capture error that names the likely causes', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(0)
+    const events: Array<[string, unknown]> = []
+    const s = createSessionController({
+      createAdapter: () => createFakeAdapter([]), now: Date.now, newId: () => 'S',
+      emit: (ev, p) => void events.push([ev, p]),
+      stt: () => ({ engine: 'moonshine', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 700, vocab: [] }),
+    })
+    await s.start(REQ)
+    vi.advanceTimersByTime(3000)
+    expect(events.filter(e => e[0] === 'copilotHealth').map(e => (e[1] as { status: string }).status)).toEqual(['missing'])
+    expect(events.filter(e => e[0] === 'copilotError').map(e => e[1])).toEqual([{ kind: 'capture', message: expect.stringMatching(/no audio.*microphone/i), retrying: false }])
+    await s.stop('user'); vi.useRealTimers()
+  })
+
   it('a failing adapter start tears down, reports a stt error and stops', async () => {
     const bad = () => ({ ...createFakeAdapter([]), start: async () => { throw new Error('Local speech model is not installed') } })
     const { s, of } = setup(bad)

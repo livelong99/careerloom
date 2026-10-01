@@ -107,6 +107,11 @@ describe('migration safety', () => {
     expect(JSON.parse(fs.readFileSync(file, 'utf8'))).not.toHaveProperty('futureThing')
     expect(JSON.parse(fs.readFileSync(file, 'utf8')).version).toBe(1)
   })
+  it('an engine that cannot run on this build (faster-whisper) falls back to the default instead of failing every session start', () => {
+    fs.writeFileSync(file, JSON.stringify({ version: 1, stt: { engine: 'faster-whisper', model: 'small' } }))
+    expect(readCopilotConfig().stt.engine).toBe(defaultEngine())
+    expect(writeCopilotConfig({ stt: { engine: 'faster-whisper' } }).stt.engine).toBe(defaultEngine())
+  })
   it('a partial file (fields added in later releases) fills missing sections from defaults', () => {
     fs.writeFileSync(file, JSON.stringify({ version: 1, audio: { useSystem: true } }))
     const c = readCopilotConfig()

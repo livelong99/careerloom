@@ -1,7 +1,7 @@
 import type { SttDevice } from '../types'
 import type { SttAdapter } from './adapter'
 import { spawnSidecarChild } from './child'
-import { findSttRuntime, type SttRuntime } from './runtime'
+import { findSttRuntime, STT_NOT_INSTALLED, type SttRuntime } from './runtime'
 import { createSidecarAdapter } from './sidecar'
 
 export { killSttSidecars } from './child'
@@ -14,7 +14,7 @@ export function moonshineAdapter(model: string, device: SttDevice, rt: SttRuntim
     id: 'moonshine',
     config: () => ({ model, provider: providerFor(device), cache: rt?.cache }),
     spawn() {
-      if (!rt) throw new Error('Local speech model is not installed')
+      if (!rt?.models.includes(model)) throw new Error(STT_NOT_INSTALLED)
       return spawnSidecarChild(rt)
     },
   })
