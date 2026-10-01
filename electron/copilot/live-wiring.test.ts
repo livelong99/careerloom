@@ -79,12 +79,22 @@ describe('live wiring', () => {
     expect(of('copilotQuestion')).toHaveLength(0)
   })
 
-  it('autoAnswer streams a suggestion for a detected question', async () => {
+  it('autoAnswer streams a suggestion for a question heard on the interviewer channel', async () => {
+    const { w, of, cfg } = setup()
+    cfg.engine.autoAnswer = true
+    w.emit('copilotState', { ...state('listening'), sources: ['mic', 'system'] })
+    w.emit('copilotTranscript', line('a', 'interviewer', 'What is your biggest weakness?'))
+    await vi.waitFor(() => expect(of('copilotSuggestion')).toHaveLength(2))
+  })
+
+  it('autoAnswer never fires from mic-only audio (both voices on one channel): the question shows, the hotkey stays', async () => {
     const { w, of, cfg } = setup()
     cfg.engine.autoAnswer = true
     w.emit('copilotState', state('listening'))
     w.emit('copilotTranscript', line('a', 'you', 'What is your biggest weakness?'))
-    await vi.waitFor(() => expect(of('copilotSuggestion')).toHaveLength(2))
+    await vi.waitFor(() => expect(of('copilotQuestion')).toHaveLength(1))
+    await new Promise(r => setTimeout(r, 10))
+    expect(of('copilotSuggestion')).toHaveLength(0)
   })
 
   it('answer on demand uses the last detected question, records suggestions and streams partial then final', async () => {
@@ -164,3 +174,79 @@ describe('live wiring', () => {
     expect(of('copilotError')).toHaveLength(1)
   })
 })
+
+describe('live wiring: auto-ask, routing and speculative start (PERF-2)', () => {
+  const live = (): CopilotEvents['copilotState'] => ({ ...state('listening'), sources: ['mic', 'system'] })
+  const recordingEngine = () => {
+    const reqs: Array<{ text: string; route?: unknown; aborted: () => boolean }> = []
+    const engine: AnswerEngine = {
+      cancelAll: vi.fn(),
+      answer: req => {
+        reqs.push({ text: req.question.text, route: req.route, aborted: () => req.signal.aborted })
+        return (async function* () { yield suggestion(req.question.id, false); await new Promise(r => setTimeout(r, 5)); if (req.signal.aborted) return; yield suggestion(req.question.id, true) })()
+      },
+    }
+    return { engine, reqs }
+  }
+
+  it('auto-ask passes the routed tier to the engine', async () => {
+    const { engine, reqs } = recordingEngine()
+    const { w, of, cfg } = setup({}, engine)
+    cfg.engine.autoAnswer = true
+    w.emit('copilotState', live())
+    w.emit('copilotTranscript', line('a', 'interviewer', 'Design a URL shortener.'))
+    await vi.waitFor(() => expect(of('copilotSuggestion')).toHaveLength(2))
+    expect(reqs[0]!.route).toMatchObject({ kind: 'system-design', tier: 'deep' })
+  })
+
+  it('a question still shows when auto-ask is rate limited, but costs nothing', async () => {
+    const { engine, reqs } = recordingEngine()
+    let t = 0
+    const { w, of, cfg } = setup({ now: () => t }, engine)
+    cfg.engine.autoAnswer = true
+    w.emit('copilotState', live())
+    for (let i = 0; i < 3; i++) { t += 500; w.emit('copilotTranscript', line(`l${i}`, 'interviewer', `Tell me about project number ${i}?`)); await new Promise(r => setTimeout(r, 12)) }
+    expect(of('copilotQuestion')).toHaveLength(3)
+    expect(reqs).toHaveLength(1)
+  })
+
+  it('speculative start: a matching final adopts the early request (one engine call, answers carry the final question id)', async () => {
+    const { engine, reqs } = recordingEngine()
+    const { w, of, cfg } = setup({}, engine)
+    cfg.engine.autoAnswer = true; cfg.engine.speculativeStart = true
+    w.emit('copilotState', live())
+    w.emit('copilotTranscript', line('a', 'interviewer', 'Why do you want to work here?', false))
+    w.emit('copilotTranscript', line('a', 'interviewer', 'Why do you want to work here?', true))
+    await vi.waitFor(() => expect(of('copilotSuggestion')).toHaveLength(2))
+    const qid = (of('copilotQuestion')[0] as { id: string }).id
+    expect(reqs).toHaveLength(1)
+    expect((of('copilotSuggestion') as Suggestion[]).every(s => s.questionId === qid)).toBe(true)
+    expect(w.metrics().speculation).toMatchObject({ started: 1, hits: 1, misses: 0 })
+  })
+
+  it('speculative start: a different final aborts the early request and restarts on the real question', async () => {
+    const { engine, reqs } = recordingEngine()
+    const { w, of, cfg } = setup({}, engine)
+    cfg.engine.autoAnswer = true; cfg.engine.speculativeStart = true
+    w.emit('copilotState', live())
+    w.emit('copilotTranscript', line('a', 'interviewer', 'Tell me about a time.', false))
+    w.emit('copilotTranscript', line('a', 'interviewer', 'Tell me about a time you led a migration across three teams?', true))
+    await vi.waitFor(() => expect((of('copilotSuggestion') as Suggestion[]).some(s => s.done)).toBe(true))
+    expect(reqs.map(r => r.text)).toEqual(['Tell me about a time.', 'Tell me about a time you led a migration across three teams?'])
+    expect(reqs[0]!.aborted()).toBe(true)
+    expect(w.metrics().speculation).toMatchObject({ started: 1, hits: 0, misses: 1 })
+  })
+
+  it('speculation is off by default and mic-only never speculates', async () => {
+    const { engine, reqs } = recordingEngine()
+    const { w, cfg } = setup({}, engine)
+    cfg.engine.autoAnswer = true
+    w.emit('copilotState', live())
+    w.emit('copilotTranscript', line('a', 'interviewer', 'Why do you want to work here?', false))
+    cfg.engine.speculativeStart = true
+    w.emit('copilotState', state('listening')) // mic-only
+    w.emit('copilotTranscript', line('b', 'you', 'Why do you want to work here?', false))
+    expect(reqs).toHaveLength(0)
+  })
+})
+

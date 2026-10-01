@@ -146,3 +146,38 @@ describe('stop while arming (kill switch)', () => {
     expect(of('copilotState').map(e => (e as { state: string }).state)).toEqual(['armed', 'stopped'])
   })
 })
+
+describe('session controller: endpointing + duplicate finals (PERF-2)', () => {
+  const emitterFor = (events: Array<{ atMs: number; ev: 'final' | 'partial'; text: string; t0?: number; t1?: number }>) => () => createFakeAdapter(parseFixture(events.map(e => JSON.stringify(e)).join('\n')))
+  const run = async (adapter: () => ReturnType<typeof createFakeAdapter>, req: StartRequest, sources?: Array<'mic' | 'system'>) => {
+    const events: Array<[string, unknown]> = []
+    const opened: unknown[] = []
+    const s = createSessionController({
+      createAdapter: () => { const a = adapter(); const start = a.start.bind(a); a.start = o => { opened.push(o); return start(o) }; return a },
+      emit: (ev, p) => void events.push([ev, p]), now: () => 0, newId: () => 'S1', sources: sources ? () => sources : undefined,
+      stt: () => ({ engine: 'moonshine', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 650, vocab: [] }),
+    })
+    await s.start(req)
+    for (let i = 0; i < 20; i++) s.audio({ source: sources?.[0] ?? 'mic', pcm16: chunk(100, 500), t: i * 100 })
+    return { events, opened: opened as Array<{ fastEndpoint?: boolean }>, finals: events.filter(e => e[0] === 'copilotTranscript' && (e[1] as { final: boolean }).final).map(e => (e[1] as { text: string }).text) }
+  }
+
+  it('asks for the fast endpoint on the interviewer channel and in live mode, never for practice answers', async () => {
+    const dup = emitterFor([])
+    expect((await run(dup, { ...REQ, mode: 'practice' })).opened[0]!.fastEndpoint).toBe(false)
+    expect((await run(dup, { ...REQ, mode: 'live' })).opened[0]!.fastEndpoint).toBe(true)
+    expect((await run(dup, { ...REQ, mode: 'practice' }, ['system'])).opened[0]!.fastEndpoint).toBe(true)
+  })
+
+  it('drops a final that repeats the previous one (formatted/unformatted or re-decoded) but keeps real repeats later', async () => {
+    const adapter = emitterFor([
+      { atMs: 300, ev: 'final', text: 'Tell me about yourself.', t0: 0, t1: 900 },
+      { atMs: 400, ev: 'final', text: 'tell me about yourself', t0: 0, t1: 900 },
+      { atMs: 500, ev: 'final', text: 'Tell me about yourself', t0: 100, t1: 950 },
+      { atMs: 600, ev: 'final', text: 'And why us?', t0: 1200, t1: 1500 },
+      { atMs: 1700, ev: 'final', text: 'And why us?', t0: 9000, t1: 9500 },
+    ])
+    expect((await run(adapter, { ...REQ, mode: 'live' })).finals).toEqual(['Tell me about yourself.', 'And why us?', 'And why us?'])
+  })
+})
+

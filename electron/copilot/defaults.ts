@@ -15,6 +15,7 @@ import { createDetector } from './detector'
 import { e2eHooks } from './e2e-hooks'
 import { createAnswerEngine, createLlmClassifier, defaultModelFor, type AnswerEngine } from './engine'
 import type { CopilotDeps, createCopilot } from './handlers'
+import { createConfiguredClassify } from './gate/configured'
 import { createLiveWiring } from './live-wiring'
 import { listLiveModels, liveProvider, testLiveModel } from './live'
 import { parseAudioMsg } from './audio-in'
@@ -73,7 +74,9 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
 
   const live = lazy(() => {
     const host = getOverlayHost()
-    const detector = createDetector({ classify: text => createLlmClassifier(provider(), fastModel())(mask(text)) })
+    // Ambiguous lines: the optional Jev gate when the setting is on (heuristic fallback inside), else the tiny LLM classify call.
+    const jev = createConfiguredClassify({ config: readCopilotConfig, getKey: readApiKey })
+    const detector = createDetector({ classify: text => (readCopilotConfig().engine.gate.engine === 'jev' ? jev(mask(text)) : createLlmClassifier(provider(), fastModel())(mask(text))) })
     const wiring = createLiveWiring({
       host, recorder: getInstance().recorder, feed: (l, eot) => getInstance().feed(l, eot), engine: engineProxy, detector,
       config: readCopilotConfig, onStopped: () => { if (!starting && getInstance().recorder.active()) void getInstance().stop('user') },

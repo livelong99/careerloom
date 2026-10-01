@@ -15,7 +15,9 @@ export type PermStatus = 'granted' | 'denied' | 'not-determined' | 'restricted' 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends readonly unknown[] ? T[K] : T[K] extends object ? DeepPartial<T[K]> : T[K] }
 
 export type TranscriptLine = { id: string; speaker: Speaker; text: string; final: boolean; t0: number; t1: number | null }
-export type DetectedQuestion = { id: string; text: string; type: QuestionType; confidence: number; at: number; auto: boolean }
+/** What the question gate learned about a turn (PERF-2); advisory, never authority. Additive, absent on older sessions. */
+export type QuestionHint = { kind: 'coding' | 'system-design' | 'behavioural' | 'factual' | 'small-talk'; complete: boolean; needsScreenshot: boolean; deep: boolean; source: 'heuristic' | 'jev' }
+export type DetectedQuestion = { id: string; text: string; type: QuestionType; confidence: number; at: number; auto: boolean; hint?: QuestionHint }
 export type Suggestion = {
   questionId: string; model: string; tier: 'fast' | 'balanced' | 'deep'
   say: string; bullets: string[]; star: { s: string; t: string; a: string; r: string } | null
@@ -62,6 +64,10 @@ export type CopilotConfig = {
     openrouter: { dataCollection: 'deny' | 'allow'; zdr: boolean; sort: 'latency' | 'price'; policyMigrated: boolean }
     models: Record<'fast' | 'balanced' | 'deep', string | null>
     factCheck: boolean; vision: 'vision' | 'ocr'; autoAnswer: boolean
+    /** Start the answer on a stable end-of-turn partial; aborted and restarted if the final differs (PERF-2, default off). */
+    speculativeStart: boolean
+    /** Ambiguous interviewer lines: local rules only, or also ask the Jev decision model (PERF-2, default rules only). */
+    gate: { engine: 'heuristic' | 'jev'; baseUrl: string; endpoint: 'systemone' | 'decisions' }
   }
   coaching: { shape: 'cues' | 'cues+star' | 'script'; length: 1 | 2 | 3; tone: 'direct' | 'warm' | 'formal'; persona: string; quoteResume: boolean }
   overlay: { layout: 'strip' | 'panel'; anchor: Anchor; displayId: number | null; width: number; fontPx: number; opacity: number; theme: 'app' | 'dark' | 'light'; clickThroughIdle: boolean; aboveFullscreen: boolean }

@@ -3,7 +3,7 @@
 import type { CopilotConfig, DetectedQuestion, QuestionType, Suggestion, TranscriptLine } from './types'
 
 export type PromptKind = 'answer' | 'followup' | 'clarify' | 'summarise'
-export type PromptInput = { grounding: string; coaching: CopilotConfig['coaching']; question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind }
+export type PromptInput = { grounding: string; coaching: CopilotConfig['coaching']; question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind; /** 'brief' (PERF-2 routing): small talk and plain facts get two short sentences. */ variant?: 'default' | 'brief' }
 export type BuiltPrompt = { system: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> }
 export interface PromptBuilder { build(input: PromptInput): BuiltPrompt }
 
@@ -55,7 +55,7 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
     clarify: `The question may be ambiguous. Help the candidate clarify it.`,
     summarise: `Summarise the conversation so far.`,
   }[kind]
-  const user = `${task} Tone: ${TONE[c.tone]} Question type: ${question.type}.\n\nFORMAT (exactly these sections):\n${formatSpec(c, kind, question.type)}\n\n${OPEN}\n${lines.length ? `Recent conversation:\n${lines.join('\n')}\n\n` : ''}QUESTION: ${neutralize(question.text.trim())}\n${CLOSE}`
+  const user = `${task} Tone: ${TONE[c.tone]} Question type: ${question.type}.${input.variant === 'brief' ? ' Keep it to two short sentences.' : ''}\n\nFORMAT (exactly these sections):\n${formatSpec(c, kind, question.type)}\n\n${OPEN}\n${lines.length ? `Recent conversation:\n${lines.join('\n')}\n\n` : ''}QUESTION: ${neutralize(question.text.trim())}\n${CLOSE}`
   return { system, messages: [{ role: 'user', content: user }] }
 }
 

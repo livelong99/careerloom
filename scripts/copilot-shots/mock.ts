@@ -7,7 +7,7 @@ let config: Record<string, unknown> = {
   version: 1,
   audio: { micDeviceId: null, useSystem: false, systemSource: 'loopback', virtualDeviceId: null },
   stt: { engine: 'whisper-mlx', model: 'small', device: 'auto', language: 'en', lastBenchmark: { at: now, p50FinalMs: 772, realTimeFactor: 0.06, ramMb: null, wer: 0.114 }, endSilenceMs: 650, vocab: ['Kubernetes', 'Northwind', 'Terraform'] },
-  engine: { tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter', openrouter: { dataCollection: 'deny', zdr: false, sort: 'latency' }, models: { fast: 'provider/small-fast-model', balanced: 'provider/mid-model', deep: 'provider/large-model' }, factCheck: true, vision: 'vision', autoAnswer: false },
+  engine: { tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter', openrouter: { dataCollection: 'deny', zdr: false, sort: 'latency' }, models: { fast: 'provider/small-fast-model', balanced: 'provider/mid-model', deep: 'provider/large-model' }, factCheck: true, vision: 'vision', autoAnswer: false, speculativeStart: false, gate: { engine: 'heuristic', baseUrl: 'https://openrouter.ai/api', endpoint: 'systemone' } },
   coaching: { shape: 'cues+star', length: 2, tone: 'direct', persona: '', quoteResume: true },
   overlay: { layout: 'strip', anchor: 'tr', displayId: null, width: 440, fontPx: 14, opacity: 0.94, theme: 'app', clickThroughIdle: true, aboveFullscreen: true },
   hotkeys: { answer: 'Control+Alt+A', followup: 'Control+Alt+F', clarify: 'Control+Alt+C', screenshot: 'Control+Alt+S', summarise: 'Control+Alt+M', expand: 'Control+Alt+E', listen: 'Control+Alt+L', toggle: 'Control+Alt+H', quickHide: 'Control+Alt+Shift+H', panic: 'Control+Alt+Shift+X' },

@@ -1,10 +1,13 @@
 // Glue between the session controller (capture + STT), the overlay host, the question detector, the answer engine and the
 // session recorder (plan §3). Pure: every collaborator is injected, so the whole live flow is unit-testable with fakes.
+import { createAutoAsk } from './auto-ask'
 import { questionType, type QuestionDetector } from './detector'
 import type { AnswerEngine } from './engine'
 import type { PromptKind } from './prompts'
 import { friendlyLlmError } from './providers/errors'
 import { LlmError } from './providers/openrouter'
+import { routeQuestion, type Route } from './routing'
+import { createSpeculator, type SpecRun } from './speculate'
 import type { CopilotConfig, CopilotEvents, CopilotMode, DetectedQuestion, SourceId, Speaker, StopReason, Suggestion, TranscriptLine } from './types'
 
 type Emit = <K extends keyof CopilotEvents>(ev: K, payload: CopilotEvents[K]) => void
@@ -48,8 +51,10 @@ export function createLiveWiring(d: WiringDeps) {
   let manual = 0
   const answeredLines = new Set<string>() // transcript lines already answered on demand: their final is not a new question
   let current: AbortController | null = null
+  const auto = createAutoAsk({ now })
+  const spec = createSpeculator({ engine: d.engine, transcript: () => lines, config: d.config, now })
 
-  const reset = (): void => { lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; d.detector.reset() }
+  const reset = (): void => { lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; d.detector.reset(); auto.reset(); spec.cancel() }
   const error = (message: string, extra: { actions?: CopilotEvents['copilotError']['actions']; suggestion?: string } = {}): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false, ...extra })
   const engineError = (e: unknown): void => {
     if (!(e instanceof LlmError)) return error(msg(e))
@@ -63,12 +68,17 @@ export function createLiveWiring(d: WiringDeps) {
 
   async function detect(l: TranscriptLine): Promise<void> {
     const q = await d.detector.feed({ ...l, speaker: 'interviewer' })
-    if (!q) return
+    const run = spec.take(l.id, l.text, q?.id ?? '') // an early request for this line: adopted if the final matches, aborted otherwise
+    if (!q) return run?.abort()
     addQuestion(q)
-    if (d.config().engine.autoAnswer) await answer('answer', q.id)
+    const cfg = d.config()
+    if (!cfg.engine.autoAnswer) return run?.abort()
+    const decision = auto.decide(q, l, sources, cfg.engine)
+    if (!decision.ask) return run?.abort()
+    await answer('answer', q.id, { route: decision.route, run: run ?? undefined })
   }
 
-  async function answer(kind: PromptKind, questionId?: string): Promise<void> {
+  async function answer(kind: PromptKind, questionId?: string, extra: { route?: Route; run?: SpecRun } = {}): Promise<void> {
     let q = (questionId ? questions.get(questionId) : undefined) ?? lastQuestion
     if (!q) {
       // Flush what is still being said: the key is often pressed before the engine has finalised the question.
@@ -82,8 +92,10 @@ export function createLiveWiring(d: WiringDeps) {
     current?.abort()
     const ac = new AbortController()
     current = ac
+    extra.run && ac.signal.addEventListener('abort', extra.run.abort, { once: true })
     try {
-      for await (const s of d.engine.answer({ question: q, transcript: lines.filter(l => l.final), kind, signal: ac.signal })) {
+      const route = extra.route ?? routeQuestion(q, d.config().engine, kind)
+      for await (const s of extra.run?.stream ?? d.engine.answer({ question: q, transcript: lines.filter(l => l.final), kind, signal: ac.signal, route })) {
         d.recorder.suggestion(s)
         d.host.publish('copilotSuggestion', s)
       }
@@ -107,6 +119,7 @@ export function createLiveWiring(d: WiringDeps) {
       d.recorder.line(l)
       if (l.final && l.speaker === 'you') turn = [...turn, l]
       if (detectable(l)) void detect(l)
+      else if (!l.final && mode === 'live' && l.speaker === 'interviewer' && sources.includes('system')) spec.onPartial(l)
     }
     d.host.publish(ev, payload)
   }
@@ -122,6 +135,8 @@ export function createLiveWiring(d: WiringDeps) {
 
   return {
     emit, endOfTurn, answer,
+    /** Counters for the trace: speculative hit rate and wasted tokens. */
+    metrics: () => ({ speculation: spec.stats() }),
     /** The session controller arrives after the wiring (it needs `emit`): the kill switch closes over it. */
     bindSession(ctl: { stop(reason: StopReason): Promise<void> }): void {
       d.host.setSessionHooks({ stopCapture: () => ctl.stop('panic'), abortRequests: () => { d.engine.cancelAll(); current?.abort() } })

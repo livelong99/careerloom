@@ -147,6 +147,24 @@ describe('createAnswerEngine', () => {
   })
 })
 
+describe('per-turn route (PERF-2)', () => {
+  it('the route picks tier and scales the token cap; no route keeps the old behaviour', async () => {
+    const { provider, calls } = fakeProvider(() => text(ANSWER)())
+    const engine = createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, partialEveryMs: 0 })
+    await collect(engine.answer(req()))
+    const base = calls[0]!
+    await collect(engine.answer({ ...req(), route: { kind: 'small-talk', tier: 'deep', maxTokensScale: 0.5, variant: 'brief', needsScreenshot: false, skipLlm: false } }))
+    const routed = calls[1]!
+    expect(routed.model).toBe(defaultModelFor('deep'))
+    expect(routed.maxTokens).toBeGreaterThan(0)
+    expect(routed.messages[0]!.content).toMatch(/two short sentences/i)
+    expect(base.messages[0]!.content).not.toMatch(/two short sentences/i)
+    const fast = createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, partialEveryMs: 0 })
+    await collect(fast.answer({ ...req(), route: { kind: 'factual', tier: 'fast', maxTokensScale: 0.5, variant: 'default', needsScreenshot: false, skipLlm: false } }))
+    expect(calls[2]!.maxTokens).toBe(Math.round(base.maxTokens! * 0.5))
+  })
+})
+
 describe('createLlmClassifier', () => {
   const p = (reply: string) => fakeProvider(() => text(reply, 100, null)()).provider
   it('parses the one-word reply', async () => {
