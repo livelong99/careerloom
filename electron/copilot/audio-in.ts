@@ -14,3 +14,6 @@ export function parseAudioMsg(raw: unknown): AudioChunkMsg | null {
   if (pcm16.byteLength === 0 || pcm16.byteLength % 2 !== 0 || pcm16.byteLength > MAX_BYTES) return null
   return { source: m.source, pcm16, t: m.t }
 }
+
+/** Gate hook (KB-WP5): mic frames are dropped while the interviewer speaks (speakers mode); system audio passes. */
+export const gateAudioMsg = (m: AudioChunkMsg | null, gate: { drops(): boolean }): AudioChunkMsg | null => (m && m.source === 'mic' && gate.drops() ? null : m)
