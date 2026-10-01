@@ -29,4 +29,4 @@ type: project
 
 **Next steps:**
 - B/C/D/E renderer packages consume the bridge (keysList/keysSet/keysTest, prefs*, data*, settingsReset, diagnostics, browserAcks/Revoke, checkForUpdates).
-- Copilot `copilotReadiness`/`hasKey` is not covered by the sentinel test.
+- Sentinel test also covers copilotGetConfig + copilotReadiness (error path; the happy path needs a job fixture).
