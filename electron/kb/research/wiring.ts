@@ -14,6 +14,7 @@ import { kbJobDir } from '../hash'
 import { getKbStore } from '../runtime'
 import { realHttp } from './fetch'
 import { createResearchService } from './service'
+import { kbE2e } from './e2e-hooks'
 import { openResearchState } from './state'
 
 const kbRoot = (): string => userFile('kb')
@@ -58,5 +59,6 @@ export function researchService() {
       const priced = model ? estimateUsd(defaultPrices, model, Math.round(tokens * 0.85), Math.round(tokens * 0.15)) : null
       return priced ?? (tokens / 1000) * FALLBACK_USD_PER_1K_TOKENS
     },
+    ...(kbE2e() ?? {}), // QA only: fixtures instead of the network and the model
   }))
 }

@@ -254,7 +254,7 @@ export function createCopilot(deps: CopilotDeps) {
     if (!practice || !interview || text.trim() === '') return
     const at = now()
     const l: TranscriptLine = { id: `typed-${++typedN}`, speaker: 'you', text: text.trim(), final: true, t0: at, t1: at }
-    if (!deps.session) { recorder.line(l); broadcast('careerloom:copilotTranscript', l) }
+    recorder.line(l); broadcast('careerloom:copilotTranscript', l) // nothing else records a typed line, with or without speech recognition
     await practice.feed(l, true)
   }
 

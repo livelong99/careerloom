@@ -17,7 +17,7 @@ const real = process.platform
 afterEach(() => { platform(real); vi.clearAllMocks() })
 
 const ALL = ['kbSummary', 'kbList', 'kbItem', 'kbEstimate', 'kbResearchStart', 'kbResearchStop', 'kbItemUpdate', 'kbItemAdd', 'kbItemRemove', 'kbExport', 'kbImport', 'kbSearchKeyTest', 'kbOpenSource',
-  'interviewConfig', 'interviewSetConfig', 'interviewVoices', 'interviewPreviewVoice', 'interviewInstallVoice', 'interviewKokoroStatus', 'interviewPlanPreview']
+  'interviewConfig', 'interviewSetConfig', 'interviewVoices', 'interviewPreviewVoice', 'interviewInstallVoice', 'interviewKokoroStatus', 'interviewSkillSignal', 'interviewPlanPreview']
 const MAC = ['interviewVoices', 'interviewPreviewVoice', 'interviewInstallVoice', 'interviewPlanPreview']
 
 describe('kb handlers', () => {

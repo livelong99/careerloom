@@ -36,6 +36,7 @@ export const voiceHandlers = () => ttsRuntime().handlers
 const waiting = new Map<string, () => void>()
 /** `careerloom:ttsPlayback` from the overlay: feeds the echo gate and releases whoever waits for that utterance to finish. */
 export function onTtsPlayback(e: KbEvents['ttsPlayback']): void {
+  if (process.env.CL_KB_E2E === '1') console.log('[kb-e2e] ttsPlayback', e.phase, e.utteranceId) // QA evidence (unpackaged runs only use the flag)
   ttsRuntime().onPlayback(e)
   if (e.phase !== 'started') waiting.get(e.utteranceId)?.()
 }
