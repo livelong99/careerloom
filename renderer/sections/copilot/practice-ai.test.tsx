@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(() => ({
   listJobs: vi.fn(), copilotGetConfig: vi.fn(), copilotSetConfig: vi.fn(), copilotReadiness: vi.fn(), copilotPracticeQuestions: vi.fn(), copilotStart: vi.fn(),
-  kbSummary: vi.fn(), interviewVoices: vi.fn(), interviewPlanPreview: vi.fn(), interviewPreviewVoice: vi.fn(), onCopilotEvent: vi.fn(() => () => {}),
+  kbSummary: vi.fn(), interviewConfig: vi.fn(), interviewVoices: vi.fn(), interviewPlanPreview: vi.fn(), interviewPreviewVoice: vi.fn(), onCopilotEvent: vi.fn(() => () => {}),
 }))
 vi.mock('@/lib/ipc', async orig => ({ ...(await orig<typeof import('@/lib/ipc')>()), careerloom: api }))
 
 import { DEFAULT_CONFIG_FOR_TESTS } from '@/components/copilot/testConfig'
 import { resetInterviewForm } from '@/components/copilot/interviewForm'
+import { practiseKb } from '@/components/kb/practice'
 import { setPracticePick, setSelection } from '@/components/copilot/selection'
 import { startPractice } from '@/components/copilot/startActions'
 import type { JobListing, KbSummary, VoiceInfo } from '@/lib/types'
@@ -25,6 +26,7 @@ beforeEach(() => {
   api.copilotReadiness.mockResolvedValue({ context: { jobId: 'j1', title: job.title, company: job.company, hasPosting: true, hasReport: true, hasCv: true, stories: 6 }, mic: 'granted', system: 'granted', stt: 'ready', engine: 'ready' })
   api.copilotPracticeQuestions.mockResolvedValue([{ id: 'q1', text: 'Tell me about a migration.', type: 'behavioural', source: 'report', lastScore: null }])
   api.kbSummary.mockResolvedValue(kb)
+  api.interviewConfig.mockResolvedValue({ voice: { engine: 'system', voiceId: null, speed: 1, echo: 'speakers', tailMs: 500, pushToInterrupt: '' } })
   api.interviewVoices.mockResolvedValue([voice('Aman'), voice('Tara'), voice('Kokoro', { engine: 'kokoro', installed: false, offline: true, sizeMb: 80, lang: 'en-GB', name: 'Kokoro · British' })])
   api.interviewPlanPreview.mockResolvedValue({ questions: 8, sourced: 6, usd: 0.04, minutes: 30 })
   api.copilotStart.mockResolvedValue({ sessionId: 's1' })
@@ -59,6 +61,26 @@ describe('Practice with a question base', () => {
     expect(req).toMatchObject({ mode: 'practice', jobId: 'j1', interviewType: 'technical' })
     expect(req.interview).toMatchObject({ mode: 'technical', minutes: null, focusSkills: ['k8s'], includeGenerated: false, voice: { engine: 'system', voiceId: 'Aman' } })
     expect(req.questionIds).toBeUndefined()
+  })
+
+  it('starts from the Settings voice defaults (speed, headphones, voice)', async () => {
+    api.interviewConfig.mockResolvedValue({ voice: { engine: 'system', voiceId: 'Tara', speed: 1.2, echo: 'headphones', tailMs: 500, pushToInterrupt: '' } })
+    render(<PracticePage />)
+    await waitFor(() => expect(screen.getByRole('radio', { name: /Tara/ }).getAttribute('aria-checked')).toBe('true'))
+    fireEvent.click(await screen.findByRole('button', { name: /Start practice/ }))
+    await waitFor(() => expect(api.copilotStart).toHaveBeenCalledTimes(1))
+    expect(api.copilotStart.mock.calls[0]![0].interview).toMatchObject({ voice: { voiceId: 'Tara', speed: 1.2 }, echo: 'headphones' })
+  })
+
+  it("'Practise this question' from the KB tab pins the session to those items; a different job drops the pin", async () => {
+    practiseKb('j1', ['i1', 'i2'])
+    render(<PracticePage />)
+    expect(await screen.findByText(/Practising 2 chosen questions/)).toBeTruthy()
+    fireEvent.click(await screen.findByRole('button', { name: /Start practice/ }))
+    await waitFor(() => expect(api.copilotStart).toHaveBeenCalledTimes(1))
+    expect(api.copilotStart.mock.calls[0]![0].interview.itemIds).toEqual(['i1', 'i2'])
+    fireEvent.click(screen.getByRole('button', { name: 'Use the whole base' }))
+    expect(screen.queryByText(/chosen questions/)).toBeNull()
   })
 
   it('an uninstalled voice cannot be chosen; previewing calls main', async () => {

@@ -26,6 +26,16 @@ describe('InterviewerRow', () => {
   })
 })
 
+describe('InterviewerRow mic and voice notices', () => {
+  it('says the mic is paused only while speaking, and shows a voice notice as a status line', () => {
+    const { rerender } = render(<InterviewerRow state="speaking" voice="Aman" micPaused notice="Kokoro is unavailable, using the system voice" />)
+    expect(screen.getByText('Mic paused while I speak')).toBeTruthy()
+    expect(screen.getByText('Kokoro is unavailable, using the system voice')).toBeTruthy()
+    rerender(<InterviewerRow state="listening" voice="Aman" micPaused />)
+    expect(screen.queryByText('Mic paused while I speak')).toBeNull()
+  })
+})
+
 describe('Caption', () => {
   it('is a polite live region with the question text', () => {
     render(<Caption text="How would you design a rate limiter?" />)
@@ -67,6 +77,15 @@ describe('useInterviewer', () => {
     expect(screen.getByTestId('p').textContent).toBe('speaking|Aman|Tell me about X?')
     emit('copilotState', { state: 'stopped' })
     expect(screen.getByTestId('p').textContent).toBe('inactive')
+  })
+  it('carries the mic-paused flag and the voice notice from main', () => {
+    function Flags() { const v = useInterviewer(); return <p data-testid="f">{`${v.micPaused}|${v.notice ?? ''}`}</p> }
+    render(<Flags />)
+    emit('interviewerState', { state: 'speaking', questionId: 'q1', voice: 'Aman', micPaused: true })
+    emit('interviewerNotice', { text: 'Using the system voice' })
+    expect(screen.getByTestId('f').textContent).toBe('true|Using the system voice')
+    emit('interviewerState', { state: 'listening', questionId: 'q1', voice: 'Aman' })
+    expect(screen.getByTestId('f').textContent).toBe('false|Using the system voice')
   })
   it('does nothing without a bridge', () => {
     ;(window as unknown as { careerloom: unknown }).careerloom = undefined
