@@ -1,6 +1,7 @@
 // Capture + STT orchestration (plan §3, WP3 scope only): audio chunks in → one STT adapter per source →
 // transcript/health/level events out. Engine, store and overlay attach through `emit` (WP1/2/4).
 import type { SttAdapter } from './stt/adapter'
+import { normFinal } from './stt/endpoint'
 import { createSourceHealth } from './source-health'
 import type { AudioChunkMsg, CopilotConfig, CopilotEvents, CopilotState, SourceId, Speaker, StartRequest, StopReason, TranscriptLine } from './types'
 
@@ -27,6 +28,7 @@ export type SessionDeps = {
 
 const SPEAKER: Record<SourceId, Speaker> = { mic: 'you', system: 'interviewer' }
 const LEVEL_EVERY_MS = 66 // ≤ 15/s
+const DUP_WINDOW_MS = 3000 // a final re-emitted (re-decoded, formatted/unformatted) within this audio window is the same utterance
 
 export function createSessionController(deps: SessionDeps) {
   const now = deps.now ?? Date.now
@@ -55,7 +57,14 @@ export function createSessionController(deps: SessionDeps) {
       return l
     }
     a.on('partial', e => { if (e.text) deps.emit('copilotTranscript', line(e.text, e.t0, e.t1, false)) })
-    a.on('final', e => { if (e.text) deps.emit('copilotTranscript', line(e.text, e.t0, e.t1, true)) })
+    let prev: { norm: string; t1: number } | null = null
+    a.on('final', e => {
+      if (!e.text) return
+      const norm = normFinal(e.text)
+      if (prev && norm && e.t0 < prev.t1 + DUP_WINDOW_MS && (prev.norm === norm || prev.norm.includes(norm))) return
+      prev = { norm, t1: e.t1 }
+      deps.emit('copilotTranscript', line(e.text, e.t0, e.t1, true))
+    })
     a.on('endOfTurn', () => deps.endOfTurn?.(SPEAKER[source]))
     a.on('error', e => deps.emit('copilotError', { kind: 'stt', message: e.message ?? 'Speech recognition error', retrying: !!e.retrying }))
   }
@@ -77,7 +86,8 @@ export function createSessionController(deps: SessionDeps) {
       }, now)
       health.set(source, h)
       const cfg = deps.stt()
-      await a.start({ source, language: cfg.language, vocab: cfg.vocab, endSilenceMs: cfg.endSilenceMs })
+      // Fast end-of-turn only where a finished sentence is a real boundary: the interviewer's channel (or mic-only live), never a practice answer.
+      await a.start({ source, language: cfg.language, vocab: cfg.vocab, endSilenceMs: cfg.endSilenceMs, fastEndpoint: source === 'system' || mode === 'live' })
       if (gen !== my) { await a.stop().catch(() => undefined); return } // stopped while it was starting: teardown already dropped it
       h.start()
     }))

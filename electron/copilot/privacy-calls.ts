@@ -30,6 +30,7 @@ export function blockWhenLocalOnly(inner: AnswerProvider, isLocalOnly: () => boo
       if (isLocalOnly()) throw new LlmError('bad_request', 'Local-only mode is on: no interview text leaves this computer')
       return inner.stream(p)
     },
+    warm: async () => { if (!isLocalOnly()) await inner.warm?.() },
   }
 }
 

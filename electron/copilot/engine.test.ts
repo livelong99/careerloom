@@ -147,6 +147,24 @@ describe('createAnswerEngine', () => {
   })
 })
 
+describe('per-turn route (PERF-2)', () => {
+  it('the route picks tier and scales the token cap; no route keeps the old behaviour', async () => {
+    const { provider, calls } = fakeProvider(() => text(ANSWER)())
+    const engine = createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, partialEveryMs: 0 })
+    await collect(engine.answer(req()))
+    const base = calls[0]!
+    await collect(engine.answer({ ...req(), route: { kind: 'small-talk', tier: 'deep', maxTokensScale: 0.5, variant: 'brief', needsScreenshot: false, skipLlm: false } }))
+    const routed = calls[1]!
+    expect(routed.model).toBe(defaultModelFor('deep'))
+    expect(routed.maxTokens).toBeGreaterThan(0)
+    expect(routed.messages[0]!.content).toMatch(/two short sentences/i)
+    expect(base.messages[0]!.content).not.toMatch(/two short sentences/i)
+    const fast = createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, partialEveryMs: 0 })
+    await collect(fast.answer({ ...req(), route: { kind: 'factual', tier: 'fast', maxTokensScale: 0.5, variant: 'default', needsScreenshot: false, skipLlm: false } }))
+    expect(calls[2]!.maxTokens).toBe(Math.round(base.maxTokens! * 0.5))
+  })
+})
+
 describe('createLlmClassifier', () => {
   const p = (reply: string) => fakeProvider(() => text(reply, 100, null)()).provider
   it('parses the one-word reply', async () => {
@@ -172,5 +190,74 @@ describe('policy errors', () => {
     expect((err as LlmError).code).toBe('policy')
     expect((err as LlmError).suggestion).toBe(defaultModelFor('fast'))
     expect(calls.map(c => c.model)).toEqual(['q/x:free'])
+  })
+})
+
+import { createTraceLog } from './trace'
+describe('latency trace, caching and pre-warm (PERF-1)', () => {
+  it('records stage timestamps incl. provider marks, first visible say line, cache hits; trace is numbers only', async () => {
+    let t = 0
+    const { provider } = fakeProvider(p => (async function* (): AsyncGenerator<StreamItem> {
+      t = 100; p.onMark?.('request-sent'); t = 250; p.onMark?.('first-byte')
+      t = 300; yield { delta: '[SAY]\n' }                 // marker only: nothing readable yet
+      t = 340; yield { delta: 'Led a migration.\n[BUL' }   // headline readable here
+      t = 500; yield { delta: 'LETS]\n- x\n' }
+      yield { usage: { promptTokens: 6000, completionTokens: 40, cachedTokens: 5400 } }
+    })())
+    const log = createTraceLog()
+    const cost = createCostMeter()
+    const engine = createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, cost, trace: log, now: () => t, partialEveryMs: 1e9 })
+    const out = await collect(engine.answer({ ...req(), marks: { speechEndAt: 20, sttFinalAt: 60, detectedAt: 70 } }))
+    const rec = log.last()!
+    expect(rec.ms).toMatchObject({ stt: 40, detect: 10, connect: 150, ttft: 200, firstSay: 240, endToSay: 320, promptTokens: 6000, cachedTokens: 5400 })
+    expect(out.at(-1)!.trace).toMatchObject({ firstSay: 240, cachedTokens: 5400 })
+    expect(JSON.stringify(log.all())).not.toContain('Led a migration')
+  })
+  it('PERF-2: marks and turn info filled in after the request started reach the trace; afterRelease defers the record', async () => {
+    let t = 0
+    const { provider } = fakeProvider(p => (async function* (): AsyncGenerator<StreamItem> {
+      t = 100; p.onMark?.('request-sent'); t = 300; yield { delta: '[SAY]\nHi there.\n' }
+    })())
+    const log = createTraceLog()
+    const engine = createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, trace: log, now: () => t, partialEveryMs: 1e9 })
+    const marks: { speechEndAt?: number; releasedAt?: number } = {}
+    const info = { kind: 'behavioural' as const, tier: 'fast' as const, auto: true, spec: 'hit' as const, gate: 'heuristic' as const, gateMs: null }
+    let release: () => void = () => {}
+    const afterRelease = new Promise<void>(r => { release = r })
+    const out = await collect(engine.answer({ ...req(), marks, info, afterRelease }))
+    expect(out.at(-1)!.done).toBe(true)
+    expect(log.last()).toBeUndefined() // held: the turn is not recorded until it is released
+    marks.speechEndAt = 150; marks.releasedAt = 400; release()
+    await new Promise(r => setTimeout(r, 0))
+    expect(log.last()!.ms).toMatchObject({ endToSay: 250, turn: { spec: 'hit', auto: true } }) // visible at release (400), not at first say (300)
+  })
+  it('bills cached prompt tokens at the cached rate', async () => {
+    const { provider } = fakeProvider(text(ANSWER, 50, { usage: { promptTokens: 6000, completionTokens: 0, cachedTokens: 5000 } }))
+    const cost = createCostMeter()
+    await collect(createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, cost, partialEveryMs: 1e9 }).answer(req()))
+    const m = defaultModelFor('fast')
+    expect(cost.totalUsd()).toBeCloseTo(((1000 * 0.1) + 5000 * 0.025) / 1e6, 9) // nano: $0.10/M prompt, $0.025/M cached
+    expect(m).toBeTruthy()
+  })
+  it('passes the session id (sticky routing) and tight per-tier maxTokens', async () => {
+    const { provider, calls } = fakeProvider(text(ANSWER, 50))
+    const engine = createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, sessionId: () => 'S-9', partialEveryMs: 1e9 })
+    await collect(engine.answer(req()))
+    expect(calls[0]).toMatchObject({ sessionId: 'S-9', maxTokens: 320 })
+  })
+  it('keeps the system prompt identical between turns so the prefix cache can hit', async () => {
+    const { provider, calls } = fakeProvider(text(ANSWER, 50))
+    const engine = createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, partialEveryMs: 1e9 })
+    await collect(engine.answer(req()))
+    await collect(engine.answer(req(question('technical', 'How do you design a rate limiter?'), [{ id: 'l', speaker: 'interviewer', text: 'prior', final: true, t0: 0, t1: 1 }])))
+    expect(calls[0]!.system).toBe(calls[1]!.system)
+    expect(calls[0]!.messages[0]!.content).not.toBe(calls[1]!.messages[0]!.content)
+  })
+  it('warm() delegates to the provider; absent warm is a no-op', async () => {
+    let warmed = 0
+    const p: AnswerProvider = { id: 'openrouter', stream: () => text('')(), warm: async () => { warmed++ } }
+    await createAnswerEngine({ provider: p, config: () => cfg(), grounding: () => grounding }).warm!()
+    expect(warmed).toBe(1)
+    await expect(createAnswerEngine({ provider: { id: 'openrouter', stream: () => text('')() }, config: () => cfg(), grounding: () => grounding }).warm!()).resolves.toBeUndefined()
   })
 })

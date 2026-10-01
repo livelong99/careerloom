@@ -38,6 +38,7 @@ export const REGISTRY: readonly RegistryEntry[] = [
   e('agent', 'agent-permissions', 'What the runner may do', 'permissions', 'sandbox', 'tools'),
   e('copilot', 'copilot:stt', 'Copilot transcription', 'stt', 'whisper', 'vocabulary', 'silence'),
   e('copilot', 'copilot:engine', 'Copilot answer engine', 'tier', 'model', 'fact check', 'vision'),
+  e('copilot', 'copilot:faster', 'Copilot faster answers', 'speculative', 'early start', 'auto answer', 'decision model', 'gate'),
   e('copilot', 'copilot:privacy', 'Copilot privacy', 'retention', 'redact', 'privacy mode', 'hide from capture'),
   e('monitoring', 'monitoring-findings', 'What raises findings', 'insights', 'thresholds'),
   e('data', 'locations', 'Data locations', 'app data', 'folder', 'path', 'finder'),

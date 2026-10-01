@@ -1,0 +1,42 @@
+{
+  "at": "2026-10-01T11:55:48.258Z",
+  "node": "v22.20.0",
+  "os": "Darwin 27.0.0 arm64",
+  "model": "whisper-mlx small",
+  "endSilenceMs": 650,
+  "synthetic": true,
+  "results": {
+    "baseline": {
+      "n": 8,
+      "finalsPerPass": [
+        4,
+        4
+      ],
+      "p50": 651.6588339999998,
+      "p95": 727.779625000001,
+      "min": 575.9395829999994,
+      "sample": [
+        "Tell me about a time you let a project under a tight deadline.",
+        "How would you design a rate limiter for a public API?",
+        "I reduced the page 95 latency of our checkout service by 40%.",
+        "Why do you want to join our team?"
+      ]
+    },
+    "adaptive": {
+      "n": 8,
+      "finalsPerPass": [
+        4,
+        4
+      ],
+      "p50": 194.72100000000137,
+      "p95": 280.91508299999987,
+      "min": 169.95654099999228,
+      "sample": [
+        "Tell me about a time you let a project under a tight deadline.",
+        "How would you design a rate limiter for a public API?",
+        "I reduced the page 95 latency of our checkout service by 40%.",
+        "Why do you want to join our team?"
+      ]
+    }
+  }
+}

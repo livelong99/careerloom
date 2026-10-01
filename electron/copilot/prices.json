@@ -4,47 +4,59 @@
   "models": {
     "google/gemini-2.5-flash-lite": {
       "promptUsdPerM": 0.1,
-      "completionUsdPerM": 0.4
+      "completionUsdPerM": 0.4,
+      "cachedUsdPerM": 0.025
     },
     "openai/gpt-4.1-nano": {
       "promptUsdPerM": 0.1,
-      "completionUsdPerM": 0.4
+      "completionUsdPerM": 0.4,
+      "cachedUsdPerM": 0.025
     },
     "openai/gpt-6-luna": {
       "promptUsdPerM": 0.1,
-      "completionUsdPerM": 0.5
+      "completionUsdPerM": 0.5,
+      "cachedUsdPerM": 0.025
     },
     "qwen/qwen3-30b-a3b-instruct-2507": {
       "promptUsdPerM": 0.04815,
-      "completionUsdPerM": 0.19305
+      "completionUsdPerM": 0.19305,
+      "cachedUsdPerM": 0.004815
     },
     "anthropic/claude-haiku-4.5": {
       "promptUsdPerM": 1,
-      "completionUsdPerM": 5
+      "completionUsdPerM": 5,
+      "cachedUsdPerM": 0.1
     },
     "openai/gpt-4.1-mini": {
       "promptUsdPerM": 0.4,
-      "completionUsdPerM": 1.6
+      "completionUsdPerM": 1.6,
+      "cachedUsdPerM": 0.1
     },
     "google/gemini-3.6-flash": {
       "promptUsdPerM": 0.75,
-      "completionUsdPerM": 3.75
+      "completionUsdPerM": 3.75,
+      "cachedUsdPerM": 0.1875
     },
     "openai/gpt-5.4-mini": {
       "promptUsdPerM": 0.75,
-      "completionUsdPerM": 4.5
+      "completionUsdPerM": 4.5,
+      "cachedUsdPerM": 0.075
     },
     "anthropic/claude-sonnet-5.5": {
       "promptUsdPerM": 2,
-      "completionUsdPerM": 10
+      "completionUsdPerM": 10,
+      "cachedUsdPerM": 0.2
     },
     "openai/gpt-6.1-sol": {
       "promptUsdPerM": 2,
-      "completionUsdPerM": 10
+      "completionUsdPerM": 10,
+      "cachedUsdPerM": 0.5
     },
     "google/gemini-3.1-pro-preview": {
       "promptUsdPerM": 2,
-      "completionUsdPerM": 12
+      "completionUsdPerM": 12,
+      "cachedUsdPerM": 0.5
     }
-  }
+  },
+  "cacheNote": "cachedUsdPerM = prompt price x cache-read multiplier from openrouter.ai/docs/features/prompt-caching (Anthropic/Qwen 0.1x, Gemini 0.25x, OpenAI 0.25-0.5x; gpt-4.1 family 0.25x assumed, gpt-5 0.1x assumed). Estimates, not read from /models: provider-billed cost wins when reported."
 }

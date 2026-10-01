@@ -139,4 +139,14 @@ describe('data-policy migration (default flipped to allow, user-approved)', () =
     writeCopilotConfig({ engine: { openrouter: { dataCollection: 'deny' } } })
     expect(readCopilotConfig().engine.openrouter).toMatchObject({ dataCollection: 'deny', policyMigrated: true })
   })
+
+  it('PERF-2 settings: speculative start and the gate are off by default, and bad values fall back (https only for the gate URL)', () => {
+    const d = DEFAULT_CONFIG.engine
+    expect(d.autoAnswer).toBe(false); expect(d.speculativeStart).toBe(false); expect(d.gate.engine).toBe('heuristic')
+    expect(normalizeConfig({ engine: { speculativeStart: 'yes', gate: { engine: 'gpt', baseUrl: 'http://evil.test', endpoint: 'x' } } }).engine).toMatchObject({ speculativeStart: false, gate: d.gate })
+    expect(normalizeConfig({ engine: { speculativeStart: true, gate: { engine: 'jev', baseUrl: 'https://api.typesafe.ai/', endpoint: 'decisions' } } }).engine).toMatchObject({ speculativeStart: true, gate: { engine: 'jev', baseUrl: 'https://api.typesafe.ai', endpoint: 'decisions' } })
+    // a file written before these fields existed migrates to the defaults
+    expect(normalizeConfig({ engine: { autoAnswer: true } }).engine).toMatchObject({ autoAnswer: true, speculativeStart: false, gate: d.gate })
+  })
 })
+
