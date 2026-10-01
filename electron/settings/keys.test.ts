@@ -102,11 +102,32 @@ describe('connection tests (cheapest call, no tokens)', () => {
     await expect(testKey('openrouter', deps(reply(200)))).rejects.toThrow(/add a key/i)
     await expect(testKey('opencode', deps(reply(200)))).rejects.toThrow(/add a key/i)
   })
-  it('search keys: format accepted, test is a stub that makes no request', async () => {
-    expect(setKey('brave', `BSA${'a1_-'.repeat(8)}`).hasKey).toBe(true)
+  it('brave: one tiny query with the subscription header, result stored without the key', async () => {
+    const BRAVE = `BSA${'a1_-'.repeat(8)}`
+    expect(setKey('brave', BRAVE).hasKey).toBe(true)
+    const f = vi.fn(reply(200, { web: { results: [] } }))
+    const res = await testKey('brave', deps(f))
+    expect(res).toMatchObject({ ok: true, detail: 'Key accepted' })
+    expect(f).toHaveBeenCalledTimes(1)
+    const url = new URL(String(f.mock.calls[0]![0]))
+    expect(url.origin + url.pathname).toBe('https://api.search.brave.com/res/v1/web/search')
+    expect(url.searchParams.get('count')).toBe('1')
+    expect((f.mock.calls[0]![1] as RequestInit).headers).toMatchObject({ 'x-subscription-token': BRAVE })
+    expect(JSON.stringify(readSettings())).not.toContain(BRAVE)
+    expect(JSON.stringify(res)).not.toContain(BRAVE)
+  })
+  it.each([[401, /invalid/i], [429, /rate/i]])('brave HTTP %i → clear reason', async (status, re) => {
+    setKey('brave', `BSA${'a1_-'.repeat(8)}`)
+    const res = await testKey('brave', deps(reply(status)))
+    expect(res.ok).toBe(false)
+    expect(res.detail).toMatch(re)
+  })
+  it('brave without a key makes no request; exa and serper tests are not wired yet', async () => {
     const f = vi.fn(reply(200))
-    await expect(testKey('brave', deps(f))).rejects.toThrow(/research/i)
+    await expect(testKey('brave', deps(f))).rejects.toThrow(/add a key/i)
     await expect(testKey('exa', deps(f))).rejects.toThrow(/add a key/i)
+    setKey('exa', 'a'.repeat(20))
+    await expect(testKey('exa', deps(f))).rejects.toThrow(/arrives/i)
     expect(f).not.toHaveBeenCalled()
   })
   it('firecrawl: reachability of the loopback API, works without a key', async () => {
