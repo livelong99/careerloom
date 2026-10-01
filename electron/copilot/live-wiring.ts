@@ -1,7 +1,7 @@
 // Glue between the session controller (capture + STT), the overlay host, the question detector, the answer engine and the
 // session recorder (plan §3). Pure: every collaborator is injected, so the whole live flow is unit-testable with fakes.
 import { createAutoAsk } from './auto-ask'
-import { questionType, type QuestionDetector } from './detector'
+import { heuristicHint, questionType, type QuestionDetector } from './detector'
 import { checkVision, defaultModelFor, type AnswerEngine } from './engine'
 import type { PromptKind } from './prompts'
 import { friendlyLlmError } from './providers/errors'
@@ -210,6 +210,14 @@ export function createLiveWiring(d: WiringDeps) {
     }
   }
 
+  /** The AI interviewer asked a question: it takes the same path as one heard on the interviewer channel (recorded, shown, auto-answered when on), so cues and suggestions match live. */
+  async function interviewerAsked(q: DetectedQuestion): Promise<void> {
+    const heard: DetectedQuestion = { ...q, auto: true, hint: q.hint ?? heuristicHint(q.text) }
+    addQuestion(heard)
+    prefetch(heard)
+    if (d.config().engine.autoAnswer) await answer('answer', heard.id)
+  }
+
   /** The Screenshot button / hotkey: answer the current question with the screen. Gates first so nothing is captured when it can't be used. */
   async function screenshot(): Promise<void> {
     if (!d.screen) return screenEvent({ state: 'blocked', reason: 'failed', message: 'Screenshots are not available in this build.' })
@@ -252,7 +260,7 @@ export function createLiveWiring(d: WiringDeps) {
   }
 
   return {
-    emit, endOfTurn, answer, screenshot,
+    emit, endOfTurn, answer, screenshot, interviewerAsked,
     /** Counters for the trace: speculative hit rate and wasted tokens. */
     metrics: () => ({ speculation: spec.stats() }),
     /** The session controller arrives after the wiring (it needs `emit`): the kill switch closes over it. */
