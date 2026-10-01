@@ -7,6 +7,15 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261002 KB WP7 live](session_20261002_kb-wp7-live.md) — question base in live sessions: QUESTION BASE prefix block, top-3 matches in user turn, guard rule, KbChip, Settings toggle, kb trace stage
+- [20261002 KB INT](session_20261002_kb-int.md) — merged KB WP1-6, wired store/research/interviewer/voice seams, one hash + job-folder name, contract v2; cloned-profile e2e on fakes + real `say`
+- [20261002 KB WP5 TTS](session_20261002_kb-wp5-tts.md) — TTS service/engines (system en_IN, hashed Kokoro install, OpenRouter), echo gate, gapless queue; S-V1/S-T1 numbers, S-E1 deferred
+- [20261002 KB WP4](session_20261002_kb-wp4.md) — AI interviewer engine + Practice (text first): selector/probe/score/runner, live-path parity seam, Practice form, overlay row/controls, debrief heat map
+- [20261002 KB WP3 UI](session_20261002_kb-wp3-ui.md) — Job › Knowledge base tab on the kb contract: fake backend (?fakeKb), 7 states dark+light, RTL + a11y tests
+- [20261002 KB WP6 Settings](session_20261002_kb-wp6-settings.md) — Interview prep settings page, Brave one-query key test, consent reset on provider change, config IPC (contract v1.1)
+- [20261002 KB WP2](session_20261002_kb-wp2.md) — job KB research pipeline on fakes: search adapters, SSRF/robots/denylist-safe fetch, poison guard, budget, resume, Run registration; S-R1 not run (needs key)
+- [20261002 KB WP1](session_20261002_kb-wp1.md) — KB store/index/retrieval: per-job JSON store, BM25, retrieve/kbPrefix, import/export, golden fixtures, relevance (recall@3 1.0) + latency (p95 0.22 ms)
+- [20261002 KB WP0](session_20261002_kb-wp0.md) — job knowledge base contract/shell/config skeleton: kb + interviewer types, kb* IPC stubs, interview.json, brave/exa/serper key ids, Settings + Job tab stubs, module stubs; tag kb-contract-v1
 - [20261001 Runs page](session_20261001_copilot-runs-page.md) — Runs drawer → full Runs page (⌘7): filters, live runs, windowed redacted log viewer, deleteRuns IPC; job-aware grouping/filter/card, cloned-profile QA 33/33
 - [20261001 Job knowledge base plan](session_20261001_job-knowledge-base-plan.md) — docs-only research/design/plan: web-researched per-job question base, AI-interviewer practice + TTS, live retrieval; G1 approved
 - [20261001 Copilot SS screenshots wired](session_20261001_copilot-screenshots-wired.md) — screenshot path end to end: image parts to vision models only, routing pre-capture, cleanup hooks, overlay states, opt-in setting; cloned-profile QA

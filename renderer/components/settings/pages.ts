@@ -1,7 +1,7 @@
 import type { Settings } from '../../lib/types'
 
 // The 12 Settings pages in 5 groups (design.md §1). Page bodies live in ./pages/*; this file is data only.
-export type PageId = 'general' | 'runners' | 'keys' | 'local-models' | 'integrations' | 'jobs' | 'resume' | 'agent' | 'copilot' | 'monitoring' | 'data' | 'advanced'
+export type PageId = 'general' | 'runners' | 'keys' | 'local-models' | 'integrations' | 'jobs' | 'resume' | 'agent' | 'copilot' | 'interview-prep' | 'monitoring' | 'data' | 'advanced'
 
 export const PAGE_GROUPS: ReadonlyArray<{ label: string; pages: ReadonlyArray<{ id: PageId; label: string; blurb: string }> }> = [
   { label: 'Basics', pages: [{ id: 'general', label: 'General', blurb: 'Where your data lives, how the app looks and how often it refreshes.' }] },
@@ -21,6 +21,7 @@ export const PAGE_GROUPS: ReadonlyArray<{ label: string; pages: ReadonlyArray<{ 
       { id: 'resume', label: 'Resume & documents', blurb: 'Defaults for tailored résumés and cover letters.' },
       { id: 'agent', label: 'Agent', blurb: 'What the active runner may do.' },
       { id: 'copilot', label: 'Copilot', blurb: 'Transcription, answer engine and privacy.' },
+      { id: 'interview-prep', label: 'Interview prep', blurb: 'Job research, search providers and the interviewer’s voice.' },
       { id: 'monitoring', label: 'Monitoring', blurb: 'Refresh, run-log retention and what raises findings.' },
     ],
   },

@@ -102,3 +102,20 @@ describe('applyDebrief (explicit only)', () => {
     expect(await applyDebrief({ store, cv: () => CV, dir }, 's1', 'q1', 'job-note')).toEqual({ ok: false })
   })
 })
+
+describe('scoreSession with an interviewer record', () => {
+  it('passes the per-question rubric scores to the model so tips target the weakest criterion', async () => {
+    const store = openSessionStore(dir)
+    store.save(session({ interview: { planHash: 'abc', itemIds: ['q1'], perQuestion: [{ itemId: 'q1', score: 2.5, hintUsed: false, skipped: false, criteria: [{ criterion: 'Concrete result', score: 1, evidence: '' }] }] } }))
+    const call = vi.fn(async (_p: string) => ({ text: JSON.stringify({ structure: 3, specifics: 3, evidence: 3, concision: 3, notes: [] }), tokens: 1, model: 'm' }))
+    await scoreSession({ store, call, cv: () => CV }, 's1')
+    expect(call.mock.calls[0]![0]).toMatch(/\[q1\] 2\.5 \(Concrete result\)/)
+  })
+  it('a session without an interviewer record has no such section', async () => {
+    const store = openSessionStore(dir)
+    store.save(session())
+    const call = vi.fn(async (_p: string) => ({ text: '{}', tokens: 1, model: 'm' }))
+    await scoreSession({ store, call, cv: () => CV }, 's1')
+    expect(call.mock.calls[0]![0]).not.toMatch(/AI interviewer already scored/)
+  })
+})

@@ -16,7 +16,7 @@ const runs: Run[] = [
 const ids = (f: Partial<typeof EMPTY_FILTER>) => filterRuns(runs, { ...EMPTY_FILTER, ...f }, NOW).map(r => r.id)
 
 describe('kindOf', () => {
-  it.each([['evaluate', 'evaluate'], ['pipeline', 'evaluate'], ['scan', 'scan'], ['web-board', 'scan'], ['pdf', 'resume'], ['intake', 'resume'], ['practice', 'copilot'], ['live', 'copilot'], ['skill-install', 'setup'], ['setup', 'setup'], ['patterns', 'agent']])('%s → %s', (mode, kind) => {
+  it.each([['evaluate', 'evaluate'], ['pipeline', 'evaluate'], ['scan', 'scan'], ['web-board', 'scan'], ['pdf', 'resume'], ['intake', 'resume'], ['practice', 'copilot'], ['live', 'copilot'], ['job-research', 'research'], ['skill-install', 'setup'], ['setup', 'setup'], ['patterns', 'agent']])('%s → %s', (mode, kind) => {
     expect(kindOf(run({ mode }))).toBe(kind)
   })
 })

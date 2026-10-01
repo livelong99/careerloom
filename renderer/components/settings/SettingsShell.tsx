@@ -11,6 +11,7 @@ import { CopilotPage } from './pages/Copilot'
 import { DataPage } from './pages/Data'
 import { GeneralPage } from './pages/General'
 import { IntegrationsPage } from './pages/Integrations'
+import { InterviewPrepPage } from './pages/InterviewPrep'
 import { JobsPage } from './pages/Jobs'
 import { KeysPage } from './pages/Keys'
 import { LocalModelsPage } from './pages/LocalModels'
@@ -20,7 +21,7 @@ import { RunnersPage } from './pages/Runners'
 
 const BODIES: Record<PageId, ComponentType<PageProps>> = {
   general: GeneralPage, runners: RunnersPage, keys: KeysPage, 'local-models': LocalModelsPage, integrations: IntegrationsPage,
-  jobs: JobsPage, resume: ResumePage, agent: AgentPage, copilot: CopilotPage, monitoring: MonitoringPage, data: DataPage, advanced: AdvancedPage,
+  jobs: JobsPage, resume: ResumePage, agent: AgentPage, copilot: CopilotPage, 'interview-prep': InterviewPrepPage, monitoring: MonitoringPage, data: DataPage, advanced: AdvancedPage,
 }
 
 export const PAGE_KEY = 'careerloom.settingsPage'

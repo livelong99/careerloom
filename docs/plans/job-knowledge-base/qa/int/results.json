@@ -1,0 +1,202 @@
+{
+ "1.1": {
+  "name": "KB tab shows the empty state with a research call-to-action",
+  "pass": true,
+  "detail": "Overview | Job search | Jobs | Boards | Resume | Agents | Agent | Monitoring | Runs | Interview | Copilot | Settings | Help | v0.2.0 | Jobs | /private/tmp/claud"
+ },
+ "1.2a": {
+  "name": "Before consent the research button is locked and a \"Review and agree\" notice shows",
+  "pass": true,
+  "detail": ""
+ },
+ "1.2": {
+  "name": "First run asks for consent before anything is sent (dialog shown)",
+  "pass": true,
+  "detail": "Overview | Job search | Jobs | Boards | Resume | Agents | Agent | Monitoring | Runs | Interview | Copilot | Settings | H"
+ },
+ "1.3": {
+  "name": "Nothing runs before consent (status none, no run)",
+  "pass": true,
+  "detail": "none"
+ },
+ "1.4": {
+  "name": "Consent stored via interviewSetConfig (consentVersion set)",
+  "pass": true,
+  "detail": "2026-10-v1"
+ },
+ "1.5": {
+  "name": "Fake research run finishes (progress seen while running)",
+  "pass": true,
+  "detail": "complete items=17 sourced=65% sources=6 cost=$0.052"
+ },
+ "1.6": {
+  "name": "Items appear, labelled sourced vs generated",
+  "pass": true,
+  "detail": "17 items: 11 sourced, 6 generated"
+ },
+ "1.7": {
+  "name": "Sourced items carry sources",
+  "pass": true,
+  "detail": ""
+ },
+ "1.8": {
+  "name": "KB tab lists the questions with provenance labels",
+  "pass": true,
+  "detail": "Overview | Job search | Jobs | Boards | Resume | Agents | Agent | Monitoring | Runs | Interview | Copilot | Settings | Help | v0.2.0 | Jobs | /private/tmp/claude-501/-Users-perkypanda-orca-workspaces-"
+ },
+ "1.9": {
+  "name": "Runs page shows the research run (Job research, with the job)",
+  "pass": true,
+  "detail": "Overview | Job search | Jobs | Boards | Resume | Agents | Agent | Monitoring | Runs | Interview | Copilot | Settings | Help | v0.2.0 | Runs | /private/tmp/claude-501/-Users-perkypanda-orca-workspaces-"
+ },
+ "1.10": {
+  "name": "Run record is mode job-research with jobId stamped, status done",
+  "pass": true,
+  "detail": "[{\"mode\":\"job-research\",\"jobId\":\"https://www.google.com/about/careers/applications/jobs/results/121538506244661958-senior-software-engineer-core?q=Senior+Software+Engineer&location=India&hl=en-US\",\"status\":\"done\"}]"
+ },
+ "2.1": {
+  "name": "'Practise this job' opens Practice with the AI interviewer for this job",
+  "pass": true,
+  "detail": "17 questions · 65% sourced"
+ },
+ "2.2": {
+  "name": "Plan preview comes from KB items and honours includeGenerated=false",
+  "pass": true,
+  "detail": "{\"all\":{\"questions\":8,\"sourced\":7,\"usd\":0.04,\"minutes\":30},\"sourcedOnly\":{\"questions\":8,\"sourced\":8,\"usd\":0.04,\"minutes\":30}}"
+ },
+ "2.3": {
+  "name": "No playback before an explicit Start (nothing spoke while the form was open)",
+  "pass": true,
+  "detail": "0 kb-e2e log lines before Start, none added"
+ },
+ "2.4": {
+  "name": "AI interviewer asks KB questions and shows them in the overlay caption",
+  "pass": true,
+  "detail": "[\"Explain how closures capture variables in JavaScript and where that goes wrong in loops?\",\"Tell me about a time you led a migration with unclear requirements?\"]"
+ },
+ "2.5": {
+  "name": "Interviewer speaks with the system voice (real `say` process seen, en_IN voice first)",
+  "pass": true,
+  "detail": "say -v Aman (English (India)) -r 175 --file-format=WAVE --data-format=LEI16@24000 -o /var/folders/sp/1qs8cbld3_x26yz_rx1z0y440000gn/T/cl-say-nEM2YH/out.wav -- E"
+ },
+ "2.6": {
+  "name": "Playback events reach main (started/ended) and the gate engages",
+  "pass": true,
+  "detail": "[kb-e2e] ttsPlayback started 4e575c78f74f73df35a1f97a32772cf1decbd3b6#2 | [kb-e2e] ttsPlayback ended 4e575c78f74f73df35a1f97a32772cf1decbd3b6#2 | [kb-e2e] ttsPlayback started f6ae51ab88484c6418ca3711566495ad18715bbd#3"
+ },
+ "2.7": {
+  "name": "Mic frames are dropped while speaking (half-duplex) and the overlay shows the \"Mic paused\" badge",
+  "pass": true,
+  "detail": "drops logged=5 badge=true"
+ },
+ "2.8": {
+  "name": "Overlay goes listening after the question finishes speaking",
+  "pass": true,
+  "detail": ""
+ },
+ "2.10": {
+  "name": "Stop ends the voice (cancel) with no say process left",
+  "pass": true,
+  "detail": "none"
+ },
+ "2.9": {
+  "name": "Cues and suggestions come through the live path (auto question, hint, answer with SAY/bullets/STAR + fact flags)",
+  "pass": true,
+  "detail": "{\"questions\":4,\"suggestions\":1,\"firstTokenMs\":257,\"tier\":\"fast\",\"flags\":2}"
+ },
+ "2.9a": {
+  "name": "Typed answer lands as the candidate line",
+  "pass": true,
+  "detail": "I led the migration of forty services to Kubernetes and kept releases weekly by staging the cut-over per team. || I led the migration of forty services to Kubernetes, staged per team, and releases sta"
+ },
+ "2.9b": {
+  "name": "Fake-mic (STT fixture) answer lands as a candidate line too",
+  "pass": true,
+  "detail": "2 candidate lines"
+ },
+ "2.11": {
+  "name": "Session stores the interview record: per-question results with KB item ids from this KB",
+  "pass": true,
+  "detail": "2 results; ids in KB=2"
+ },
+ "2.12": {
+  "name": "includeGenerated=false: every asked item is sourced",
+  "pass": true,
+  "detail": "sourced,sourced"
+ },
+ "2.13": {
+  "name": "No repeats within the session",
+  "pass": true,
+  "detail": "3 asked"
+ },
+ "2.14": {
+  "name": "Debrief page lists the session with per-question rubric rows / heat map",
+  "pass": true,
+  "detail": " ⌘K | Interview Copilot | Practice with your own job and résumé, or get live help in a real interview. | Preview overlay | Start live session… | Start practice | Speech to text | Whisper · Small | Manage in Settings | An"
+ },
+ "2.15": {
+  "name": "KbItem.stats written back (asked, lastScore, avgScore) for the asked items",
+  "pass": true,
+  "detail": "[{\"id\":\"4e575c78f74f73df35a1f97a32772cf1decbd3b6\",\"a\":1,\"last\":3.6,\"avg\":3.6},{\"id\":\"f6ae51ab88484c6418ca3711566495ad18715bbd\",\"a\":1,\"last\":null,\"avg\":null}]"
+ },
+ "2.16": {
+  "name": "Skill signal written and readable over IPC (interviewSkillSignal)",
+  "pass": true,
+  "detail": "{\"jobId\":\"https://www.google.com/about/careers/applications/jobs/results/121538506244661958-senior-software-engineer-core?q=Senior+Software+Engineer&location=India&hl=en-US\",\"at\":1790868173842,\"skills"
+ },
+ "2.17": {
+  "name": "Skill-up tab shows \"From your practice sessions\" from the signal",
+  "pass": true,
+  "detail": "From your practice sessions | Average score per skill from the AI interviewer, weakest first. Skills below are ordered by it. | go · 3.6 of 5 · 1 answer | What "
+ },
+ "3.1": {
+  "name": "Settings > Interview prep page renders research, search, sources and voice groups",
+  "pass": true,
+  "detail": "Interview prep | Monitoring | SYSTEM | Data & privacy | Advanced | Interview prep | Job research, search providers and t"
+ },
+ "3.2": {
+  "name": "Choosing Headphones in Settings is saved to interview.json",
+  "pass": true,
+  "detail": "{\"engine\":\"system\",\"voiceId\":null,\"speed\":1,\"echo\":\"headphones\",\"tailMs\":350,\"pushToInterrupt\":\"Control+Alt+I\"}"
+ },
+ "3.3": {
+  "name": "Speed and budget are saved (validated, clamped)",
+  "pass": true,
+  "detail": "{\"speed\":1.3,\"budget\":0.06}"
+ },
+ "3.4a": {
+  "name": "A request above the hard ceiling is clamped (estimate high end <= $2)",
+  "pass": true,
+  "detail": "{\"usdLow\":0.073,\"usdHigh\":0.328,\"minutes\":6,\"backend\":\"brave\",\"needsKey\":false}"
+ },
+ "3.4": {
+  "name": "Research budget from Settings applies to a run started in the KB tab (cost stays within $0.06)",
+  "pass": true,
+  "detail": "{\"status\":\"complete\",\"cost\":0.02}"
+ },
+ "3.5": {
+  "name": "Practice form starts from Settings: speed 1.30x and Headphones selected",
+  "pass": true,
+  "detail": "Speed | 1.30× "
+ },
+ "3.6": {
+  "name": "Speed reaches the voice (say -r 228 = 175 wpm x 1.3)",
+  "pass": true,
+  "detail": "say -v Aman (English (India)) -r 228 --file-format=WAVE --data-format=LEI16@24000 -o /var/"
+ },
+ "3.7": {
+  "name": "Headphones: mic is not paused while the interviewer speaks (no dropped frames, no badge)",
+  "pass": true,
+  "detail": "1 log lines, dropped=0, badge=false"
+ },
+ "3.8": {
+  "name": "Switching the search provider clears consent (asks again)",
+  "pass": true,
+  "detail": "null"
+ },
+ "3.9": {
+  "name": "KB tab asks again (\"Review and agree\") after the provider switch",
+  "pass": true,
+  "detail": ""
+ }
+}
