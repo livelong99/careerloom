@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261002 KB WP6 Settings](session_20261002_kb-wp6-settings.md) — Interview prep settings page, Brave one-query key test, consent reset on provider change, config IPC (contract v1.1)
 - [20261002 KB WP2](session_20261002_kb-wp2.md) — job KB research pipeline on fakes: search adapters, SSRF/robots/denylist-safe fetch, poison guard, budget, resume, Run registration; S-R1 not run (needs key)
 - [20261002 KB WP1](session_20261002_kb-wp1.md) — KB store/index/retrieval: per-job JSON store, BM25, retrieve/kbPrefix, import/export, golden fixtures, relevance (recall@3 1.0) + latency (p95 0.22 ms)
 - [20261002 KB WP0](session_20261002_kb-wp0.md) — job knowledge base contract/shell/config skeleton: kb + interviewer types, kb* IPC stubs, interview.json, brave/exa/serper key ids, Settings + Job tab stubs, module stubs; tag kb-contract-v1

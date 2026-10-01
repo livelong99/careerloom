@@ -1,0 +1,36 @@
+// QA only: Settings > Interview prep on a cloned/fake profile. EV_DIR = evidence folder. Uses a fake Brave key (never a real one).
+import { clickText, done, EV, nav, open, record, sentinelLeak, sleep, text, theme, waitText } from '../settings-qa/lib.mjs'
+
+const FAKE = 'BSAqaSENTINEL0123456789abcdef0123'
+const page = await open()
+await page.evaluate("localStorage.removeItem('careerloom.onboarding')"); await page.evaluate('location.reload()'); await sleep(2500)
+await page.evaluate(`window.careerloom.keysSet('brave', ${JSON.stringify(FAKE)})`)
+await nav(page, { section: 'settings', page: 'interview-prep', focus: 'interview:voice' })
+record('deeplink-page', 'nav', await waitText(page, 'Interviewer voice'))
+record('deeplink-focus', 'nav', await page.evaluate(`document.querySelector('[data-setting-id="interview:voice"]') !== null`))
+record('key-set-last4', 'keys', await waitText(page, 'last four 0123') || await waitText(page, 'Key set'))
+record('key-never-echoed', 'keys', !(await text(page)).includes('QASENTINEL') && !(await page.evaluate('document.documentElement.outerHTML')).includes('qaSENTINEL'))
+const cfg = await page.evaluate('window.careerloom.interviewConfig()')
+record('config-defaults', 'config', cfg.research.depth === 'standard' && cfg.voice.echo === 'speakers', JSON.stringify(cfg.research.search))
+await clickText(page, 'Deep'); await sleep(500)
+record('depth-persists', 'config', (await page.evaluate('window.careerloom.interviewConfig()')).research.depth === 'deep')
+await page.evaluate(`window.careerloom.interviewSetConfig({ research: { consentVersion: 'v1' } })`)
+const after = await page.evaluate(`window.careerloom.interviewSetConfig({ research: { search: { backend: 'exa' } } })`)
+record('provider-change-clears-consent', 'consent', after.research.consentVersion === null)
+await page.evaluate(`window.careerloom.interviewSetConfig({ research: { search: { backend: 'brave' } } })`)
+const never = await page.evaluate(`window.careerloom.interviewSetConfig({ research: { sources: { reddit: true, linkedin: true } } })`)
+record('never-fetch-not-enableable', 'sources', !('reddit' in never.research.sources) && !('linkedin' in never.research.sources))
+const tested = await page.evaluate(`window.careerloom.keysTest('brave').then(r => r, e => ({ ok: false, detail: String(e.message) }))`)
+record('brave-test-no-key-echo', 'keys', !JSON.stringify(tested).includes('QASENTINEL'), JSON.stringify(tested))
+await page.evaluate(`window.careerloom.interviewSetConfig(${JSON.stringify({ research: { depth: 'standard', consentVersion: null } })})`)
+await page.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1900, deviceScaleFactor: 1, mobile: false })
+await nav(page, { section: 'settings', page: 'interview-prep', focus: 'interview:research' })
+await sleep(1200)
+await page.evaluate("document.querySelector('[data-radix-scroll-area-viewport]')?.scrollTo(0, 0)")
+for (const t of ['dark', 'light']) {
+  await theme(page, t); await sleep(600)
+  await page.shot(`${EV}/settings-interview-prep-${t}.png`)
+}
+record('no-sentinel-leak', 'keys', (await sentinelLeak(page)).length === 0)
+await page.evaluate(`window.careerloom.keysSet('brave', null)`)
+done()

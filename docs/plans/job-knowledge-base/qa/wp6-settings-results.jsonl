@@ -1,0 +1,17 @@
+{"id":"brave-test-no-key-echo","area":"keys","pass":true,"note":"{\"ok\":false,\"latencyMs\":660,\"detail\":\"Brave Search answered HTTP 422\",\"at\":1790865566274}"}
+{"id":"brave-test-no-key-echo","area":"keys","pass":true,"note":"{\"ok\":false,\"latencyMs\":668,\"detail\":\"Brave Search answered HTTP 422\",\"at\":1790865604479}"}
+{"id":"brave-test-no-key-echo","area":"keys","pass":true,"note":"{\"ok\":false,\"latencyMs\":669,\"detail\":\"Brave Search answered HTTP 422\",\"at\":1790865589739}"}
+{"id":"brave-test-no-key-echo","area":"keys","pass":true,"note":"{\"ok\":false,\"latencyMs\":694,\"detail\":\"Brave Search answered HTTP 422\",\"at\":1790865492876}"}
+{"id":"config-defaults","area":"config","pass":true,"note":"{\"backend\":\"brave\",\"fallbackOrder\":[\"brave\",\"exa\",\"serper\",\"searxng\"],\"searxngUrl\":null}"}
+{"id":"deeplink-focus","area":"nav","pass":false,"note":""}
+{"id":"deeplink-focus","area":"nav","pass":true,"note":""}
+{"id":"deeplink-page","area":"nav","pass":false,"note":""}
+{"id":"deeplink-page","area":"nav","pass":true,"note":""}
+{"id":"depth-persists","area":"config","pass":false,"note":""}
+{"id":"depth-persists","area":"config","pass":true,"note":""}
+{"id":"key-never-echoed","area":"keys","pass":true,"note":""}
+{"id":"key-set-last4","area":"keys","pass":false,"note":""}
+{"id":"key-set-last4","area":"keys","pass":true,"note":""}
+{"id":"never-fetch-not-enableable","area":"sources","pass":true,"note":""}
+{"id":"no-sentinel-leak","area":"keys","pass":true,"note":""}
+{"id":"provider-change-clears-consent","area":"consent","pass":true,"note":""}

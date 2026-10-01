@@ -5,24 +5,14 @@ import fs from 'node:fs'
 
 import { userFile } from '../context'
 import type { DeepPartial } from '../copilot/types'
+import { DEFAULT_INTERVIEW_CONFIG } from './defaults'
 import type { InterviewConfig, ResearchSourceGroup, SearchBackendId } from './types'
 
 const FILE = 'interview.json'
 const BACKENDS: readonly SearchBackendId[] = ['brave', 'exa', 'serper', 'searxng']
 const SOURCE_GROUPS: readonly ResearchSourceGroup[] = ['stackexchange', 'github', 'taxonomy', 'hn', 'companyPages', 'articles']
 
-export const DEFAULT_INTERVIEW_CONFIG: InterviewConfig = {
-  version: 1,
-  research: {
-    model: null, depth: 'standard', budgetUsd: 0.3, minutes: 5, allowAgent: false,
-    search: { backend: 'brave', fallbackOrder: [...BACKENDS], searxngUrl: null },
-    sources: { stackexchange: true, github: true, taxonomy: true, hn: true, companyPages: true, articles: true },
-    consentVersion: null, refreshAfterDays: 30,
-  },
-  // speakers + half-duplex is the safe default; the picker lists installed en_IN system voices first
-  voice: { engine: 'system', voiceId: null, speed: 1, echo: 'speakers', tailMs: 350, pushToInterrupt: 'Control+Alt+I' },
-  kb: { retentionDays: null, maxItems: 400 },
-}
+export { DEFAULT_INTERVIEW_CONFIG }
 
 const obj = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
 const bool = (v: unknown, d: boolean): boolean => (typeof v === 'boolean' ? v : d)
@@ -85,7 +75,11 @@ export function readInterviewConfig(): InterviewConfig {
 
 /** Validate-then-persist (temp file + rename). Returns the stored config. */
 export function writeInterviewConfig(patch: DeepPartial<InterviewConfig>): InterviewConfig {
-  const next = normalizeInterviewConfig(merge(readInterviewConfig(), patch))
+  const prev = readInterviewConfig()
+  const next = normalizeInterviewConfig(merge(prev, patch))
+  // consent is per provider (a different one sees different queries): switching without granting again re-prompts
+  const grants = patch.research?.consentVersion !== undefined
+  if (!grants && next.research.search.backend !== prev.research.search.backend) next.research.consentVersion = null
   const file = userFile(FILE)
   fs.mkdirSync(app.getPath('userData'), { recursive: true })
   fs.writeFileSync(`${file}.tmp`, JSON.stringify(next, null, 2), { mode: 0o600 })
