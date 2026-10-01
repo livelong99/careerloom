@@ -12,6 +12,7 @@ type: project
 - `electron/kb/research/{fetch,robots,guard,extract,dedupe,classify,generate,item,plan,budget,state,pipeline}.ts`: pipeline phases plan > search > fetch+extract > dedupe > generate > commit; checkpoint `run.json` + 7 d query / 14 d page / 24 h negative caches.
 - `electron/kb/research/{service,wiring}.ts`: Run registration (`runner 'research'`, `mode 'job-research'`, jobId stamped), estimate/start/stop; wiring = real config/keys/job/helper model/store/network.
 - `electron/kb/handlers.ts` (shared, smallest edit): `kbEstimate`, `kbResearchStart`, `kbResearchStop` real, lazily imported. `handlers.test.ts` / `stubs.test.ts`: only my rows removed/moved.
+- `electron/kb/types.ts` (frozen file, lead-approved at the gate): `KbSummary.progress?: ResearchProgress | null`; `service.progress(jobId)` supplies it, WP1's `kbSummary` must merge it. `research/hash-parity.test.ts` pins the hash vectors and auto-compares kb/hash.ts once WP1 lands.
 - `scripts/kb-research-dry.mjs` (offline by default, `--live` + `CL_LIVE_RESEARCH=1`), `docs/plans/job-knowledge-base/spikes/S-R1.md` ("not run: needs key" template).
 
 **Decisions:**

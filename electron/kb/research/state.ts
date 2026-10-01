@@ -40,7 +40,7 @@ export interface ResearchState {
 }
 
 const key = (...parts: string[]): string => createHash('sha1').update(parts.join('\u0000')).digest('hex')
-/** Same recipe as hash.ts `queryKey`/`pageKey` (WP1). */
+/** Same recipe as hash.ts `queryKey`/`pageKey` (WP1). TODO(integration): import them from '../../hash' once WP1 is merged; pinned by hash-parity.test.ts. */
 export const queryKey = (backend: string, query: string): string => key(backend, query.trim().toLowerCase())
 export const pageKey = (url: string): string => key(url)
 

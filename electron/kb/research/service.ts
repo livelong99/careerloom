@@ -43,6 +43,8 @@ export class ResearchRefused extends Error {}
 
 export function createResearchService(env: ServiceEnv) {
   const live = new Map<string, { runId: string; ac: AbortController }>()
+  /** Latest progress per running job, for `kbSummary.progress` (the KB tab polls the summary). */
+  const latest = new Map<string, KbEvents['kbProgress']>()
 
   function backends(cfg: InterviewConfig): SearchBackend[] {
     if (env.backends) return env.backends(cfg)
@@ -124,6 +126,7 @@ export function createResearchService(env: ServiceEnv) {
             return { text: r.text, usd: env.priceCall(r.model, r.tokens) }
           },
           onProgress: p => {
+            latest.set(jobId, p)
             env.emit('kbProgress', p)
             if (p.phase !== lastPhase) { lastPhase = p.phase; log(`[${p.phase}] ${p.note ?? ''} · $${p.spentUsd.toFixed(3)} · ${p.itemsFound} items, ${p.pages} pages, ${p.skipped} skipped\n`) }
           },
@@ -135,6 +138,7 @@ export function createResearchService(env: ServiceEnv) {
       } finally {
         clearInterval(watch)
         live.delete(jobId)
+        latest.delete(jobId)
         env.emit('kbChanged', { jobId })
       }
     })
@@ -150,6 +154,11 @@ export function createResearchService(env: ServiceEnv) {
     entry.ac.abort()
   }
 
-  return { estimate, start, stop, running: (jobId: string): string | null => live.get(jobId)?.runId ?? null }
+  return {
+    estimate, start, stop,
+    running: (jobId: string): string | null => live.get(jobId)?.runId ?? null,
+    /** The `progress` field of `kbSummary` (WP1's handler merges it): null when no research is running for the job. */
+    progress: (jobId: string): KbEvents['kbProgress'] | null => latest.get(jobId) ?? null,
+  }
 }
 export type ResearchService = ReturnType<typeof createResearchService>

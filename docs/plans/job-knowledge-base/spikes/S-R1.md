@@ -6,14 +6,29 @@ The offline run of the same pipeline (synthetic web, scripted model; proves wiri
 
 ## How to run (user, cloned profile only)
 
-1. Pick three real jobs from the **cloned** profile (plan §17 Q6) and write `jobs.json` by hand: `[{ "title", "company", "techStack": [], "skills": [], "seniority", "gaps": [], "requirements": [] }]`. No CV is read or sent; never point this at the real career-ops folder.
-2. `npm run build:electron`
-3. ```
+You need two keys, both passed as environment variables for this one command (a CLI cannot read the app's keychain, nothing is stored):
+`BRAVE_API_KEY` (search; free $5 monthly credit at https://api-dashboard.search.brave.com, about 50 jobs) and `OPENROUTER_API_KEY` (the extraction model, nano-class by default). The flag `CL_LIVE_RESEARCH=1` is the "yes, spend real money" switch: without it the script refuses to go live.
+
+1. Write `jobs.json` by hand with **three** real jobs from the **cloned** profile (plan §17 Q6). No CV is read or sent; never point this at the real career-ops folder. One object per job; the fields are what the app takes from a structured posting:
+   ```json
+   [
+     { "title": "Senior Frontend Engineer", "company": "Acme Corp", "seniority": "Senior",
+       "techStack": ["React", "TypeScript", "GraphQL"], "skills": ["System design", "Leadership"],
+       "requirements": ["Strong React and TypeScript experience"], "gaps": ["GraphQL"] },
+     { "title": "…", "company": "…", "techStack": [], "skills": [], "gaps": [] },
+     { "title": "…", "company": "…", "techStack": [], "skills": [], "gaps": [] }
+   ]
+   ```
+2. Build once: `npm run build:electron`
+3. Run (cap **$1 total across all three jobs**, standard depth; each job is also capped at the smaller of $0.50 and what is left):
+   ```
    CL_LIVE_RESEARCH=1 BRAVE_API_KEY=... OPENROUTER_API_KEY=... \
      node scripts/kb-research-dry.mjs --live --jobs jobs.json --depth standard --max-usd 1 --out /tmp/kb-dry
    ```
-   Other search backends: `EXA_API_KEY`, `SERPER_API_KEY`, or `SEARXNG_URL=http://127.0.0.1:8080` (keyless, best effort). Several are tried in the order Brave → Exa → Serper → SearXNG. `--model` picks the extraction model (default `openai/gpt-4.1-nano`). The spend cap `--max-usd` covers all jobs together.
-4. Copy the two tables the script prints into the sections below; the generated KBs are in `<out>/<n>.kb.json` (review a few items by eye: wording, sources, evidence).
+   - `--max-usd` is the hard spend cap for the whole run; the script skips remaining jobs once it is reached and a run that hits its cap ends `partial`.
+   - `--depth quick|standard|deep` (default standard), `--model <openrouter id>` (default `openai/gpt-4.1-nano`).
+   - Other search backends, tried in the order Brave → Exa → Serper → SearXNG: `EXA_API_KEY`, `SERPER_API_KEY`, `SEARXNG_URL=http://127.0.0.1:8080` (keyless, best effort).
+4. The script prints two tables (per-job yield and per-host fetch results) and writes each KB to `/tmp/kb-dry/<n>.kb.json`. Paste the tables into the sections below and spot-check five items per job in the JSON (wording, sources, evidence).
 
 ## Results (to fill in)
 
