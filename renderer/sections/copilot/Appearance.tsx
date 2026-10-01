@@ -24,7 +24,7 @@ export function AppearancePage() {
   )
   return (
     <Page title="Overlay appearance" blurb="Sized to be read in a glance. It sits above your call and never takes keyboard focus.">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,26rem)_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[26rem_minmax(0,1fr)] lg:items-start">
         <Group>
           <Row label="Layout" stack><Pills label="Layout" value={o.layout} options={LAYOUTS} onChange={v => set({ layout: v })} /></Row>
           <Row label="Position" hint="On the display the overlay opens on." stack><AnchorGrid value={o.anchor} onChange={a => set({ anchor: a })} /></Row>

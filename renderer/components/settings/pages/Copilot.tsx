@@ -10,8 +10,8 @@ import { TranscriptionPage } from '@/sections/copilot/Transcription'
 export function CopilotPage() {
   if (!isMacPlatform()) return <EmptyNote>Interview Copilot is available on macOS only for now.</EmptyNote>
   return (
-    <div className="flex flex-col [&_section[aria-label]:not([data-setting-id])]:pt-0">
-      <header className="flex items-center justify-between gap-4 px-6 pt-6">
+    <div className="flex flex-col [&>div>section]:pt-0">
+      <header className="flex items-center justify-between gap-4 px-6 pb-2 pt-6">
         <p className="m-0 text-sm text-muted-foreground">Audio, coaching, overlay, hotkeys, practice and sessions are tuned against a live preview, so they stay in the Copilot workspace.</p>
         <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigate('copilot')}>Open Copilot</Button>
       </header>
