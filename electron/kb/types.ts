@@ -48,6 +48,8 @@ export type KbCoverage = { skillId: string; name: string; have: number; need: nu
 export type KbSummary = {
   jobId: string; status: KbStatus; researchedAt: number | null; items: number; sourcedPct: number; sources: number
   costUsd: number; inputChanged: boolean; runId: string | null; coverage: KbCoverage[]
+  /** While `status` is 'running': the latest research step (stepper phase, pages done/total in `done`/`total`, spend, elapsed). Null/absent otherwise. Additive (lead-approved at the WP2 gate). */
+  progress?: ResearchProgress | null
 }
 export type KbFilter = { types?: KbQuestionType[]; skills?: string[]; difficulty?: [number, number]; provenance?: Provenance[]; sourceKinds?: string[]; hidden?: boolean; text?: string }
 /** What the renderer lists: never raw cv text (hooks are resolved at read time). */
