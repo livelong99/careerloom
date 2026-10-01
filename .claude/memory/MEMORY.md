@@ -15,6 +15,7 @@
 - [20261001 Copilot WP1](session_20261001_copilot-wp1-overlay.md) — overlay window, hotkeys, tray, panic, Privacy mode, overlay UI + fake driver, QA evidence
 - [20261001 Copilot WP4](session_20261001_copilot-wp4.md) — config pages, consent gate, job-linked sessions store, retention sweep, practice runner, debrief; G-D-prep
 - [20261001 Copilot WP0](session_20261001_copilot-wp0.md) — frozen copilot IPC/config contract, stub handlers/modules, mac-only Copilot shell, copilot.json config
+- [20261001 Copilot S2 STT spike](session_20261001_copilot-s2-stt-spike.md) — bake-off: Whisper small MLX default, Moonshine small fallback, CoreML unavailable, synthetic-audio caveat
 - [20261001 Interview Copilot plan](session_20261001_interview-copilot-plan.md) — research + design/prototype + WP plan for config screen and overlay; option B responsible-use default, mic-only MVP, SSE runner
 - [20261001 Orca integration](session_20261001_orca-integration.md) — browser spike no-go -> deterministic driver, Orca worker flow, integration branch, job-page agent launched
 - [20261001 Job page](session_20261001_job-page.md) — selected Job page (6 tabs) replaces drawer; report parser, cheap-model structuring, per-job ATS, tailored resume + cover letter, fact gates, vendored humanizer
