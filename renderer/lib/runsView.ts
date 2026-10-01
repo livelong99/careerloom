@@ -9,15 +9,16 @@ export const EMPTY_FILTER: RunFilter = { status: 'all', runner: 'all', kind: 'al
 export type JobRef = { id: string; url: string; title: string; company: string; reportNum: number | null }
 export type JobOf<J extends JobRef = JobRef> = (run: Run) => J | null
 
-export const KINDS = ['evaluate', 'scan', 'resume', 'copilot', 'setup', 'agent'] as const
+export const KINDS = ['evaluate', 'scan', 'resume', 'copilot', 'setup', 'agent', 'research'] as const
 const KIND_OF_MODE: Record<string, (typeof KINDS)[number]> = {
   evaluate: 'evaluate', pipeline: 'evaluate', ats: 'evaluate',
   scan: 'scan', 'web-board': 'scan',
   pdf: 'resume', cover: 'resume', apply: 'resume', intake: 'resume', 'interview-prep': 'resume',
   practice: 'copilot', live: 'copilot',
   setup: 'setup', interview: 'setup',
+  'job-research': 'research',
 }
-/** What the user thinks of the run as: evaluate, scan, resume, copilot, setup (installs, updates) or agent (everything else). */
+/** What the user thinks of the run as: evaluate, scan, resume, copilot, research (job knowledge base), setup (installs, updates) or agent (everything else). */
 export function kindOf(run: Pick<Run, 'mode'>): (typeof KINDS)[number] {
   return KIND_OF_MODE[run.mode] ?? (/^(skill|source|plugin)-/.test(run.mode) ? 'setup' : 'agent')
 }

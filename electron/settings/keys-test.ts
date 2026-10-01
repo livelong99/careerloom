@@ -32,7 +32,9 @@ async function probe(id: KeyId, f: typeof fetch): Promise<{ status: number } | n
   } catch { return null }
 }
 
-const LABEL: Record<KeyId, string> = { openrouter: 'OpenRouter', opencode: 'OpenCode Zen', firecrawl: 'Firecrawl' }
+const LABEL: Record<KeyId, string> = { openrouter: 'OpenRouter', opencode: 'OpenCode Zen', firecrawl: 'Firecrawl', brave: 'Brave Search', exa: 'Exa', serper: 'Serper' }
+
+const SEARCH_IDS: ReadonlySet<KeyId> = new Set(['brave', 'exa', 'serper']) // ponytail: stub until WP6 adds the one-query test call
 
 /** One test per provider at a time; a second click joins the running one. */
 export function testKey(id: KeyId, deps: KeyTestDeps = {}): Promise<KeyTest> {
@@ -40,6 +42,7 @@ export function testKey(id: KeyId, deps: KeyTestDeps = {}): Promise<KeyTest> {
   if (running) return running
   const run = (async (): Promise<KeyTest> => {
     if (id !== 'firecrawl' && readSecret(secretName(id)) === null) throw new Error(`Add a key first — no ${LABEL[id]} key is saved`)
+    if (SEARCH_IDS.has(id)) throw new Error(`The ${LABEL[id]} connection test arrives with the research feature`)
     const now = deps.now ?? Date.now
     const started = now()
     const res = await probe(id, deps.fetch ?? globalThis.fetch)

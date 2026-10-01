@@ -12,7 +12,11 @@ describe('settings registry', () => {
     const ids = REGISTRY.map(e => `${e.page}:${e.focus ?? ''}`)
     expect(new Set(ids).size).toBe(ids.length)
   })
-  it('has the 12 pages in 5 groups', () => expect(PAGES.map(p => p.id)).toHaveLength(12))
+  it('has the 13 pages in 5 groups', () => expect(PAGES.map(p => p.id)).toHaveLength(13))
+  it('indexes the Interview prep page and the search keys', () => {
+    expect(searchRegistry('brave').map(e => e.focus)).toContain('key:brave')
+    expect(searchRegistry('interview prep').some(e => e.page === 'interview-prep')).toBe(true)
+  })
   it('finds by label and keyword, all terms must match', () => {
     expect(searchRegistry('dark')[0]?.focus).toBe('theme')
     expect(searchRegistry('openrouter key').map(e => e.focus)).toContain('key:openrouter')

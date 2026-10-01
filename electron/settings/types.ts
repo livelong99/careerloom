@@ -1,7 +1,7 @@
 // Settings-rebuild contract (types only). Re-exported by electron/contract.ts and renderer/lib/types.ts.
 // Secrets never appear here: the renderer only ever sees `hasKey` + the last four characters.
 
-export type KeyId = 'openrouter' | 'opencode' | 'firecrawl'
+export type KeyId = 'openrouter' | 'opencode' | 'firecrawl' | 'brave' | 'exa' | 'serper'
 
 /** Result of one connection test (persisted in settings.json `keyMeta`, no secret in it). */
 export type KeyTest = { ok: boolean; latencyMs: number | null; detail: string; at: number }

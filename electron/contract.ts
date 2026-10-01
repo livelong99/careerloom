@@ -305,5 +305,9 @@ export type { Artifact, DocKind, DocsEvent, DocsOptions } from './docs-gen/types
 // ————— Interview Copilot (frozen contract, docs/plans/interview-copilot/plan.md §4) —————
 export type * from './copilot/types'
 
+// ————— Job knowledge base + AI interviewer (frozen contract, docs/plans/job-knowledge-base/plan.md §4) —————
+export type * from './kb/types'
+export type * from './interviewer/types'
+
 // ————— Settings rebuild (electron/settings/*) —————
 export type * from './settings/types'

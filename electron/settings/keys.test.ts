@@ -24,7 +24,8 @@ afterEach(() => fs.rmSync(dir.value, { recursive: true, force: true }))
 describe('key manager', () => {
   it('lists every provider unset with the runners that need it', () => {
     const rows = keysList()
-    expect(rows.map(r => [r.id, r.hasKey, r.tail])).toEqual([['openrouter', false, null], ['opencode', false, null], ['firecrawl', false, null]])
+    expect(rows.map(r => [r.id, r.hasKey, r.tail])).toEqual([['openrouter', false, null], ['opencode', false, null], ['firecrawl', false, null], ['brave', false, null], ['exa', false, null], ['serper', false, null]])
+    expect(rows.filter(r => ['brave', 'exa', 'serper'].includes(r.id)).map(r => [r.optional, r.neededByRunners])).toEqual([[true, []], [true, []], [true, []]])
     expect(rows.find(r => r.id === 'openrouter')?.neededByRunners).toEqual(['api'])
     expect(rows.find(r => r.id === 'opencode')?.neededByRunners).toEqual(['zen'])
     expect(rows.find(r => r.id === 'firecrawl')?.optional).toBe(true)
@@ -42,7 +43,7 @@ describe('key manager', () => {
     try { setKey('openrouter', bad) } catch (e) { expect(String(e)).not.toContain(bad) }
     expect(keyInfo('openrouter').hasKey).toBe(false)
   })
-  it.each([['opencode', 'short'], ['firecrawl', 'has space in it'], ['firecrawl', 'x']] as const)('%s rejects %j', (id, v) => {
+  it.each([['opencode', 'short'], ['firecrawl', 'has space in it'], ['firecrawl', 'x'], ['brave', 'sk-or-notbrave'], ['exa', 'short'], ['serper', 'has-dash-not-allowed-1234']] as const)('%s rejects %j', (id, v) => {
     expect(() => setKey(id, v)).toThrow()
   })
   it('removing clears the file and that key’s last test', async () => {
@@ -100,6 +101,13 @@ describe('connection tests (cheapest call, no tokens)', () => {
   it('keyed providers need a key first', async () => {
     await expect(testKey('openrouter', deps(reply(200)))).rejects.toThrow(/add a key/i)
     await expect(testKey('opencode', deps(reply(200)))).rejects.toThrow(/add a key/i)
+  })
+  it('search keys: format accepted, test is a stub that makes no request', async () => {
+    expect(setKey('brave', `BSA${'a1_-'.repeat(8)}`).hasKey).toBe(true)
+    const f = vi.fn(reply(200))
+    await expect(testKey('brave', deps(f))).rejects.toThrow(/research/i)
+    await expect(testKey('exa', deps(f))).rejects.toThrow(/add a key/i)
+    expect(f).not.toHaveBeenCalled()
   })
   it('firecrawl: reachability of the loopback API, works without a key', async () => {
     const f = vi.fn(reply(200))

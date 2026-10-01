@@ -16,6 +16,7 @@ import { atsHandlers } from './ats/handlers'
 import { jobViewHandlers } from './job-view/handlers'
 import { docsHandlers } from './docs-gen/handlers'
 import { copilotHandlers } from './copilot/handlers'
+import { kbHandlers } from './kb/handlers'
 import { redactLog } from './log-redact'
 import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
 import { setKey } from './settings/keys'
@@ -110,7 +111,7 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
 } // stays under promptFor's 20k input ceiling
 
 // Feature modules own their handlers; names must not collide (checked at registration).
-const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, settingsHandlers]
+const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, kbHandlers, settingsHandlers]
 
 /** Folders returned by the native picker this session; setRoot accepts only these. */
 const pickedDirs = new Set<string>()
