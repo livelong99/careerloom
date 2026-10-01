@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261002 KB INT](session_20261002_kb-int.md) — merged KB WP1-6, wired store/research/interviewer/voice seams, one hash + job-folder name, contract v2; cloned-profile e2e on fakes + real `say`
 - [20261002 KB WP5 TTS](session_20261002_kb-wp5-tts.md) — TTS service/engines (system en_IN, hashed Kokoro install, OpenRouter), echo gate, gapless queue; S-V1/S-T1 numbers, S-E1 deferred
 - [20261002 KB WP4](session_20261002_kb-wp4.md) — AI interviewer engine + Practice (text first): selector/probe/score/runner, live-path parity seam, Practice form, overlay row/controls, debrief heat map
 - [20261002 KB WP3 UI](session_20261002_kb-wp3-ui.md) — Job › Knowledge base tab on the kb contract: fake backend (?fakeKb), 7 states dark+light, RTL + a11y tests

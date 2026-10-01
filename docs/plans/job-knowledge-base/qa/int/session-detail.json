@@ -1,13 +1,13 @@
 {
- "id": "8a879cdb-de51-49db-84c9-4b59402b2c4b",
+ "id": "4743fdd2-3e70-465c-b205-9525f4fc19f0",
  "mode": "practice",
  "jobId": "https://www.google.com/about/careers/applications/jobs/results/121538506244661958-senior-software-engineer-core?q=Senior+Software+Engineer&location=India&hl=en-US",
  "jobTitle": "Senior Software Engineer, Core",
  "company": "Google",
- "startedAt": 1790867722299,
- "endedAt": 1790867752676,
+ "startedAt": 1790868055009,
+ "endedAt": 1790868173840,
  "questions": 4,
- "durationSec": 30,
+ "durationSec": 119,
  "score": 3.6,
  "transcript": [
   {
@@ -15,40 +15,48 @@
    "speaker": "interviewer",
    "text": "Welcome. Before we dig in, what are you working on at the moment and what made you look at this job?",
    "final": true,
-   "t0": 1790867722305,
-   "t1": 1790867722305
+   "t0": 1790868055030,
+   "t1": 1790868055030
   },
   {
-   "id": "mic-8a879cdb-de51-49db-84c9-4b59402b2c4b-1",
+   "id": "mic-4743fdd2-3e70-465c-b205-9525f4fc19f0-0",
    "speaker": "you",
    "text": "I led the migration of forty services to Kubernetes and kept releases weekly by staging the cut-over per team.",
    "final": true,
-   "t0": 1790867730300,
-   "t1": 1790867734300
+   "t0": 1790868063009,
+   "t1": 1790868067009
   },
   {
    "id": "ask-4e575c78f74f73df35a1f97a32772cf1decbd3b6",
    "speaker": "interviewer",
    "text": "Explain how closures capture variables in JavaScript and where that goes wrong in loops?",
    "final": true,
-   "t0": 1790867739943,
-   "t1": 1790867739943
+   "t0": 1790868068689,
+   "t1": 1790868068689
+  },
+  {
+   "id": "typed-1",
+   "speaker": "you",
+   "text": "I led the migration of forty services to Kubernetes, staged per team, and releases stayed weekly with fewer incidents.",
+   "final": true,
+   "t0": 1790868074967,
+   "t1": 1790868074967
   },
   {
    "id": "ask-f6ae51ab88484c6418ca3711566495ad18715bbd",
    "speaker": "interviewer",
    "text": "Tell me about a time you led a migration with unclear requirements?",
    "final": true,
-   "t0": 1790867746695,
-   "t1": 1790867746695
+   "t0": 1790868075550,
+   "t1": 1790868075550
   },
   {
    "id": "ask-85e78c67b8e93613efa9461d65ef4e369308bfd9",
    "speaker": "interviewer",
    "text": "How would you reduce the first render cost of a large React list screen?",
    "final": true,
-   "t0": 1790867748654,
-   "t1": 1790867748654
+   "t0": 1790868169825,
+   "t1": 1790868169825
   }
  ],
  "questionsList": [
@@ -57,7 +65,7 @@
    "text": "Welcome. Before we dig in, what are you working on at the moment and what made you look at this job?",
    "type": "other",
    "confidence": 1,
-   "at": 1790867722305,
+   "at": 1790868055030,
    "auto": true,
    "hint": {
     "kind": "factual",
@@ -72,7 +80,7 @@
    "text": "Explain how closures capture variables in JavaScript and where that goes wrong in loops?",
    "type": "technical",
    "confidence": 1,
-   "at": 1790867739943,
+   "at": 1790868068689,
    "auto": true,
    "hint": {
     "kind": "factual",
@@ -87,7 +95,7 @@
    "text": "Tell me about a time you led a migration with unclear requirements?",
    "type": "behavioural",
    "confidence": 1,
-   "at": 1790867746695,
+   "at": 1790868075550,
    "auto": true,
    "hint": {
     "kind": "behavioural",
@@ -102,7 +110,7 @@
    "text": "How would you reduce the first render cost of a large React list screen?",
    "type": "technical",
    "confidence": 1,
-   "at": 1790867748654,
+   "at": 1790868169825,
    "auto": true,
    "hint": {
     "kind": "factual",
@@ -142,17 +150,17 @@
     }
    ],
    "done": true,
-   "firstTokenMs": 254,
-   "totalMs": 3528,
+   "firstTokenMs": 257,
+   "totalMs": 3532,
    "costUsd": 0.0004,
    "trace": {
     "stt": null,
     "detect": null,
-    "connect": 4,
-    "ttft": 254,
-    "firstSay": 290,
+    "connect": 6,
+    "ttft": 258,
+    "firstSay": 294,
     "endToSay": null,
-    "total": 3527,
+    "total": 3532,
     "promptTokens": 900,
     "cachedTokens": null,
     "turn": {
@@ -242,17 +250,17 @@
  "latency": {
   "turns": 1,
   "ttft": {
-   "p50": 254,
-   "p95": 254
+   "p50": 258,
+   "p95": 258
   },
   "firstSay": {
-   "p50": 290,
-   "p95": 290
+   "p50": 294,
+   "p95": 294
   },
   "endToSay": null,
   "total": {
-   "p50": 3527,
-   "p95": 3527
+   "p50": 3532,
+   "p95": 3532
   },
   "cacheHitRate": 0,
   "speculation": null

@@ -35,3 +35,5 @@ export const shotBoth = async (page, name) => {
   for (const m of ['dark', 'light']) { await theme(page, m); await sleep(500); await page.shot(`${OUT}/${name}-${m}.png`) }
   await theme(page, 'dark')
 }
+/** Radix tabs / segmented controls react to mousedown, not click. */
+export const press = (page, label, sel = '[role=tab],[role=radio],button') => page.evaluate(`(() => { const t = [...document.querySelectorAll(${JSON.stringify(sel)})].filter(e => e.offsetParent !== null).find(e => e.textContent.trim() === ${JSON.stringify(label)}); if (!t) return false; t.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); t.click(); return true })()`)
