@@ -2,6 +2,7 @@ import { Play } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { Group, Note, Row } from '@/components/copilot/Group'
+import { InterviewLive } from '@/components/copilot/InterviewLive'
 import { JobPicker } from '@/components/copilot/JobPicker'
 import { FocusSkills } from '@/components/copilot/FocusSkills'
 import { rangeClass, Pills, selectClass } from '@/components/copilot/hwControls'
@@ -53,6 +54,7 @@ export function PracticePage() {
 
   return (
     <Page title="Practice" blurb={ai ? "An AI interviewer asks questions from this job's question base. Cues and suggested answers work exactly as they do in a live session." : "A mock interviewer asks questions from this job's report. Nothing is sent to a call, and the overlay shows a Practice chip."}>
+      <InterviewLive />
       <JobPicker summary={note} />
       {!jobId ? null : ai ? <AiPractice jobId={jobId} kb={kb!} /> : <ReportPractice jobId={jobId} />}
     </Page>
