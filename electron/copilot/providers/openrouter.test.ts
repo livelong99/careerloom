@@ -132,7 +132,12 @@ describe('createOpenRouter', () => {
 describe('toModelInfo', () => {
   it('maps the OpenRouter models payload to per-million prices', () => {
     expect(toModelInfo({ id: 'a/b', name: 'A: B', context_length: 1000, pricing: { prompt: '0.0000001', completion: '0.0000004' } }))
-      .toEqual({ id: 'a/b', name: 'A: B', contextTokens: 1000, promptUsdPerM: 0.1, completionUsdPerM: 0.4, dataPolicy: 'unknown', supportsStreaming: true })
+      .toEqual({ id: 'a/b', name: 'A: B', contextTokens: 1000, promptUsdPerM: 0.1, completionUsdPerM: 0.4, dataPolicy: 'unknown', supportsStreaming: true, vision: false })
+  })
+  it('reads image input from architecture.input_modalities (public list, no key)', () => {
+    const raw = { id: 'a/b', pricing: { prompt: '0.000001', completion: '0.000002' } }
+    expect(toModelInfo({ ...raw, architecture: { input_modalities: ['text', 'image'] } }).vision).toBe(true)
+    expect(toModelInfo({ ...raw, architecture: { input_modalities: ['text'] } }).vision).toBe(false)
   })
   it('marks free models (":free" id or zero price) as may-collect; paid stay unknown because the list cannot tell', () => {
     expect(toModelInfo({ id: 'q/x:free', pricing: { prompt: '0', completion: '0' } }).dataPolicy).toBe('may-collect')

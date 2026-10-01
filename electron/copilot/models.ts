@@ -22,7 +22,7 @@ export function curatedModels(): LlmModelInfo[] {
   const seen = new Set<string>()
   return Object.values(recommended.tiers).flat().filter(m => !seen.has(m.id) && seen.add(m.id)).map(m => ({
     id: m.id, name: m.name, contextTokens: m.contextTokens, promptUsdPerM: defaultPrices.models[m.id]?.promptUsdPerM ?? null,
-    completionUsdPerM: defaultPrices.models[m.id]?.completionUsdPerM ?? null, dataPolicy: 'unknown' as const, supportsStreaming: true,
+    completionUsdPerM: defaultPrices.models[m.id]?.completionUsdPerM ?? null, dataPolicy: 'unknown' as const, supportsStreaming: true, vision: m.vision,
   }))
 }
 

@@ -15,4 +15,8 @@ describe('recommended-models.json', () => {
     expect(initialReasoning(recommended.tiers.fast[0]!.id)).toBeNull()
     expect(initialReasoning(recommended.tiers.balanced[0]!.id)).toBeNull()
   })
+  it('flags vision per model (OpenRouter input_modalities) and offers at least one vision default per tier', () => {
+    for (const m of all) expect(typeof (m as { vision?: boolean }).vision, m.id).toBe('boolean')
+    for (const [tier, list] of Object.entries(recommended.tiers)) expect(list.some(m => (m as { vision?: boolean }).vision), tier).toBe(true)
+  })
 })

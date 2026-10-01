@@ -20,6 +20,7 @@ export function friendlyLlmError(e: unknown, ctx: { dataCollection: 'deny' | 'al
     case 'model_unavailable': return pick('OpenRouter has no provider for this model right now. Choose another model.', ['change-model'])
     case 'timeout': return pick('The model took too long to respond.', [])
     case 'server': return pick('OpenRouter or the model provider had a problem. Try again.', [])
+    case 'no_vision': return pick(e.message, ['change-model'])
     case 'budget': return pick(e.message, [])
     default: return pick(e.message, [])
   }

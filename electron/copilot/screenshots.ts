@@ -2,8 +2,8 @@
 // (FIFO cap, cleanup on clear/quit). Changes: window is hidden (never an opacity trick), frames are downsized + JPEG-encoded
 // in-process (no OCR on the critical path), files are owner-only temp files with a crash sweep, plus a per-session budget.
 // Nothing here runs until capture() is called; the caller gates it on `engine.vision` and the Screenshot action.
-import { chmodSync, existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fitLongEdge } from './vision'
 import type { PermStatus } from './types'
 
@@ -52,6 +52,17 @@ export interface ScreenshotPipeline {
 }
 
 const PREFIX = 'shot-'
+const FRAME = /^shot-\d+-\d+\.jpg$/
+/** Deletes frames this module wrote (strict name, regular file, directly inside `dir`). Returns how many. Safe on a missing dir. */
+export function sweepShotDir(dir: string): number {
+  if (!existsSync(dir)) return 0
+  let n = 0
+  for (const f of readdirSync(dir)) {
+    const path = join(dir, f)
+    try { if (FRAME.test(f) && lstatSync(path).isFile()) { unlinkSync(path); n++ } } catch { /* raced away */ }
+  }
+  return n
+}
 export function createScreenshotPipeline(deps: ScreenshotDeps): ScreenshotPipeline {
   const now = deps.now ?? Date.now
   const sleep = deps.sleep ?? (ms => new Promise<void>(r => setTimeout(r, ms)))
@@ -62,7 +73,7 @@ export function createScreenshotPipeline(deps: ScreenshotDeps): ScreenshotPipeli
   let taken = 0
   let inflight: Promise<Shot> | null = null
 
-  const drop = (s: Shot) => { try { unlinkSync(s.path) } catch { /* already gone */ } }
+  const drop = (s: Shot) => { if (dirname(s.path) === deps.dir) try { unlinkSync(s.path) } catch { /* already gone */ } }
 
   async function run(): Promise<Shot> {
     if (deps.screenStatus() !== 'granted') throw new ScreenshotError('permission', 'Screen Recording permission is not granted')
@@ -97,10 +108,7 @@ export function createScreenshotPipeline(deps: ScreenshotDeps): ScreenshotPipeli
     capture: () => (inflight ??= run().finally(() => { inflight = null })),
     latest: maxAgeMs => { const s = frames[frames.length - 1]; return s && now() - s.at <= maxAgeMs ? s : null },
     clear: () => { frames.forEach(drop); frames = [] },
-    sweep: () => {
-      if (!existsSync(deps.dir)) return
-      for (const f of readdirSync(deps.dir)) if (f.startsWith(PREFIX) && f.endsWith('.jpg')) try { unlinkSync(join(deps.dir, f)) } catch { /* ignore */ }
-    },
+    sweep: () => { sweepShotDir(deps.dir) },
     get taken() { return taken },
   }
 }
