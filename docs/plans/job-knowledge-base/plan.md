@@ -327,7 +327,7 @@ Search Brave → Exa → Serper → SearXNG; fetch HTTP → CDP → Firecrawl; m
 | 11 | Cost overrun / runaway agents | hard caps, preview estimate, agent top-up opt-in (WP2) |
 | 12 | Scope creep into hiring-style scoring | copy + code: practice only, content-only scoring (WP4) |
 
-## 17. Open questions for the user (G2)
+## 17. Open questions for the user (G2 approved; all remain **provisional defaults** until the user confirms)
 1. Confirm defaults in §15, especially `speakers` + half-duplex (no barge-in on speakers) and Brave as the default search key.
 2. OK to add pinned pip dependencies for Kokoro (`kokoro-onnx`, `onnxruntime`) behind the on-demand install gate?
 3. Should M1 ship with the old report-question practice as the automatic fallback when no KB exists (recommended), or require research first?

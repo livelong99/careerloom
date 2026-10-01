@@ -28,7 +28,7 @@ type: project
 - `/usr/local/bin/orca` symlink unreadable in the sandbox -> use `/Applications/Orca.app/Contents/Resources/bin/orca`.
 - Primary ToS pages (SO, Reddit, Glassdoor, LeetCode, Medium) blocked to fetcher -> marked UNVERIFIED, listed as pre-launch reads (gate G-D).
 
-**State:** in_progress (G2 pending)
+**State:** done (G2 approved; plan s.17 questions stay provisional defaults)
 
 **Next steps:**
 - Lead approves plan at G2; dispatch WP0 (contract) then WP1/2/3/4/6 per plan.md section 11.
