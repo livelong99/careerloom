@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const mac = vi.hoisted(() => ({ value: true }))
-vi.mock('@/lib/platform', async orig => ({ ...(await orig<typeof import('@/lib/platform')>()), isMacPlatform: () => mac.value }))
+vi.mock('@/lib/platform', async orig => ({ ...(await orig<typeof import('@/lib/platform')>()), isMacPlatform: () => mac.value, copilotSupportedHere: () => mac.value }))
 vi.mock('@/sections/copilot/Transcription', () => ({ TranscriptionPage: () => <h2>Transcription</h2> }))
 vi.mock('@/sections/copilot/Engine', () => ({ EnginePage: () => <h2>Answer engine</h2> }))
 const saved = vi.hoisted(() => ({ save: vi.fn(async () => null), config: null as unknown }))
@@ -29,10 +29,10 @@ describe('Settings › Copilot', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Copilot' }))
     expect(seen).toHaveBeenCalledWith('copilot')
   })
-  it('is macOS-only like the workspace', () => {
+  it('is macOS and Windows only like the workspace', () => {
     mac.value = false
     render(<CopilotPage />)
-    expect(screen.getByText(/macOS only/)).toBeTruthy()
+    expect(screen.getByText(/macOS and Windows only/)).toBeTruthy()
   })
   it('faster-answers switches patch the config, and early start needs auto answer', () => {
     mac.value = true

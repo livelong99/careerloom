@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { Group, Note, Row } from '@/components/copilot/Group'
 import { LevelMeter } from '@/components/copilot/LevelMeter'
+import { isWindowsPlatform } from '@/lib/platform'
 import { PermissionChip, PermissionFix } from '@/components/copilot/PermissionFix'
 import { errorText, orNull, useAsync, useCopilotConfig } from '@/components/copilot/api'
 import { Chip, selectClass } from '@/components/copilot/hwControls'
@@ -12,6 +13,10 @@ import { careerloom } from '@/lib/ipc'
 import type { SourceHealth } from '@/lib/types'
 import { Page } from '../resume/PageStub'
 
+const probeText = (status: SourceHealth['status']): string => {
+  const t = PROBE_TEXT[status]
+  return isWindowsPlatform() ? t.replace('macOS', 'Windows').replace('System Settings', 'Settings → Privacy & security → Microphone') : t
+}
 const PROBE_TEXT: Record<SourceHealth['status'], string> = {
   ok: 'Working: Careerloom heard sound.',
   silent: 'Silent: no sound reached Careerloom. Check the device above and the permission in System Settings.',
@@ -77,7 +82,7 @@ export function AudioPage() {
       if (mic?.error) { setBlocked(mic.blocked); setProbe({ source, text: mic.error }); return }
       const r = orNull(await careerloom.copilotProbeAudio(source, 3000))
       setBlocked(r?.status === 'denied')
-      setProbe({ source, text: r ? PROBE_TEXT[r.status] : 'The audio test is not available in this build yet.' })
+      setProbe({ source, text: r ? probeText(r.status) : 'The audio test is not available in this build yet.' })
     } catch (e) { setProbe({ source, text: errorText(e) }) } finally { mic?.stop(); setLevel(0); setTesting(null) }
   }
   const openMic = () => { void careerloom.copilotOpenSystemSettings('microphone') }

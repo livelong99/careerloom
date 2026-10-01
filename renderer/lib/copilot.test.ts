@@ -109,6 +109,8 @@ describe('formatting helpers', () => {
     expect(kbdLabel('Control+Alt+A')).toBe('⌃⌥A')
     expect(kbdLabel('Control+Alt+Shift+X')).toBe('⌃⌥⇧X')
     expect(kbdLabel('CommandOrControl+Shift+F5')).toBe('⌘⇧F5')
+    expect(kbdLabel('Control+Alt+A', true)).toBe('Ctrl+Alt+A') // Windows shows words, not glyphs
+    expect(kbdLabel('CommandOrControl+Shift+F5', true)).toBe('Ctrl+Shift+F5')
   })
   it('records an accelerator from a key event, rejecting bare keys', () => {
     const ev = (o: Partial<KeyboardEvent>) => ({ ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, code: 'KeyA', key: 'a', ...o }) as KeyboardEvent

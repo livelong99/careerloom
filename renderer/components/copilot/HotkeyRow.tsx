@@ -23,7 +23,7 @@ export function toAccelerator(e: KeyEv): string | null {
 export const formatAccelerator = (acc: string): string => acc.split('+').map(p => GLYPH[p] ?? p).join('')
 
 type Status = { text: string; tone: 'neutral' | 'ok' | 'bad'; conflict: boolean }
-const REASON: Record<string, string> = { 'in-use': 'In use by another app', reserved: 'Reserved by macOS', invalid: 'Not a valid shortcut' }
+const REASON: Record<string, string> = { 'in-use': 'In use by another app', reserved: 'Reserved by the system', invalid: 'Not a valid shortcut' }
 
 function useStatus(accel: string): Status {
   const [s, setS] = useState<Status>({ text: 'Checking…', tone: 'neutral', conflict: false })

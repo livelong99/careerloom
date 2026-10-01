@@ -8,7 +8,7 @@ import { GOTO_EVENT, takePendingPage } from '../components/copilot/selection'
 import { EmptyNote } from '../components/EmptyState'
 import { ScrollArea } from '../components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
-import { isMacPlatform } from '../lib/platform'
+import { copilotSupportedHere } from '../lib/platform'
 import { AppearancePage } from './copilot/Appearance'
 import { AudioPage } from './copilot/Audio'
 import { CoachingPage } from './copilot/Coaching'
@@ -37,7 +37,7 @@ export function Copilot() {
     window.addEventListener(GOTO_EVENT, go)
     return () => window.removeEventListener(GOTO_EVENT, go)
   }, [])
-  if (!isMacPlatform()) return <EmptyNote>Interview Copilot is available on macOS only for now.</EmptyNote>
+  if (!copilotSupportedHere()) return <EmptyNote>Interview Copilot is available on macOS and Windows only.</EmptyNote>
   return (
     <div className="workspace workspace-fill gap-4">
       <header className="flex min-w-0 items-center justify-between gap-4">

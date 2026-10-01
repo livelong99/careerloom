@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 const mac = vi.hoisted(() => ({ value: true }))
-vi.mock('../lib/platform', async orig => ({ ...(await orig<typeof import('../lib/platform')>()), isMacPlatform: () => mac.value }))
+vi.mock('../lib/platform', async orig => ({ ...(await orig<typeof import('../lib/platform')>()), isMacPlatform: () => mac.value, copilotSupportedHere: () => mac.value }))
 
 // Pages load from the bridge on mount: every call stays pending, every `on*` subscription is a no-op.
 vi.mock('@/lib/ipc', async orig => ({
@@ -21,10 +21,10 @@ describe('Copilot shell', () => {
       ['Setup', 'Practice', 'Audio', 'Coaching', 'Appearance', 'Hotkeys', 'Sessions'],
     )
   })
-  it('says it is macOS-only elsewhere', () => {
+  it('says it is macOS and Windows only elsewhere', () => {
     mac.value = false
     render(<Copilot />)
     expect(screen.queryAllByRole('tab')).toHaveLength(0)
-    expect(screen.getByText(/macOS only/)).toBeTruthy()
+    expect(screen.getByText(/macOS and Windows only/)).toBeTruthy()
   })
 })

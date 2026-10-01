@@ -8,7 +8,7 @@ import { app, BrowserWindow, desktopCapturer, screen, shell, systemPreferences }
 import { broadcast, readApiKey, userFile } from '../context'
 import { readCv } from '../resume-agent'
 import { jobContext } from '../job-view/handlers'
-import { asPermStatus, ensureMic } from './audio-perms'
+import { asPermStatus, ensureMic, micSettingsPath, screenStatus, settingsUrl } from './audio-perms'
 import { readCopilotConfig, writeCopilotConfig } from './config'
 import { kbLive } from './kb-live'
 import { createContextBuilder, defaultContextDeps, type GroundingContext } from './context'
@@ -43,10 +43,9 @@ import type { SessionController } from './session'
 import type { AudioChunkMsg, PermStatus } from './types'
 
 type CopilotInstance = ReturnType<typeof createCopilot>
-const PANE: Record<'microphone' | 'system-audio' | 'screen', string> = { microphone: 'Privacy_Microphone', 'system-audio': 'Privacy_AudioCapture', screen: 'Privacy_ScreenCapture' }
 const SESSION_CEILING_USD = 1 // plan §10: stops answering with a visible message instead of silently degrading
 
-const mediaStatus = (kind: 'microphone' | 'screen'): PermStatus => { try { return asPermStatus(systemPreferences.getMediaAccessStatus(kind)) } catch { return 'unknown' } }
+const mediaStatus = (kind: 'microphone' | 'screen'): PermStatus => { try { return kind === 'screen' ? screenStatus(systemPreferences) : asPermStatus(systemPreferences.getMediaAccessStatus(kind)) } catch { return 'unknown' } }
 const lazy = <T>(make: () => T): (() => T) => { let v: { value: T } | null = null; return () => (v ??= { value: make() }).value }
 
 const SHOT_DIR = (): string => path.join(app.getPath('temp'), 'careerloom-copilot-shots')
@@ -157,11 +156,11 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     sttInstalled: sttReady,
     // Same provider, redaction and local-only rule as live answers: the transcript never goes to an agent CLI.
     call: createScoreCall({ provider, config: readCopilotConfig, model: fastModel, names }),
-    openSettings: pane => { void shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${PANE[pane]}`); return true },
+    openSettings: pane => { void shell.openExternal(settingsUrl(pane)); return true },
 
     session: {
       async start(req, sessionId) {
-        if (!e2e() && (await ensureMic(systemPreferences)) !== 'granted') throw new Error('Microphone access is off: allow Careerloom in System Settings → Privacy & Security → Microphone')
+        if (!e2e() && (await ensureMic(systemPreferences)) !== 'granted') throw new Error(`Microphone access is off: allow Careerloom in ${micSettingsPath()}`)
         const { ctl } = live()
         starting = true
         try {

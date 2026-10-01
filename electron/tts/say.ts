@@ -1,6 +1,7 @@
-// macOS `say` engine: whole sentence rendered to a 24 kHz mono PCM16 WAV, then returned as one chunk (no installs needed).
+// System-voice engine: macOS `say` or Windows SAPI (System.Speech via PowerShell). Whole sentence rendered to a
+// 24 kHz mono PCM16 WAV, then returned as one chunk (no installs needed).
 import { execFile } from 'node:child_process'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -39,19 +40,48 @@ export function wavToPcm(buf: Buffer): ArrayBuffer {
   throw new Error('WAV has no data chunk')
 }
 
+/** SAPI rate is -10..10 (0 = normal, about 175 wpm); each step is ~10 %. */
+export const sapiRate = (speed: number): number => Math.max(-10, Math.min(10, Math.round((speed - 1) * 10)))
+
+/** `Microsoft Zira Desktop|en-US` lines → English voices, en_IN first, in the same `en_XX` form as macOS. */
+export function parseSapiVoices(out: string): VoiceInfo[] {
+  const voices: VoiceInfo[] = []
+  for (const line of out.split(/\r?\n/)) {
+    const m = /^(.+?)\|([a-z]{2})-([A-Z]{2})\s*$/.exec(line.trim())
+    if (!m || m[2] !== 'en') continue
+    const lang = `${m[2]}_${m[3]}`
+    voices.push({ engine: 'system', id: m[1].trim(), name: m[1].replace(/^Microsoft\s+/, '').replace(/\s+(Desktop|Mobile)$/, '').trim(), lang, offline: true, installed: true, sizeMb: null, note: null })
+  }
+  const rank = (v: VoiceInfo) => (v.lang === 'en_IN' ? 0 : 1)
+  return voices.sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? 0 : a.name.localeCompare(b.name)))
+}
+
+const PS_VOICES = "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.GetInstalledVoices() | Where-Object { $_.Enabled } | ForEach-Object { $_.VoiceInfo.Name + '|' + $_.VoiceInfo.Culture.Name }"
+// Voice, rate, output path and text arrive as files/args, never interpolated into the script.
+const PS_SYNTH = "param($Voice, $Rate, $Out, $TextFile); Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.SelectVoice($Voice); $s.Rate = [int]$Rate; $f = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(24000, [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen, [System.Speech.AudioFormat.AudioChannel]::Mono); $s.SetOutputToWaveFile($Out, $f); $s.Speak([System.IO.File]::ReadAllText($TextFile, [System.Text.Encoding]::UTF8)); $s.Dispose()"
+
 type Deps = {
   platform?: NodeJS.Platform
   exec?: (args: string[], signal?: AbortSignal) => Promise<string>
   readWav?: (path: string) => Promise<Buffer>
   tmp?: () => string
   rm?: (path: string) => Promise<void>
+  /** Windows: run PowerShell with these args (tests inject; the real one is execFile, no shell). */
+  powershell?: (args: string[], signal?: AbortSignal) => Promise<string>
+  writeText?: (path: string, text: string) => void
 }
 const realExec = (args: string[], signal?: AbortSignal) => new Promise<string>((res, rej) => {
   execFile('say', args, { signal, maxBuffer: 1 << 20 }, (e, out) => (e ? rej(e) : res(out)))
 })
 
+const realPowershell = (args: string[], signal?: AbortSignal) => new Promise<string>((res, rej) => {
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', ...args], { signal, maxBuffer: 1 << 20, windowsHide: true }, (e, out) => (e ? rej(e) : res(out)))
+})
+
 export function createSystemEngine(d: Deps = {}): TtsEngine {
-  const mac = (d.platform ?? process.platform) === 'darwin'
+  const platform = d.platform ?? process.platform
+  if (platform === 'win32') return createSapiEngine(d)
+  const mac = platform === 'darwin'
   const exec = d.exec ?? realExec
   const tmp = d.tmp ?? (() => join(mkdtempSync(join(tmpdir(), 'cl-say-')), 'out.wav'))
   const readWav = d.readWav ?? readFile
@@ -60,12 +90,38 @@ export function createSystemEngine(d: Deps = {}): TtsEngine {
     id: 'system',
     async voices() { return mac ? parseSayVoices(await exec(['-v', '?'])) : [] },
     async *synth(text, voiceId, speed, signal) {
-      if (!mac) throw new Error('System voices are only available on macOS')
+      if (!mac) throw new Error('System voices are only available on macOS and Windows')
       if (signal.aborted) return
       const out = tmp()
       try {
         // `--` so sentence text can never be parsed as a say option (e.g. "-o /etc/passwd")
         await exec(['-v', voiceId, '-r', String(clampRate(speed)), '--file-format=WAVE', '--data-format=LEI16@24000', '-o', out, '--', text], signal)
+        if (signal.aborted) return
+        yield { pcm16: wavToPcm(await readWav(out)), sampleRate: 24000 as const }
+      } catch (e) {
+        if (signal.aborted) return
+        throw e
+      } finally { await del(out).catch(() => {}) }
+    },
+  }
+}
+
+function createSapiEngine(d: Deps): TtsEngine {
+  const ps = d.powershell ?? realPowershell
+  const tmp = d.tmp ?? (() => join(mkdtempSync(join(tmpdir(), 'cl-sapi-')), 'out.wav'))
+  const readWav = d.readWav ?? readFile
+  const writeText = d.writeText ?? ((p: string, t: string) => writeFileSync(p, t, 'utf8'))
+  const del = d.rm ?? ((p: string) => rm(join(p, '..'), { recursive: true, force: true }))
+  return {
+    id: 'system',
+    async voices() { return parseSapiVoices(await ps(['-Command', PS_VOICES])) },
+    async *synth(text, voiceId, speed, signal) {
+      if (signal.aborted) return
+      const out = tmp()
+      const textFile = join(out, '..', 'in.txt')
+      try {
+        writeText(textFile, text)
+        await ps(['-Command', `& { ${PS_SYNTH} } -Voice '${voiceId.replace(/'/g, "''")}' -Rate ${sapiRate(speed)} -Out '${out.replace(/'/g, "''")}' -TextFile '${textFile.replace(/'/g, "''")}'`], signal)
         if (signal.aborted) return
         yield { pcm16: wavToPcm(await readWav(out)), sampleRate: 24000 as const }
       } catch (e) {

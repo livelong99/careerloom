@@ -16,7 +16,7 @@ import { RunsContext, useRunsState } from './hooks/useRuns'
 import { careerloom } from './lib/ipc'
 import { showToast } from './lib/toast'
 import { motionClass } from './lib/motion'
-import { isMacPlatform, isModifierChord, shortcutLabel } from './lib/platform'
+import { copilotSupportedHere, isMacPlatform, isModifierChord, shortcutLabel } from './lib/platform'
 import { Agent } from './sections/Agent'
 import { Monitoring } from './sections/Monitoring'
 import { Copilot } from './sections/Copilot'
@@ -41,8 +41,8 @@ export const TITLES: Record<Section, string> = { overview: 'Overview', jobs: 'Jo
 const KEYS: Record<string, Section> = { '1': 'overview', '2': 'jobs', '3': 'boards', '4': 'resume', '5': 'agent', '6': 'monitoring', '7': 'runs', '8': 'copilot', ',': 'settings' }
 const SECTION_KEY = 'careerloom.section'
 
-/** Copilot exists on macOS only; everything else is always there. */
-const sectionAvailable = (id: string): boolean => Object.hasOwn(TITLES, id) && (id !== 'copilot' || isMacPlatform())
+/** Copilot exists on macOS and Windows; everything else is always there. */
+const sectionAvailable = (id: string): boolean => Object.hasOwn(TITLES, id) && (id !== 'copilot' || copilotSupportedHere())
 
 function initialSection(): Section {
   try {

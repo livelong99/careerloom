@@ -366,7 +366,7 @@ export function createCopilot(deps: CopilotDeps) {
   }
 
   const handlers: Record<string, Handler> = Object.fromEntries(Object.entries(impl).map(([name, fn]) => [name, async (...args: unknown[]): Promise<unknown> => {
-    if (!copilotSupported()) throw new Error('Interview Copilot is available on macOS only')
+    if (!copilotSupported()) throw new Error('Interview Copilot is available on macOS and Windows only')
     if (!swept) { swept = true; sweep() }
     return fn(...args)
   }]))

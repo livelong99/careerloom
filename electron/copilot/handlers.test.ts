@@ -45,10 +45,10 @@ describe('registration and platform guard', () => {
     expect(Object.keys(copilotHandlers)).toHaveLength(25)
     expect(Object.keys(copilotHandlers).every(k => k.startsWith('copilot'))).toBe(true)
   })
-  it('refuses every call off macOS', async () => {
-    setPlatform('win32')
+  it('refuses every call off macOS and Windows', async () => {
+    setPlatform('linux')
     expect(copilotSupported()).toBe(false)
-    for (const fn of Object.values(copilotHandlers)) await expect(Promise.resolve().then(() => fn({}))).rejects.toThrow(/macOS only/)
+    for (const fn of Object.values(copilotHandlers)) await expect(Promise.resolve().then(() => fn({}))).rejects.toThrow(/macOS and Windows only/)
   })
   it('config round-trips and rejects a non-object patch', async () => {
     const { c } = setup()

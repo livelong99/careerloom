@@ -9,7 +9,7 @@ vi.mock('../../../lib/ipc', async orig => ({
   careerloom: new Proxy({}, { get: (_t, k: string) => bridge.current[k] }),
 }))
 const platform = vi.hoisted(() => ({ mac: true }))
-vi.mock('@/lib/platform', async orig => ({ ...(await orig<typeof import('@/lib/platform')>()), isMacPlatform: () => platform.mac }))
+vi.mock('@/lib/platform', async orig => ({ ...(await orig<typeof import('@/lib/platform')>()), isMacPlatform: () => platform.mac, copilotSupportedHere: () => platform.mac }))
 
 import { DEFAULT_INTERVIEW_CONFIG } from '../../../../electron/kb/defaults'
 import type { InterviewConfig, KeyInfo } from '../../../lib/types'
@@ -141,11 +141,11 @@ describe('Interview prep settings', () => {
     expect(screen.getByRole('tab', { name: 'Speakers', selected: true })).toBeInTheDocument()
   })
 
-  it('off macOS the voice group is replaced by a note and no voice call is made', async () => {
+  it('off macOS and Windows the voice group is replaced by a note and no voice call is made', async () => {
     platform.mac = false
     const voices = vi.fn()
     mount({ interviewVoices: voices })
-    expect(await screen.findByText(/macOS only/)).toBeInTheDocument()
+    expect(await screen.findByText(/macOS and Windows only/)).toBeInTheDocument()
     expect(voices).not.toHaveBeenCalled()
     expect(screen.getByRole('region', { name: 'Research' })).toBeInTheDocument()
   })

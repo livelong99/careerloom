@@ -11,7 +11,7 @@ import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { SegTabs } from '@/components/SegTabs'
 import { careerloom } from '@/lib/ipc'
 import { goToSettings, openRuns } from '@/lib/nav'
-import { isMacPlatform } from '@/lib/platform'
+import { copilotSupportedHere } from '@/lib/platform'
 import { showToast } from '@/lib/toast'
 import type { DeepPartial, InterviewConfig, ResearchSourceGroup, SearchBackendId, VoiceInfo } from '@/lib/types'
 import { DEFAULT_INTERVIEW_CONFIG } from '../../../../electron/kb/defaults'
@@ -208,7 +208,7 @@ export function InterviewPrepPage() {
   const { config, save, error } = useInterviewConfig()
   const keys = useAsync(() => careerloom.keysList(), [])
   const [resetting, setResetting] = useState(false)
-  const mac = isMacPlatform()
+  const mac = copilotSupportedHere()
   const apply = useCallback((p: Patch) => { void save(p) }, [save])
   if (error) return <Note tone="warn">Interview prep settings are not available yet: {error}</Note>
   if (!config) return <p className="m-0 text-xs text-muted-foreground">Loading…</p>
@@ -217,7 +217,7 @@ export function InterviewPrepPage() {
     <>
       <ResearchGroup c={config} save={apply} />
       <SearchGroup c={config} save={apply} keyTail={keys.data ? { has: k?.hasKey ?? false, tail: k?.tail ?? null } : null} />
-      {mac ? <VoiceGroup c={config} save={apply} /> : <Group title="Interviewer voice" focus="interview:voice"><Note>The spoken interviewer is available on macOS only for now. Practice questions still work as text.</Note></Group>}
+      {mac ? <VoiceGroup c={config} save={apply} /> : <Group title="Interviewer voice" focus="interview:voice"><Note>The spoken interviewer is available on macOS and Windows only. Practice questions still work as text.</Note></Group>}
       <BasesGroup c={config} save={apply} />
       <Note>Research runs show up in <button type="button" className="text-brand-text underline-offset-2 hover:underline" onClick={() => openRuns()}>Runs</button> as “Job research”, with their log and cost.</Note>
       <div><Button size="sm" variant="outline" onClick={() => setResetting(true)}>Reset to defaults…</Button></div>

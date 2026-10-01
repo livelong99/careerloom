@@ -36,14 +36,11 @@ describe('kb handlers', () => {
     for (const name of ['kbEstimate', 'kbResearchStart', 'kbResearchStop']) await expect(kbHandlers[name]!(42, {})).rejects.toThrow(/must be a string/)
     await expect(kbHandlers.kbResearchStart!('job-1', {})).resolves.toEqual({ runId: 'r1' })
   })
-  it('voice and interviewer calls are macOS only; Windows keeps the KB', async () => {
-    platform('darwin')
-    await expect(kbHandlers.interviewVoices!()).resolves.toEqual(['v'])
-    for (const p of ['win32', 'linux']) {
-      platform(p)
-      for (const name of MAC) await expect(kbHandlers[name]!('job-1', {})).rejects.toThrow(/macOS only/)
-      await expect(kbHandlers.kbList!('job-1')).resolves.toEqual([])
-    }
+  it('voice and interviewer calls run on macOS and Windows; Linux keeps the KB only', async () => {
+    for (const p of ['darwin', 'win32']) { platform(p); await expect(kbHandlers.interviewVoices!()).resolves.toEqual(['v']) }
+    platform('linux')
+    for (const name of MAC) await expect(kbHandlers[name]!('job-1', {})).rejects.toThrow(/macOS and Windows only/)
+    await expect(kbHandlers.kbList!('job-1')).resolves.toEqual([])
   })
   it('kbOpenSource opens http(s) sources only and says false for an unknown id', async () => {
     findSource.mockReturnValueOnce({ url: 'https://a.dev/x' }).mockReturnValueOnce({ url: 'file:///etc/passwd' }).mockReturnValueOnce(null)

@@ -32,7 +32,7 @@ setInterviewPool(jobId => {
   return items.length ? { items, skills: store.read(jobId).skills } : null
 })
 const macOnly = <A extends unknown[], R>(f: (...a: A) => R) => async (...a: A): Promise<R> => {
-  if (!copilotSupported()) throw new Error('The AI interviewer is available on macOS only')
+  if (!copilotSupported()) throw new Error('The AI interviewer is available on macOS and Windows only')
   return f(...a)
 }
 const wrap = (f: (...a: never[]) => unknown): Handler => async (...a: unknown[]) => (f as (...x: unknown[]) => unknown)(...a)

@@ -1,6 +1,7 @@
 // Interview Copilot renderer helpers: the pure overlay reducer (events → model → OverlayViewState), formatting, and
 // the event subscription. The overlay and the config screens share this; only the frozen contract is consumed.
 import type { CopilotEvents, DetectedQuestion, OverlayViewState, SourceHealth, SourceId, Suggestion, TranscriptLine } from '../../electron/contract'
+import { isWindowsPlatform } from './platform'
 
 type Bridge = Pick<Window['careerloom'], 'onCopilotEvent'>
 export type CopilotEventName = keyof CopilotEvents
@@ -80,8 +81,10 @@ export function formatElapsed(ms: number): string {
 }
 
 const GLYPH: Record<string, string> = { control: '⌃', ctrl: '⌃', alt: '⌥', option: '⌥', shift: '⇧', command: '⌘', cmd: '⌘', commandorcontrol: '⌘', cmdorctrl: '⌘', meta: '⌘', super: '⌘' }
-/** `Control+Alt+A` → `⌃⌥A` (macOS only for now). */
-export function kbdLabel(accel: string): string {
+const WIN_KEYS: Record<string, string> = { control: 'Ctrl', ctrl: 'Ctrl', alt: 'Alt', option: 'Alt', shift: 'Shift', command: 'Win', cmd: 'Win', meta: 'Win', super: 'Win', commandorcontrol: 'Ctrl', cmdorctrl: 'Ctrl' }
+/** `Control+Alt+A` → `⌃⌥A` on macOS, `Ctrl+Alt+A` on Windows. */
+export function kbdLabel(accel: string, win: boolean = isWindowsPlatform()): string {
+  if (win) return accel.split('+').map(p => WIN_KEYS[p.toLowerCase()] ?? p.toUpperCase()).join('+')
   return accel.split('+').map(p => GLYPH[p.toLowerCase()] ?? p.toUpperCase()).join('')
 }
 
@@ -89,7 +92,7 @@ const MOD_KEYS = new Set(['Control', 'Alt', 'Shift', 'Meta'])
 /** Hotkey recorder: a key event → Electron accelerator, or null for a bare key / modifier-only press. */
 export function acceleratorFromKeyEvent(e: KeyboardEvent): string | null {
   if (MOD_KEYS.has(e.key)) return null
-  const mods = [e.ctrlKey && 'Control', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Command'].filter((x): x is string => Boolean(x))
+  const mods = [e.ctrlKey && 'Control', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && (isWindowsPlatform() ? 'Super' : 'Command')].filter((x): x is string => Boolean(x))
   if (mods.length === 0) return null
   const key = /^Key([A-Z])$/.exec(e.code)?.[1] ?? /^Digit(\d)$/.exec(e.code)?.[1] ?? (/^F\d{1,2}$/.test(e.code) ? e.code : e.code === 'Space' ? 'Space' : null)
   return key ? [...mods, key].join('+') : null
