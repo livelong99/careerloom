@@ -39,6 +39,7 @@ export function DataPage({ settings, onChanged }: PageProps) {
     onChanged()
   }
   const copy = (text: string) => { void navigator.clipboard?.writeText(text).then(() => showToast('Path copied'), () => showToast('Could not copy', 'error')) }
+  const reveal = (p: string) => { careerloom.revealPath(p).catch(err => showToast(errorText(err), 'error', 6000)) }
   const prune = async () => {
     try {
       const r = await careerloom.retentionPrune()
@@ -54,6 +55,7 @@ export function DataPage({ settings, onChanged }: PageProps) {
         {locations.loading && !locations.data && <p className="m-0 text-xs text-muted-foreground">Loading…</p>}
         {(locations.data ?? []).map(l => (
           <Row key={l.id} label={l.label} hint={<code className="break-all">{l.path ?? 'Not set'}</code>}>
+            {l.path && <Button size="sm" variant="outline" onClick={() => reveal(l.path!)}>Show in Finder</Button>}
             {l.path && <Button size="sm" variant="outline" onClick={() => copy(l.path!)}>Copy path</Button>}
           </Row>
         ))}

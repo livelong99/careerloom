@@ -80,7 +80,7 @@ describe('SettingsShell', () => {
 
   it('leaves slots for the pages other packages own', async () => {
     shell()
-    await userEvent.click(screen.getByRole('tab', { name: 'Runners & models' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Jobs & boards' }))
     expect(screen.getByRole('note')).toHaveTextContent(/arrives with/)
   })
 })
