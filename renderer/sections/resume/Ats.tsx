@@ -11,6 +11,7 @@ import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 
+import { goToSettings } from '@/lib/nav'
 import { Page } from './PageStub'
 import type { ResumeCtx } from './ctx'
 
@@ -62,7 +63,8 @@ export function AtsPage({ ctx }: { ctx: ResumeCtx }) {
                 {report.degraded.embeddings && (
                   <Alert>
                     <AlertTitle>Running without the local model</AlertTitle>
-                    <AlertDescription>The meaning-based part (20 points) is left out and the rest is rescaled, so confidence is lower. Install the local model in Settings for a more accurate match.</AlertDescription>
+                    <AlertDescription>The meaning-based part (20 points) is left out and the rest is rescaled, so confidence is lower. Install the local model for a more accurate match.</AlertDescription>
+                    <Button variant="link" size="sm" className="h-auto px-0" onClick={() => goToSettings('local-models', 'local:prescreen')}>Manage in Settings</Button>
                   </Alert>
                 )}
               </>
