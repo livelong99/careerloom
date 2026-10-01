@@ -35,7 +35,7 @@ export function AgentPage() {
         </Row>
       </Group>
       <Group title="What each runner may do" focus="agent-permissions">
-        <table className="w-full text-sm" aria-label="Runner permissions">
+        <table className="prose-table w-full text-sm" aria-label="Runner permissions">
           <thead><tr className="text-left text-xs text-muted-foreground"><th className="pb-2 font-medium">Runner</th><th className="pb-2 font-medium">May do</th></tr></thead>
           <tbody>
             {RUNNER_PERMISSIONS.map(r => (
