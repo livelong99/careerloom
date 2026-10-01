@@ -162,3 +162,15 @@ describe('createLlmClassifier', () => {
     expect(calls[0]!.messages[0]!.content.match(/LINE>>>/g)).toHaveLength(1)
   })
 })
+
+describe('policy errors', () => {
+  it('suggests a fallback model on a policy error but never switches silently', async () => {
+    const { provider, calls } = fakeProvider(() => (async function* (): AsyncGenerator<StreamItem> { throw new LlmError('policy', 'No endpoints found matching your data policy (Free model training).') })())
+    const engine = createAnswerEngine({ provider, config: () => cfg(c => { c.engine.models.fast = 'q/x:free'; return c }), grounding: () => grounding, sleep: async () => undefined })
+    const err = await collect(engine.answer(req())).catch(e => e as LlmError)
+    expect(err).toBeInstanceOf(LlmError)
+    expect((err as LlmError).code).toBe('policy')
+    expect((err as LlmError).suggestion).toBe(defaultModelFor('fast'))
+    expect(calls.map(c => c.model)).toEqual(['q/x:free'])
+  })
+})

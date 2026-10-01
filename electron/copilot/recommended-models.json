@@ -1,13 +1,8 @@
 {
   "asOf": "2026-10-01",
-  "note": "Ids and prices read from OpenRouter /api/v1/models on 2026-10-01; they drift, so the app re-lists live and falls back to this file. Order within a tier = preference (first is the default until the G-C latency table picks otherwise).",
+  "note": "Paid models only: free (':free') endpoints can train on prompts, so OpenRouter rejects them under the default data_collection=deny. Ids and prices read from OpenRouter /api/v1/models on 2026-10-01 (gemini-2.5-flash-lite dropped: expiration_date 2026-10-20). They drift, so the app re-lists live and falls back to this file. Order within a tier = preference (first is the default).",
   "tiers": {
     "fast": [
-      {
-        "id": "google/gemini-2.5-flash-lite",
-        "name": "Google: Gemini 2.5 Flash Lite",
-        "contextTokens": 1048576
-      },
       {
         "id": "openai/gpt-4.1-nano",
         "name": "OpenAI: GPT-4.1 Nano",

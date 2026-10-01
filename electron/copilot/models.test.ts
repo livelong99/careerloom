@@ -46,12 +46,39 @@ describe('testLlmModel', () => {
   const prov = (gen: () => AsyncGenerator<{ delta: string }>): AnswerProvider => ({ id: 'openrouter', stream: () => gen() })
   it('reports time to first token', async () => {
     let t = 100
-    const r = await testLlmModel(prov(async function* () { t += 340; yield { delta: 'OK' } }), 'a/b', () => t)
+    const r = await testLlmModel(prov(async function* () { t += 340; yield { delta: 'OK' } }), 'a/b', { dataCollection: 'deny' }, () => t)
     expect(r).toEqual({ ok: true, firstTokenMs: 340 })
   })
   it('reports a readable failure', async () => {
-    expect(await testLlmModel(prov(async function* () { throw new LlmError('auth', 'Invalid key'); yield { delta: '' } }), 'a/b')).toEqual({ ok: false, firstTokenMs: null, message: 'Invalid key' })
+    expect(await testLlmModel(prov(async function* () { throw new LlmError('auth', 'Invalid key'); yield { delta: '' } }), 'a/b')).toMatchObject({ ok: false, firstTokenMs: null, code: 'auth', actions: ['manage-key'], message: expect.stringMatching(/key/i) })
     expect(await testLlmModel(prov(async function* () { throw new Error('socket hang up'); yield { delta: '' } }), 'a/b')).toMatchObject({ ok: false, message: 'Could not reach the model' })
     expect(await testLlmModel(prov(async function* () { yield { delta: '' } }), 'a/b')).toMatchObject({ ok: false, message: 'The model returned no text' })
+  })
+})
+
+describe('data-policy facts', () => {
+  it('overlays cached probe results: policy failure -> may-collect, success under deny -> no-collect', async () => {
+    const { d } = deps({ fetchModels: async () => [m('a/alpha'), m('b/beta'), m('c/gamma')] })
+    const out = await listLlmModels({ ...d, readProbes: () => ({ 'a/alpha': 'policy', 'b/beta': 'ok' }) })
+    const by = Object.fromEntries(out.map(x => [x.id, x.dataPolicy]))
+    expect(by).toMatchObject({ 'a/alpha': 'may-collect', 'b/beta': 'no-collect', 'c/gamma': 'unknown' })
+  })
+  it('keeps free models may-collect even if a stale probe said ok', async () => {
+    const free = { ...m('q/x:free'), dataPolicy: 'may-collect' as const }
+    const { d } = deps({ fetchModels: async () => [free] })
+    expect((await listLlmModels({ ...d, readProbes: () => ({ 'q/x:free': 'ok' }) })).find(x => x.id === 'q/x:free')!.dataPolicy).toBe('may-collect')
+  })
+})
+
+describe('testLlmModel friendly errors', () => {
+  const failing = (e: Error): AnswerProvider => ({ id: 'openrouter', async *stream() { throw e } })
+  it('policy mismatch: friendly message, code and actions', async () => {
+    const r = await testLlmModel(failing(new LlmError('policy', 'No endpoints found matching your data policy (Free model training).')), 'q/x:free', { dataCollection: 'deny' })
+    expect(r).toMatchObject({ ok: false, code: 'policy', actions: ['change-model', 'privacy-settings'] })
+    expect(r.message).toMatch(/train|prompts/i)
+  })
+  it('no key -> manage-key', async () => {
+    const r = await testLlmModel(failing(new LlmError('no_key', 'x')), 'a/b', { dataCollection: 'deny' })
+    expect(r).toMatchObject({ ok: false, code: 'no_key', actions: ['manage-key'] })
   })
 })

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { careerloom } from '@/lib/ipc'
+import { goToSettings } from '@/lib/nav'
 import type { LlmModelInfo } from '@/lib/types'
 import { errorText, isNotImplemented } from './api'
 
@@ -12,18 +13,23 @@ export const isValidModelId = (id: string): boolean => ID_RE.test(id)
 
 const POLICY = {
   'no-collect': { variant: 'success', text: "Doesn't collect data" },
-  'may-collect': { variant: 'warn', text: 'May collect data' },
+  'may-collect': { variant: 'warn', text: 'May use your prompts' },
   unknown: { variant: 'warn', text: 'Data policy unknown' },
 } as const
+
+const PRIVACY_URL = 'https://openrouter.ai/settings/privacy'
+const ALLOW_LABEL = 'Allow free models (they may train on your text)'
+type Action = 'change-model' | 'privacy-settings' | 'manage-key'
+const ACTION_LABEL: Record<Action, string> = { 'change-model': 'Change model', 'privacy-settings': 'Open OpenRouter privacy settings', 'manage-key': 'Manage key' }
 
 const price = (n: number | null): string => (n === null ? '?' : `$${n}`)
 const meta = (m: LlmModelInfo): string =>
   `${m.contextTokens ? `${Math.round(m.contextTokens / 1000)}k context · ` : ''}${price(m.promptUsdPerM)} in / ${price(m.completionUsdPerM)} out per million tokens${m.supportsStreaming ? '' : ' · no streaming'}`
 
-type Probe = { kind: 'ok' | 'fail' | 'off'; text: string } | null
+type Probe = { kind: 'ok' | 'fail' | 'off'; text: string; actions?: Action[] } | null
 
 /** One model row for a speed tier: current model, data-policy badge, Test, and a searchable list plus a typed-id fallback. `models: null` = list unavailable. */
-export function LlmModelPicker({ tier, value, models, onChange }: { tier: string; value: string | null; models: LlmModelInfo[] | null; onChange: (id: string) => void }) {
+export function LlmModelPicker({ tier, value, models, onChange, dataCollection = 'deny', onAllowTraining }: { tier: string; value: string | null; models: LlmModelInfo[] | null; onChange: (id: string) => void; dataCollection?: 'deny' | 'allow'; onAllowTraining?: () => void }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [typed, setTyped] = useState('')
@@ -32,6 +38,7 @@ export function LlmModelPicker({ tier, value, models, onChange }: { tier: string
   const [testing, setTesting] = useState(false)
 
   const current = models?.find(m => m.id === value) ?? null
+  const blocked = dataCollection === 'deny' && current?.dataPolicy === 'may-collect'
   const shown = useMemo(() => (models ?? []).filter(m => `${m.name} ${m.id}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 50), [models, query])
 
   async function test(): Promise<void> {
@@ -41,8 +48,14 @@ export function LlmModelPicker({ tier, value, models, onChange }: { tier: string
       const r = await careerloom.copilotTestLlmModel(value)
       if (isNotImplemented(r)) setProbe({ kind: 'off', text: 'Testing is not available in this build yet' })
       else if (r.ok && r.firstTokenMs !== null) setProbe({ kind: 'ok', text: `First word ${(r.firstTokenMs / 1000).toFixed(1)} s` })
-      else setProbe({ kind: 'fail', text: r.message ?? 'The test failed' })
+      else setProbe({ kind: 'fail', text: r.message ?? 'The test failed', actions: r.actions })
     } catch (e) { setProbe({ kind: 'fail', text: errorText(e) }) } finally { setTesting(false) }
+  }
+
+  function act(a: Action): void {
+    if (a === 'change-model') setOpen(true)
+    else if (a === 'privacy-settings') void careerloom.openExternal(PRIVACY_URL)
+    else goToSettings('keys', 'key:openrouter')
   }
 
   function pick(id: string): void { onChange(id); setProbe(null); setOpen(false); setQuery(''); setTyped(''); setTypedError(null) }
@@ -65,6 +78,17 @@ export function LlmModelPicker({ tier, value, models, onChange }: { tier: string
         <Button size="sm" variant="outline" onClick={() => setOpen(o => !o)} aria-expanded={open}>Change…</Button>
         <Button size="sm" variant="ghost" onClick={() => void test()} disabled={!value || testing || probe?.kind === 'off'} title={probe?.kind === 'off' ? probe.text : undefined}>Test</Button>
       </div>
+      {blocked && (
+        <div role="status" className="flex flex-wrap items-center gap-2 border-t border-border p-3 text-xs text-muted-foreground">
+          <span className="min-w-0 flex-1">Free models can train on your prompts, which your privacy setting blocks. Pick a paid model, or allow free ones.</span>
+          {onAllowTraining && <Button size="sm" variant="outline" onClick={onAllowTraining}>{ALLOW_LABEL}</Button>}
+        </div>
+      )}
+      {probe?.actions?.length ? (
+        <div className="flex flex-wrap gap-2 border-t border-border p-3">
+          {probe.actions.map(a => <Button key={a} size="sm" variant="outline" onClick={() => act(a)}>{ACTION_LABEL[a]}</Button>)}
+        </div>
+      ) : null}
       {open && (
         <div className="flex flex-col gap-3 border-t border-border p-3">
           {models === null

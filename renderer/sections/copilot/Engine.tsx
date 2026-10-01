@@ -54,7 +54,7 @@ export function EnginePage() {
         </Row>
         <Row label="Models" hint="One model per speed tier. Search the OpenRouter list, then test how fast it starts." stack>
           <div className="flex w-full flex-col gap-2">
-            {TIERS.map(t => <LlmModelPicker key={t.id} tier={t.label} value={e.models[t.id]} models={models} onChange={id => patch({ models: { ...e.models, [t.id]: id } })} />)}
+            {TIERS.map(t => <LlmModelPicker key={t.id} tier={t.label} value={e.models[t.id]} models={models} dataCollection={e.openrouter.dataCollection} onAllowTraining={() => patch({ openrouter: { ...e.openrouter, dataCollection: 'allow' } })} onChange={id => patch({ models: { ...e.models, [t.id]: id } })} />)}
           </div>
         </Row>
         <Row label="Check answers against your résumé" hint="Flags numbers, tools and names that aren't in your résumé or stories.">

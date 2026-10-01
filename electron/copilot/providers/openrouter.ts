@@ -2,19 +2,25 @@
 import type { AnswerProvider, ProviderPrompt, StreamItem } from '../engine'
 import type { CopilotConfig, LlmModelInfo } from '../types'
 
-export type LlmErrorCode = 'no_key' | 'auth' | 'credits' | 'rate_limit' | 'timeout' | 'aborted' | 'server' | 'bad_request' | 'stream' | 'budget'
+export type LlmErrorCode = 'no_key' | 'auth' | 'credits' | 'rate_limit' | 'timeout' | 'aborted' | 'server' | 'bad_request' | 'stream' | 'budget' | 'policy' | 'model_unavailable'
 const RETRYABLE: ReadonlySet<LlmErrorCode> = new Set(['rate_limit', 'timeout', 'server'])
 
 /** Typed so failover never matches on message substrings. `message` is safe to show (keys scrubbed). */
 export class LlmError extends Error {
   override readonly name = 'LlmError'
   readonly retryable: boolean
+  /** Set by the answer engine on policy/unavailable errors: a model to offer instead. Never switched to silently. */
+  suggestion?: string
   constructor(readonly code: LlmErrorCode, message: string) { super(scrub(message)); this.retryable = RETRYABLE.has(code) }
 }
 
 const scrub = (s: string) => s.replace(/sk-[A-Za-z0-9_-]{6,}/g, '[key]').replace(/Bearer\s+\S+/gi, 'Bearer [key]').slice(0, 300)
 
-function codeForStatus(status: number): LlmErrorCode {
+/** OpenRouter answers 404 "No endpoints found matching your data policy (...)" when `provider.data_collection: deny` or the account privacy settings exclude every provider of a model (docs: guides/routing/provider-selection, features/privacy-and-logging). */
+const POLICY_404 = /data policy|privacy settings/i
+
+function codeForStatus(status: number, message = ''): LlmErrorCode {
+  if (status === 404) return POLICY_404.test(message) ? 'policy' : 'model_unavailable'
   if (status === 401 || status === 403) return 'auth'
   if (status === 402) return 'credits'
   if (status === 408) return 'timeout'
@@ -60,7 +66,7 @@ export async function* decodeStream(payloads: AsyncIterable<string>): AsyncGener
     if (raw.trim() === '[DONE]') return
     let c: Chunk
     try { c = JSON.parse(raw) as Chunk } catch { throw new LlmError('stream', 'The model stream sent malformed data') }
-    if (c.error) throw new LlmError(typeof c.error.code === 'number' ? codeForStatus(c.error.code) : 'stream', c.error.message ?? 'The model stream failed')
+    if (c.error) throw new LlmError(typeof c.error.code === 'number' ? codeForStatus(c.error.code, c.error.message) : 'stream', c.error.message ?? 'The model stream failed')
     const choice = c.choices?.[0]
     if (choice?.finish_reason === 'error') throw new LlmError('stream', 'The model stream ended with an error')
     const text = choice?.delta?.content
@@ -128,7 +134,7 @@ export function createOpenRouter(opts: OpenRouterOptions): AnswerProvider {
         } catch (e) { return fail(e) }
         if (!res.ok || !res.body) {
           const j = await res.json().catch(() => null) as { error?: { message?: string } } | null
-          throw new LlmError(codeForStatus(res.status), j?.error?.message ?? `OpenRouter returned ${res.status}`)
+          throw new LlmError(codeForStatus(res.status, j?.error?.message), j?.error?.message ?? `OpenRouter returned ${res.status}`)
         }
         const beat = async function* (src: AsyncIterable<Uint8Array>) { for await (const c of src) { arm(idle); yield c } }
         try {
@@ -154,8 +160,13 @@ export async function collectText(provider: AnswerProvider, prompt: ProviderProm
 type RawModel = { id: string; name?: string; context_length?: number | null; pricing?: { prompt?: string | number; completion?: string | number } }
 const perM = (v: unknown): number | null => { const n = typeof v === 'string' || typeof v === 'number' ? Number(v) : NaN; return Number.isFinite(n) ? Math.round(n * 1e6 * 1e6) / 1e6 : null }
 
+/** Neither /models nor /models/:id/endpoints exposes a data-policy field, so the only static signal is "free": OpenRouter's privacy settings treat free endpoints separately because they may train on prompts. Paid models stay 'unknown' until a probe says otherwise. */
+export const isFreeModel = (id: string, prompt: number | null, completion: number | null): boolean => id.endsWith(':free') || (prompt === 0 && completion === 0)
+
 export function toModelInfo(m: RawModel): LlmModelInfo {
-  return { id: m.id, name: m.name ?? m.id, contextTokens: m.context_length ?? null, promptUsdPerM: perM(m.pricing?.prompt), completionUsdPerM: perM(m.pricing?.completion), dataPolicy: 'unknown', supportsStreaming: true }
+  const promptUsdPerM = perM(m.pricing?.prompt)
+  const completionUsdPerM = perM(m.pricing?.completion)
+  return { id: m.id, name: m.name ?? m.id, contextTokens: m.context_length ?? null, promptUsdPerM, completionUsdPerM, dataPolicy: isFreeModel(m.id, promptUsdPerM, completionUsdPerM) ? 'may-collect' : 'unknown', supportsStreaming: true }
 }
 
 /** The public model list needs no key. */

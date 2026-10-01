@@ -3,6 +3,8 @@
 import { questionType, type QuestionDetector } from './detector'
 import type { AnswerEngine } from './engine'
 import type { PromptKind } from './prompts'
+import { friendlyLlmError } from './providers/errors'
+import { LlmError } from './providers/openrouter'
 import type { CopilotConfig, CopilotEvents, CopilotMode, DetectedQuestion, SourceId, Speaker, StopReason, Suggestion, TranscriptLine } from './types'
 
 type Emit = <K extends keyof CopilotEvents>(ev: K, payload: CopilotEvents[K]) => void
@@ -48,7 +50,12 @@ export function createLiveWiring(d: WiringDeps) {
   let current: AbortController | null = null
 
   const reset = (): void => { lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; d.detector.reset() }
-  const error = (message: string): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false })
+  const error = (message: string, extra: { actions?: CopilotEvents['copilotError']['actions']; suggestion?: string } = {}): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false, ...extra })
+  const engineError = (e: unknown): void => {
+    if (!(e instanceof LlmError)) return error(msg(e))
+    const f = friendlyLlmError(e, { dataCollection: d.config().engine.openrouter.dataCollection })
+    error(f.message, { actions: f.actions, ...(f.suggestion ? { suggestion: f.suggestion } : {}) })
+  }
   const addQuestion = (q: DetectedQuestion): void => { questions.set(q.id, q); lastQuestion = q; d.recorder.question(q); d.host.publish('copilotQuestion', q) }
 
   /** Mic-only live has no interviewer channel: the mic hears both sides, so its finals are candidates too (rules filter chatter). */
@@ -80,7 +87,7 @@ export function createLiveWiring(d: WiringDeps) {
         d.recorder.suggestion(s)
         d.host.publish('copilotSuggestion', s)
       }
-    } catch (e) { error(msg(e)) }
+    } catch (e) { engineError(e) }
   }
 
   d.host.onAction(a => { if (ANSWER_KINDS.has(a)) void answer(a as PromptKind) })
