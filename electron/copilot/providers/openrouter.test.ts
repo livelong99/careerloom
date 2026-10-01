@@ -103,6 +103,12 @@ describe('createOpenRouter', () => {
     const { f } = fakeFetch([], { status })
     await expect(all(createOpenRouter({ getKey: () => 'k', fetch: f, config: () => cfg }).stream(prompt()))).rejects.toMatchObject({ code, retryable })
   })
+  it('maps the OpenRouter data-policy 404 to policy, other 404s to model_unavailable (not retried)', async () => {
+    const policy = fakeFetch([], { status: 404, json: { error: { code: 404, message: 'No endpoints found matching your data policy (Free model training). Configure: https://openrouter.ai/settings/privacy' } } })
+    await expect(all(createOpenRouter({ getKey: () => 'k', fetch: policy.f, config: () => cfg }).stream(prompt()))).rejects.toMatchObject({ code: 'policy', retryable: false })
+    const gone = fakeFetch([], { status: 404, json: { error: { message: 'No endpoints found for acme/gone.' } } })
+    await expect(all(createOpenRouter({ getKey: () => 'k', fetch: gone.f, config: () => cfg }).stream(prompt()))).rejects.toMatchObject({ code: 'model_unavailable', retryable: false })
+  })
   it('scrubs keys out of error messages', async () => {
     const { f } = fakeFetch([], { status: 401, json: { error: { message: 'bad key sk-or-v1-abcdef1234567890 Bearer xyz' } } })
     const err = await all(createOpenRouter({ getKey: () => 'k', fetch: f, config: () => cfg }).stream(prompt())).catch(e => e as Error)
@@ -127,6 +133,11 @@ describe('toModelInfo', () => {
   it('maps the OpenRouter models payload to per-million prices', () => {
     expect(toModelInfo({ id: 'a/b', name: 'A: B', context_length: 1000, pricing: { prompt: '0.0000001', completion: '0.0000004' } }))
       .toEqual({ id: 'a/b', name: 'A: B', contextTokens: 1000, promptUsdPerM: 0.1, completionUsdPerM: 0.4, dataPolicy: 'unknown', supportsStreaming: true })
+  })
+  it('marks free models (":free" id or zero price) as may-collect; paid stay unknown because the list cannot tell', () => {
+    expect(toModelInfo({ id: 'q/x:free', pricing: { prompt: '0', completion: '0' } }).dataPolicy).toBe('may-collect')
+    expect(toModelInfo({ id: 'q/y', pricing: { prompt: 0, completion: 0 } }).dataPolicy).toBe('may-collect')
+    expect(toModelInfo({ id: 'q/z', pricing: { prompt: '0.000001', completion: '0.000002' } }).dataPolicy).toBe('unknown')
   })
   it('keeps unknown prices null', () => {
     expect(toModelInfo({ id: 'x', name: 'x', pricing: {} })).toMatchObject({ contextTokens: null, promptUsdPerM: null })

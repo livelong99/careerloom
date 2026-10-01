@@ -43,6 +43,8 @@ export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper'
 export type SttDevice = 'auto' | 'cpu' | 'coreml' | 'cuda'
 export type SttBenchmark = { at: number; p50FinalMs: number; realTimeFactor: number; ramMb: number | null; wer: number | null }
 export type SttModelInfo = { engine: SttEngineId; model: string; sizeMb: number | null; installed: boolean; devices: Array<'cpu' | 'coreml' | 'cuda'>; lastBenchmark: SttBenchmark | null; recommended: boolean }
+/** What the user can do about a model/provider error (rendered as buttons). */
+export type ErrorAction = 'change-model' | 'privacy-settings' | 'manage-key'
 export type LlmModelInfo = { id: string; name: string; contextTokens: number | null; promptUsdPerM: number | null; completionUsdPerM: number | null; dataPolicy: 'unknown' | 'no-collect' | 'may-collect'; supportsStreaming: boolean }
 export type PracticeQuestion = { id: string; text: string; type: QuestionType; source: 'report' | 'custom'; lastScore: number | null }
 /** What the grounding prefix is built from; counts are for the Setup tiles. */
@@ -96,7 +98,7 @@ export interface CopilotApi {
   /** Starts the optional local speech-model install (a run in the run history). Additive. */
   copilotInstallStt(model?: string): { runId: string }
   copilotListLlmModels(): LlmModelInfo[]
-  copilotTestLlmModel(id: string): { firstTokenMs: number | null; ok: boolean; message?: string }
+  copilotTestLlmModel(id: string): { firstTokenMs: number | null; ok: boolean; message?: string; code?: string; actions?: ErrorAction[] }
   copilotCheckHotkey(accel: string): { ok: boolean; reason?: 'in-use' | 'reserved' | 'invalid' }
   copilotApplyDebrief(sessionId: string, questionId: string, action: 'resume-bullet' | 'job-note'): { ok: boolean }
 }
@@ -111,7 +113,7 @@ export type CopilotEvents = {
   copilotQuestion: DetectedQuestion
   copilotSuggestion: Suggestion                 // repeated, `done:false` while streaming; throttle ≤ 12/s
   copilotHealth: SourceHealth
-  copilotError: { kind: 'stt' | 'engine' | 'capture' | 'hotkey'; message: string; retrying: boolean; attempt?: number }
+  copilotError: { kind: 'stt' | 'engine' | 'capture' | 'hotkey'; message: string; retrying: boolean; attempt?: number; actions?: ErrorAction[]; suggestion?: string }
   copilotLevel: { source: SourceId; level: number }     // 0..1, ≤ 15/s
 }
 
