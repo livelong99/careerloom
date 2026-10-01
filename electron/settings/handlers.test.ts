@@ -13,6 +13,7 @@ vi.mock('electron', () => ({
 }))
 
 import { readSettings, writeSettings } from '../context'
+import { copilotHandlers } from '../copilot/handlers'
 import { integrationsHandlers } from '../integrations'
 import { readRegistry, writeRegistry } from '../integrations/registry'
 import { publicSettings, settingsHandlers as h } from './handlers'
@@ -121,7 +122,7 @@ describe('secrets never leave main', () => {
       try { out = await (h[name] as (...a: unknown[]) => unknown)(...args) } catch (e) { out = { error: e instanceof Error ? e.message : String(e) } }
       expect(leaked(out), `${name}(${JSON.stringify(args).slice(0, 40)})`).toBeUndefined()
     }
-    for (const get of [() => publicSettings(), () => integrationsHandlers.listIntegrations!(), () => integrationsHandlers.getIntegration!('service:firecrawl')]) {
+    for (const get of [() => publicSettings(), () => integrationsHandlers.listIntegrations!(), () => integrationsHandlers.getIntegration!('service:firecrawl'), () => copilotHandlers.copilotGetConfig!(), async () => { try { return await copilotHandlers.copilotReadiness!('no-such-job') } catch (e) { return String(e) } }]) {
       expect(leaked(await get())).toBeUndefined()
     }
     expect(leaked(readSettings())).toBeUndefined()
