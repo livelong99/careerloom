@@ -12,6 +12,7 @@ export async function open() {
   await page.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false })
   return page
 }
+export const done = () => process.exit(0)
 export const text = page => page.evaluate('document.body.innerText')
 export const nav = (page, d) => page.evaluate(`window.dispatchEvent(new CustomEvent('careerloom:navigate', { detail: ${JSON.stringify(d)} }))`)
 export const theme = (page, t) => page.evaluate(`(() => { document.documentElement.dataset.theme = ${JSON.stringify(t)}; localStorage.setItem('careerloom.theme', ${JSON.stringify(t)}) })()`)
@@ -32,3 +33,11 @@ export function record(id, area, pass, note = '') {
   fs.appendFileSync(RESULTS, JSON.stringify({ id, area, pass, note }) + '\n')
   console.log(pass ? 'PASS' : 'FAIL', id, note)
 }
+/** Where would a leaked secret show up in the renderer: DOM text/attributes, web storage. */
+export const sentinelLeak = page => page.evaluate(`(() => {
+  const hits = []
+  if (document.documentElement.outerHTML.includes('QASENTINEL')) hits.push('dom')
+  if (JSON.stringify({ ...localStorage }).includes('QASENTINEL')) hits.push('localStorage')
+  if (JSON.stringify({ ...sessionStorage }).includes('QASENTINEL')) hits.push('sessionStorage')
+  return hits
+})()`)
