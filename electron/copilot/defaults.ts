@@ -10,6 +10,7 @@ import { readCv } from '../resume-agent'
 import { jobContext } from '../job-view/handlers'
 import { asPermStatus, ensureMic } from './audio-perms'
 import { readCopilotConfig, writeCopilotConfig } from './config'
+import { kbLive } from './kb-live'
 import { createContextBuilder, defaultContextDeps, type GroundingContext } from './context'
 import { createCostMeter } from './cost'
 import { createTraceLog } from './trace'
@@ -20,7 +21,6 @@ import type { CopilotDeps, createCopilot } from './handlers'
 import { createConfiguredClassify } from './gate/configured'
 import { createLiveWiring } from './live-wiring'
 import { listLiveModels, liveProvider, testLiveModel } from './live'
-import { parseAudioMsg } from './audio-in'
 import { getOverlayHost } from './overlay-runtime'
 import { createScoreCall, nameFromCv, redactIfOn } from './privacy-calls'
 import { PRIVACY_NOTICE_VERSION } from './privacy-mode'
@@ -32,6 +32,10 @@ import { createFakeAdapter, parseFixture } from './stt/fake'
 import { benchmarkStt } from './stt/benchmark'
 import { killSttSidecars } from './stt/child'
 import { createSttAdapter, listSttModels } from './stt/engines'
+import { interviewPool } from '../interviewer/pool'
+import { getKbStore } from '../kb/runtime'
+import { endInterviewVoice, interviewSpeaker, micPausesWhileSpeaking, ttsRuntime } from '../kb/voice'
+import { gateAudioMsg, parseAudioMsg } from './audio-in'
 import { installStt } from './stt/install'
 import { createProbeHub } from './stt/probe'
 import { defaultModel, findSttRuntime } from './stt/runtime'
@@ -74,6 +78,7 @@ const displayUnderOverlay = (): Electron.Display => {
   return screen.getAllDisplays().find(d => d.id === id) ?? screen.getPrimaryDisplay()
 }
 
+let gated = 0
 let audioSink: ((m: AudioChunkMsg) => void) | null = null
 const probeHub = createProbeHub()
 /** `careerloom:copilotAudio` handler body: validated chunks reach the running session and any open audio test, everything else is dropped. */
@@ -81,13 +86,15 @@ export function copilotAudioIn(raw: unknown): void {
   const m = parseAudioMsg(raw)
   if (!m) return
   probeHub.tap(m)
-  audioSink?.(m)
+  const heard = gateAudioMsg(m, ttsRuntime().gate()) // mic frames are dropped while the interviewer speaks (half-duplex)
+  if (heard) audioSink?.(heard)
+  else if (process.env.CL_KB_E2E === '1' && ++gated % 20 === 1) console.log('[kb-e2e] mic frame dropped while the interviewer speaks, total', gated) // QA evidence
 }
 
 export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
   const e2e = lazy(e2eHooks)
   const provider = lazy(liveProvider)
-  const context = lazy(() => createContextBuilder(defaultContextDeps()))
+  const context = lazy(() => createContextBuilder({ ...defaultContextDeps(), kbBlock: id => { try { return kbLive().block(id) } catch { return '' } } }))
   const fastModel = (): string => readCopilotConfig().engine.models.fast ?? defaultModelFor('fast')
   const cv = (): string => readCv()?.markdown ?? ''
   const names = (): string[] => nameFromCv(cv())
@@ -159,7 +166,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
         starting = true
         try {
           jobId = req.jobId; grounding = null; nextId = sessionId
-          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD, trace: traceLog(), sessionId: () => nextId, isVision })
+          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), kbMatch: (id, q) => kbLive().match(id, q), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD, trace: traceLog(), sessionId: () => nextId, isVision })
           shots = null // fresh image budget
           if (readCopilotConfig().engine.screenshots) void listLiveModels().then(ms => ms.forEach(m => { if (m.vision) liveVision.add(m.id) })).catch(() => undefined)
           await ctl.start(req)
@@ -179,6 +186,15 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     context: { preview: id => context().preview(id) },
     complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: mask(user) }], model: fastModel(), maxTokens: 120, signal: AbortSignal.timeout(8000) })).text,
 
+    interviewer: {
+      pool: interviewPool,
+      complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: mask(user) }], model: fastModel(), maxTokens: 500, signal: AbortSignal.timeout(15_000) })).text,
+      events: { line: l => live().wiring.emit('copilotTranscript', l), question: q => { void live().wiring.interviewerAsked(q) } },
+      speaker: interviewSpeaker,
+      ended: endInterviewVoice,
+      recordStats: (jobId, itemId, stats) => { getKbStore().updateItem(jobId, itemId, i => ({ ...i, stats })); broadcast('careerloom:kbChanged', { jobId }) },
+      onState: s => broadcast('careerloom:interviewerState', { ...s, micPaused: s.state === 'speaking' && micPausesWhileSpeaking() }),
+    },
     overlay: cmd => getOverlayHost().overlayCommand(cmd),
     ackNotice: version => getOverlayHost().ackPrivacyNotice(version),
     checkHotkey: accel => getOverlayHost().checkHotkey(accel),

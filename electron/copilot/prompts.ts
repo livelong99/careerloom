@@ -1,9 +1,13 @@
 // Ported from Open-Cluely (owner's project), adapted for Careerloom: domain routing and per-domain answer formats from
 // services/ai/prompts.js, rewritten for grounded interview answers, a STAR shape, a never-invent rule and an injection fence.
-import type { CopilotConfig, DetectedQuestion, QuestionType, Suggestion, TranscriptLine } from './types'
+import type { CopilotConfig, DetectedQuestion, KbRef, QuestionType, Suggestion, TranscriptLine } from './types'
+
+export type KbMatch = KbRef & { outline: string | null }
 
 export type PromptKind = 'answer' | 'followup' | 'clarify' | 'summarise'
-export type PromptInput = { grounding: string; coaching: CopilotConfig['coaching']; question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind; /** 'brief' (PERF-2 routing): small talk and plain facts get two short sentences. */ variant?: 'default' | 'brief' }
+export type PromptInput = { grounding: string; coaching: CopilotConfig['coaching']; question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind; /** 'brief' (PERF-2 routing): small talk and plain facts get two short sentences. */ variant?: 'default' | 'brief'
+  /** Top question-base matches for this question (WP7): interview-side context, never facts about the candidate. */
+  kb?: KbMatch[] }
 export type BuiltPrompt = { system: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> }
 export interface PromptBuilder { build(input: PromptInput): BuiltPrompt }
 
@@ -57,7 +61,8 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   }[kind]
   // Prefix-stable order: everything above (system) is identical for the whole session; in the user message the per-session format
   // comes first and the parts that change every turn (task, transcript, question) come last.
-  const user = `FORMAT (exactly these sections):\n${formatSpec(c, kind, question.type)}\n\n${task} Tone: ${TONE[c.tone]} Question type: ${question.type}.${input.variant === 'brief' ? ' Keep it to two short sentences.' : ''}\n\n${OPEN}\n${lines.length ? `Recent conversation:\n${lines.join('\n')}\n\n` : ''}QUESTION: ${neutralize(question.text.trim())}\n${CLOSE}`
+  const kb = input.kb?.length ? `RELATED QUESTIONS FROM THE QUESTION BASE (what this interviewer may be after; not facts about the candidate, never cite them as the candidate's experience):\n${input.kb.map(m => `- ${neutralize(m.text)}${m.outline ? ` → ${neutralize(m.outline)}` : ''}`).join('\n')}\n\n` : ''
+  const user = `FORMAT (exactly these sections):\n${formatSpec(c, kind, question.type)}\n\n${task} Tone: ${TONE[c.tone]} Question type: ${question.type}.${input.variant === 'brief' ? ' Keep it to two short sentences.' : ''}\n\n${kb}${OPEN}\n${lines.length ? `Recent conversation:\n${lines.join('\n')}\n\n` : ''}QUESTION: ${neutralize(question.text.trim())}\n${CLOSE}`
   return { system, messages: [{ role: 'user', content: user }] }
 }
 

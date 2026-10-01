@@ -11,6 +11,8 @@ export type JobSource = { jobId: string; title: string; company: string; report:
 export type ContextDeps = {
   loadJob(jobId: string): Promise<JobSource | null> | JobSource | null
   readCv(): Promise<string | null> | string | null
+  /** The `## QUESTION BASE` block for the stable prefix (WP7); '' when the job has none or the setting is off. */
+  kbBlock?(jobId: string): string
 }
 export type GroundingContext = {
   prefix: string; tokens: number; summary: ContextSummary
@@ -29,7 +31,8 @@ export interface ContextBuilder {
 }
 
 export const estimateTokens = (text: string) => Math.ceil(text.length / 4)
-const MAX_PREFIX_TOKENS = 6000
+export const MAX_PREFIX_TOKENS = 6000
+const MAX_KB_TOKENS = 700
 const cap = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 const clean = (s: string) => s.replace(/\*\*|__|`/g, '').replace(/\s+/g, ' ').trim()
 
@@ -92,16 +95,19 @@ function evalSection(r: ReportView | null): { text: string; strengths: number; g
   return { text, strengths: strengths.length, gaps: gaps.length }
 }
 
-export function buildGrounding(job: JobSource, cv: string | null): GroundingContext {
+export function buildGrounding(job: JobSource, cv: string | null, kb = ''): GroundingContext {
   const posting = postingSection(job.posting, job.title, job.company)
   const ev = evalSection(job.report)
   const stories = (() => { const a = storiesFromReport(job.report); return a.length ? a : storiesFromMarkdown(job.rawReport) })()
   const sText = storiesText(stories)
   const cvText = cv ?? ''
   let facts = cvFacts(cvText)
+  // Interview-side context (what may be asked), kept out of the candidate facts; capped so the cv is what gets trimmed.
+  const kbText = kb && estimateTokens(kb) <= MAX_KB_TOKENS ? kb : kb.split('\n').reduce<string[]>((o, l) => (estimateTokens([...o, l].join('\n')) > MAX_KB_TOKENS ? o : [...o, l]), []).join('\n')
   // Posting and report text is scraped/generated, so it cannot forge answer markers or the transcript fence; cv.md stays verbatim (quotes must match).
   const assemble = (f: string[]) => [
     `## JOB\n${neutralize(posting.text)}`, ev.text && `## EVALUATION\n${neutralize(ev.text)}`, sText && `## INTERVIEW PLAN — STAR STORIES (prepared, true)\n${neutralize(sText)}`,
+    kbText && neutralize(kbText),
     `## CANDIDATE FACTS (cv.md, verbatim — the only source of truth about the candidate)\n${f.length ? f.join('\n') : '(no résumé on file: say so and ask the candidate for specifics; invent nothing)'}`,
   ].filter(Boolean).join('\n\n')
   let prefix = assemble(facts)
@@ -134,7 +140,7 @@ export function createContextBuilder(deps: ContextDeps): ContextBuilder {
   const load = async (jobId: string) => {
     const job = await deps.loadJob(jobId)
     if (!job) throw new Error('That job is no longer in your list')
-    return buildGrounding(job, (await deps.readCv()) ?? null)
+    return buildGrounding(job, (await deps.readCv()) ?? null, deps.kbBlock?.(jobId) ?? '')
   }
   return {
     build: load,
