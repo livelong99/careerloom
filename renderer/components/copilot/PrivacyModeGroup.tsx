@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { Kbd } from '@/components/ui/kbd'
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { careerloom } from '@/lib/ipc'
+import { kbdLabel } from '@/lib/copilot'
+import { isWindowsPlatform } from '@/lib/platform'
 import { showToast } from '@/lib/toast'
 import type { CopilotConfig, DeepPartial } from '@/lib/types'
 import { errorText } from './api'
@@ -15,8 +17,8 @@ type Mode = CopilotConfig['privacy']['mode']
 export const DEFAULT_MODE: Mode = { enabled: false, noticeVersion: null, hideFromCapture: false, noDockIcon: false, neutralTitle: false, indicator: 'chip' }
 
 const SYMBOLS: Record<string, string> = { Control: '⌃', Ctrl: '⌃', Alt: '⌥', Option: '⌥', Shift: '⇧', Command: '⌘', Cmd: '⌘', CommandOrControl: '⌘' }
-/** Electron accelerator → mac glyphs: Control+Alt+Shift+H → ⌃⌥⇧H. */
-export const accelLabel = (accel: string): string => accel.split('+').map(k => SYMBOLS[k] ?? k).join('')
+/** Electron accelerator → mac glyphs (Control+Alt+Shift+H → ⌃⌥⇧H) or Windows words (Ctrl+Alt+Shift+H). */
+export const accelLabel = (accel: string): string => (isWindowsPlatform() ? kbdLabel(accel, true) : accel.split('+').map(k => SYMBOLS[k] ?? k).join(''))
 
 type Save = (patch: DeepPartial<CopilotConfig>) => Promise<unknown>
 
@@ -48,9 +50,11 @@ export function PrivacyModeGroup({ mode, clickThroughIdle, quickHide, save }: { 
       <Row label="Hide overlay from screen sharing" hint={<>Asks the system to leave the overlay out of screen capture. <Badge variant="warn" className="ml-1">Unreliable on macOS 15+</Badge> It does nothing against cameras, proctoring tools or someone watching your screen.</>}>
         <ToggleSwitch aria-label="Hide from screen sharing" disabled={off} checked={mode.hideFromCapture} onCheckedChange={v => set({ hideFromCapture: v })} />
       </Row>
-      <Row label="No Dock icon while listening" hint="The menu bar icon stays so you can always stop.">
-        <ToggleSwitch aria-label="No dock icon" disabled={off} checked={mode.noDockIcon} onCheckedChange={v => set({ noDockIcon: v })} />
-      </Row>
+      {!isWindowsPlatform() && (
+        <Row label="No Dock icon while listening" hint="The menu bar icon stays so you can always stop.">
+          <ToggleSwitch aria-label="No dock icon" disabled={off} checked={mode.noDockIcon} onCheckedChange={v => set({ noDockIcon: v })} />
+        </Row>
+      )}
       <Row label="Neutral window title" hint="Window lists show “Careerloom” only, never a job, company or question.">
         <ToggleSwitch aria-label="Neutral title" disabled={off} checked={mode.neutralTitle} onCheckedChange={v => set({ neutralTitle: v })} />
       </Row>

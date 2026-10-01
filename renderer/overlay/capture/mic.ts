@@ -1,3 +1,4 @@
+import { isWindowsPlatform } from '../../lib/platform'
 // Mic → 16 kHz PCM16 frames (plan §3.1). Runs in the overlay/capture renderer; frames go to main over
 // `copilotAudio` (send, not invoke). Chromium resamples the device into the 16 kHz context; the pipeline
 // still resamples properly if a platform hands back another rate.
@@ -10,7 +11,7 @@ export type MicHandle = { stop(): void }
 export function describeMicError(e: unknown): string {
   const name = (e as { name?: string } | null)?.name
   switch (name) {
-    case 'NotAllowedError': case 'SecurityError': return 'Microphone access is blocked: allow Careerloom in System Settings → Privacy & Security → Microphone.'
+    case 'NotAllowedError': case 'SecurityError': return 'Microphone access is blocked: allow Careerloom in ' + (isWindowsPlatform() ? 'Settings → Privacy & security → Microphone' : 'System Settings → Privacy & Security → Microphone') + '.'
     case 'NotFoundError': return 'No microphone found. Plug one in or pick another input in Settings → Copilot → Audio.'
     case 'NotReadableError': return 'The microphone is in use by another app or could not be opened. Close the other app and try again.'
     case 'OverconstrainedError': return 'The selected microphone is not available. Pick another input in Settings → Copilot → Audio.'

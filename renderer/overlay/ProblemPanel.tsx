@@ -1,4 +1,5 @@
 import { OvButton } from './ActionRow'
+import { isWindowsPlatform } from '../lib/platform'
 import { OvIcon } from './OvIcon'
 import type { OverlayActions, OverlayProblem } from './types'
 
@@ -11,7 +12,7 @@ const PANE: Record<'system' | 'mic', { title: string; body: string; steps: strin
   mic: {
     title: 'The microphone is silent',
     body: "You can't be heard. The interviewer side, if captured, still works.",
-    steps: ['Open System Settings → Privacy & Security → Microphone.', 'Turn on Careerloom.', 'Quit and reopen Careerloom.'],
+    steps: isWindowsPlatform() ? ['Open Settings → Privacy & security → Microphone.', 'Turn on “Let desktop apps access your microphone”.', 'Quit and reopen Careerloom.'] : ['Open System Settings → Privacy & Security → Microphone.', 'Turn on Careerloom.', 'Quit and reopen Careerloom.'],
   },
 }
 
@@ -34,7 +35,7 @@ export function ProblemPanel({ problem, on }: { problem: OverlayProblem; on: Ove
       <div className="h"><OvIcon name="warn" size={16} />{p.title}</div>
       <p>{p.body}</p>
       <ol>{p.steps.map(s => <li key={s}>{s}</li>)}</ol>
-      <div className="bt"><OvButton icon="ext" label="Open System Settings" primary onClick={on.fix} /><OvButton icon="mic" label="Continue with mic only" onClick={on.micOnly} /></div>
+      <div className="bt"><OvButton icon="ext" label={isWindowsPlatform() ? 'Open Settings' : 'Open System Settings'} primary onClick={on.fix} /><OvButton icon="mic" label="Continue with mic only" onClick={on.micOnly} /></div>
     </div>
   )
 }

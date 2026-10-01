@@ -21,12 +21,12 @@ describe('interviewPlanPreview', () => {
     platform('darwin')
     await expect(interviewPlanPreview('job-1', plan)).rejects.toThrow(/Knowledge base/)
   })
-  it('rejects a bad plan or job id, and is refused off macOS', async () => {
+  it('rejects a bad plan or job id, and is refused off macOS and Windows', async () => {
     platform('darwin'); setInterviewPool(() => ({ items: GOLDEN_POOL, skills: [] }))
     await expect(interviewPlanPreview('job-1', { ...plan, mode: 'x' })).rejects.toThrow()
     await expect(interviewPlanPreview(7, plan)).rejects.toThrow()
-    platform('win32')
-    await expect(interviewPlanPreview('job-1', plan)).rejects.toThrow(/macOS only/)
+    platform('linux')
+    await expect(interviewPlanPreview('job-1', plan)).rejects.toThrow(/macOS and Windows only/)
   })
   it('the default pool is empty', () => expect(interviewPool('x')).toBeNull())
 })

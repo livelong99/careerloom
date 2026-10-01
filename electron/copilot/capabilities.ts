@@ -1,18 +1,18 @@
-/** Interview Copilot is macOS-only for now (plan §3.1); elsewhere main refuses every copilot* call. */
+/** Interview Copilot runs on macOS and Windows; elsewhere main refuses every copilot* call. */
 export function copilotSupported(platform: NodeJS.Platform = process.platform): boolean {
-  return platform === 'darwin'
+  return platform === 'darwin' || platform === 'win32'
 }
 
-/** Live sessions need Apple Silicon until the bake-off shows an engine that also passes on Intel (plan §3.1). */
+/** Live sessions: Apple Silicon on macOS (bake-off, plan §3.1); any Windows PC (faster-whisper on NVIDIA, Moonshine on CPU otherwise). */
 export function liveSupported(platform: NodeJS.Platform = process.platform, arch: string = process.arch): boolean {
-  return copilotSupported(platform) && arch === 'arm64'
+  return platform === 'win32' || (platform === 'darwin' && arch === 'arm64')
 }
 
 export type Capabilities = { copilot: boolean; live: boolean; reason: string | null }
 
 export function capabilities(platform: NodeJS.Platform = process.platform, arch: string = process.arch): Capabilities {
   const copilot = copilotSupported(platform), live = liveSupported(platform, arch)
-  return { copilot, live, reason: !copilot ? 'Interview Copilot is available on macOS only' : !live ? 'Live sessions need a Mac with Apple silicon' : null }
+  return { copilot, live, reason: !copilot ? 'Interview Copilot is available on macOS and Windows only' : !live ? 'Live sessions need a Mac with Apple silicon' : null }
 }
 
 /** Refusal used by handlers: throws when the platform (or, for live, the chip) cannot run the feature. */

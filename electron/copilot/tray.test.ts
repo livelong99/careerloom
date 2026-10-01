@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { statusIconPng } from './tray-icons'
+import { idleRgb, statusIconPng } from './tray-icons'
 import { createTrayController, type TrayDeps } from './tray'
 
 function setup() {
@@ -74,5 +74,9 @@ describe('statusIconPng', () => {
   })
   it('the two states look different', () => {
     expect(statusIconPng('idle', 36).equals(statusIconPng('live', 36))).toBe(false)
+    // Windows has no template images: the idle ring must not be black on the dark taskbar
+    expect(idleRgb('win32')).toEqual([150, 150, 150])
+    expect(idleRgb('darwin')).toEqual([0, 0, 0])
+    expect(statusIconPng('idle', 36, idleRgb('win32')).equals(statusIconPng('idle', 36))).toBe(false)
   })
 })

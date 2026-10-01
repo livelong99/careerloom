@@ -11,7 +11,7 @@ import { createOverlayController } from './overlay-window'
 import { parseFakeSpec, runFake } from './overlay-fake'
 import { createPrivacyMode } from './privacy-mode'
 import { createTrayController } from './tray'
-import { statusIconPng } from './tray-icons'
+import { statusIconPng, idleRgb } from './tray-icons'
 
 let host: OverlayHost | null = null
 
@@ -27,7 +27,7 @@ export function getOverlayHost(): OverlayHost {
   })
   const tray = createTrayController({
     createTray: image => new Tray(image as Electron.NativeImage),
-    icon: kind => { const img = nativeImage.createFromBuffer(statusIconPng(kind, 36), { scaleFactor: 2 }); img.setTemplateImage(kind === 'idle'); return img },
+    icon: kind => { const img = nativeImage.createFromBuffer(statusIconPng(kind, 36, idleRgb()), { scaleFactor: 2 }); img.setTemplateImage(kind === 'idle'); return img },
     menu: items => Menu.buildFromTemplate(items),
   })
   host = createOverlayHost({

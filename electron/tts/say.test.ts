@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { createSystemEngine, parseSayVoices, wavToPcm } from './say'
+import { createSystemEngine, parseSayVoices, wavToPcm, sapiRate } from './say'
 
 const LIST = `Aman (English (India)) en_IN    # Hello! My name is Aman.
 Eddy (English (US))  en_US    # Hello! My name is Eddy.
@@ -65,10 +65,34 @@ describe('system engine', () => {
     for await (const _ of eng.synth('x y z', 'Aman', 9, new AbortController().signal)) { /* drain */ }
     expect(calls[0][calls[0].indexOf('-r') + 1]).toBe('350')
   })
-  it('not on darwin: no voices, synth throws a clear error', async () => {
-    const eng = createSystemEngine({ platform: 'win32' })
+  it('not on macOS or Windows: no voices, synth throws a clear error', async () => {
+    const eng = createSystemEngine({ platform: 'linux' })
     expect(await eng.voices()).toEqual([])
-    await expect((async () => { for await (const _ of eng.synth('x', 'v', 1, new AbortController().signal)) { /* */ } })()).rejects.toThrow(/macOS/)
+    await expect((async () => { for await (const _ of eng.synth('x', 'v', 1, new AbortController().signal)) { /* */ } })()).rejects.toThrow(/macOS and Windows/)
+  })
+  it('windows: lists English SAPI voices (en_IN first, same ids/lang form as macOS)', async () => {
+    const eng = createSystemEngine({ platform: 'win32', powershell: async () => 'Microsoft Zira Desktop|en-US\r\nMicrosoft Heera Desktop|en-IN\r\nMicrosoft Hedda Desktop|de-DE\r\n' })
+    const v = await eng.voices()
+    expect(v.map(x => [x.id, x.name, x.lang])).toEqual([['Microsoft Heera Desktop', 'Heera', 'en_IN'], ['Microsoft Zira Desktop', 'Zira', 'en_US']])
+    expect(v.every(x => x.engine === 'system' && x.offline && x.installed)).toBe(true)
+  })
+  it('windows: speed maps to the SAPI -10..10 rate', () => {
+    expect([sapiRate(1), sapiRate(1.5), sapiRate(0.5), sapiRate(9), sapiRate(0)]).toEqual([0, 5, -5, 10, -10])
+  })
+  it('windows: synth passes text through a file, escapes the voice, and returns the PCM', async () => {
+    const calls: string[][] = []; const written: Record<string, string> = {}
+    const eng = createSystemEngine({
+      platform: 'win32', powershell: async a => { calls.push(a); return '' }, readWav: async () => wav([1, 2, 3]),
+      tmp: () => 'C:\\t\\out.wav', writeText: (p, t) => { written[p] = t }, rm: async () => {},
+    })
+    const chunks = []
+    for await (const c of eng.synth("hello; Remove-Item C:\\ -Recurse", "Zira' ; calc ; '", 1, new AbortController().signal)) chunks.push(c)
+    expect(chunks).toHaveLength(1)
+    expect(Object.values(written)).toEqual(["hello; Remove-Item C:\\ -Recurse"]) // the sentence is data in a file, never script text
+    const script = calls[0][calls[0].indexOf('-Command') + 1]
+    expect(script).toContain("-Voice 'Zira'' ; calc ; '''") // single quotes doubled: stays one string
+    expect(script).not.toContain('Remove-Item')
+    expect(script).toContain('-Rate 0')
   })
   it('an aborted signal produces no audio', async () => {
     const ac = new AbortController(); ac.abort()

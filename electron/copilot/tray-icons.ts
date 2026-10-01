@@ -13,10 +13,14 @@ function chunk(type: string, data: Buffer): Buffer {
   return out
 }
 
-/** `idle` = black ring (macOS template image, the OS tints it); `live` = red dot (coloured, not a template). */
-export function statusIconPng(kind: 'idle' | 'live', size: number): Buffer {
+/** Idle ring colour. macOS tints a black template image itself; Windows has no template images, so a black ring
+ *  vanishes on the dark taskbar — use mid-gray, which reads on both light and dark. */
+export const idleRgb = (platform: NodeJS.Platform = process.platform): [number, number, number] => (platform === 'win32' ? [150, 150, 150] : [0, 0, 0])
+
+/** `idle` = ring (macOS template image, the OS tints it); `live` = red dot (coloured, not a template). */
+export function statusIconPng(kind: 'idle' | 'live', size: number, idle: [number, number, number] = [0, 0, 0]): Buffer {
   const c = (size - 1) / 2, rOut = size * 0.36, rIn = size * 0.24
-  const [r, g, b] = kind === 'live' ? [229, 72, 77] : [0, 0, 0]
+  const [r, g, b] = kind === 'live' ? [229, 72, 77] : idle
   const rows = Buffer.alloc((size * 4 + 1) * size)
   for (let y = 0; y < size; y++) {
     rows[y * (size * 4 + 1)] = 0 // filter: none

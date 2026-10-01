@@ -5,7 +5,7 @@ import { Group, Note, Row } from '@/components/copilot/Group'
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { Button } from '@/components/ui/button'
 import { navigate } from '@/lib/nav'
-import { isMacPlatform } from '@/lib/platform'
+import { copilotSupportedHere } from '@/lib/platform'
 import { EnginePage } from '@/sections/copilot/Engine'
 import { PrivacyPage } from '@/sections/copilot/Privacy'
 import { TranscriptionPage } from '@/sections/copilot/Transcription'
@@ -32,7 +32,7 @@ function FasterAnswers() {
 
 /** Speech, answer engine and privacy: the editors that used to be Copilot workspace tabs, re-hosted unchanged. */
 export function CopilotPage() {
-  if (!isMacPlatform()) return <EmptyNote>Interview Copilot is available on macOS only for now.</EmptyNote>
+  if (!copilotSupportedHere()) return <EmptyNote>Interview Copilot is available on macOS and Windows only.</EmptyNote>
   return (
     <div className="flex flex-col [&>div>section]:pt-0">
       <header className="flex items-center justify-between gap-4 px-6 pb-2 pt-6">
