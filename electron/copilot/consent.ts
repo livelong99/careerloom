@@ -2,7 +2,7 @@
 import type { ConsentRecord, SourceId } from './types'
 
 /** Bump when the consent copy changes: older records (and stale renderers) are then refused. TODO-legal: copy reviewed at gate G-D. */
-export const CONSENT_TEXT_VERSION = '2026-10-01.draft1'
+export const CONSENT_TEXT_VERSION = '2026-10-01.draft2'
 export const CONSENT_MAX_AGE_MS = 10 * 60_000
 const SOURCES: readonly SourceId[] = ['mic', 'system']
 const INDICATORS = ['chip', 'dot', 'off']

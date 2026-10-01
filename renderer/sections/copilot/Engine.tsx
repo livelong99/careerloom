@@ -40,8 +40,8 @@ export function EnginePage() {
       <Group>
         <Row label="Provider" hint="OpenRouter streams words as they are written. The text of the conversation is sent to it."><Badge variant="brand">OpenRouter</Badge></Row>
         <ApiKeyRow />
-        <Row label="Only use providers that don't keep or train on my data" hint="Safer, but it limits which models you can pick.">
-          <ToggleSwitch aria-label="Data collection deny" checked={e.openrouter.dataCollection === 'deny'} onCheckedChange={v => patch({ openrouter: { ...e.openrouter, dataCollection: v ? 'deny' : 'allow' } })} />
+        <Row label="Providers may keep or train on your text" hint="On: every model works, including free ones, but a provider may keep or train on the conversation text. Off: only providers that promise not to, which rules out most free models.">
+          <ToggleSwitch aria-label="Providers may keep or train on your text" checked={e.openrouter.dataCollection === 'allow'} onCheckedChange={v => patch({ openrouter: { ...e.openrouter, dataCollection: v ? 'allow' : 'deny' } })} />
         </Row>
         <Row label="Zero data retention only" hint="Narrower still: only providers that promise not to store prompts.">
           <ToggleSwitch aria-label="Zero data retention" checked={e.openrouter.zdr} onCheckedChange={v => patch({ openrouter: { ...e.openrouter, zdr: v } })} />
@@ -54,7 +54,7 @@ export function EnginePage() {
         </Row>
         <Row label="Models" hint="One model per speed tier. Search the OpenRouter list, then test how fast it starts." stack>
           <div className="flex w-full flex-col gap-2">
-            {TIERS.map(t => <LlmModelPicker key={t.id} tier={t.label} value={e.models[t.id]} models={models} onChange={id => patch({ models: { ...e.models, [t.id]: id } })} />)}
+            {TIERS.map(t => <LlmModelPicker key={t.id} tier={t.label} value={e.models[t.id]} models={models} dataCollection={e.openrouter.dataCollection} onAllowTraining={() => patch({ openrouter: { ...e.openrouter, dataCollection: 'allow' } })} onChange={id => patch({ models: { ...e.models, [t.id]: id } })} />)}
           </div>
         </Row>
         <Row label="Check answers against your résumé" hint="Flags numbers, tools and names that aren't in your résumé or stories.">

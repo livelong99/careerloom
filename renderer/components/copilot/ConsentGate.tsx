@@ -48,7 +48,7 @@ export function ConsentGate({ open, onOpenChange, onPractice, onStarted }: { ope
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{T.title}</DialogTitle>
-          <DialogDescription>{T.intro(config ? retentionLabel(config.privacy.retentionDays) : '3 months')}</DialogDescription>
+          <DialogDescription>{T.intro(config ? retentionLabel(config.privacy.retentionDays) : '3 months', config?.engine.openrouter.dataCollection !== 'deny')}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <SourceRow title={T.mic.title} hint={T.mic.hint}><Badge variant="success">On</Badge></SourceRow>
