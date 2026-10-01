@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TtsAudioMsg } from '../kb/types'
 import { createFakeTts } from './fake'
+import type { InterviewConfig } from '../kb/types'
 import { createTtsRuntime } from './runtime'
 
 beforeEach(() => { vi.useFakeTimers() })
@@ -9,9 +10,9 @@ afterEach(() => { vi.useRealTimers() })
 
 const mk = (over: Partial<Parameters<typeof createTtsRuntime>[0]> = {}) => {
   const sent: TtsAudioMsg[] = []; const toasts: string[] = []
-  let voice = { engine: 'system' as const, voiceId: 'system-v1' as string | null, speed: 1, echo: 'speakers' as const, tailMs: 350, pushToInterrupt: 'Space' }
+  let voice: InterviewConfig['voice'] = { engine: 'system', voiceId: 'system-v1', speed: 1, echo: 'speakers', tailMs: 350, pushToInterrupt: 'Space' }
   const engines = { system: createFakeTts({ id: 'system' }), kokoro: createFakeTts({ id: 'kokoro' }), openrouter: createFakeTts({ id: 'openrouter' }) }
-  const rt = createTtsRuntime({ config: () => voice as never, send: m => sent.push(m), notify: t => toasts.push(t), engines, kokoroInstalled: () => true, hasOpenRouterKey: () => false, now: () => Date.now(), install: () => ({ runId: 'r1' }), ...over })
+  const rt = createTtsRuntime({ config: () => voice, send: m => sent.push(m), notify: t => toasts.push(t), engines, kokoroInstalled: () => true, hasOpenRouterKey: () => false, now: () => Date.now(), install: () => ({ runId: 'r1' }), ...over })
   return { rt, sent, toasts, engines, setVoice: (v: Partial<typeof voice>) => { voice = { ...voice, ...v } } }
 }
 
