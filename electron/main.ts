@@ -20,7 +20,7 @@ import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handl
 import { setKey } from './settings/keys'
 import { isAllowedPermission } from './copilot/audio-perms'
 import { copilotSupported } from './copilot/capabilities'
-import { copilotAudioIn } from './copilot/defaults'
+import { clearCopilotShots, copilotAudioIn, sweepCopilotShots } from './copilot/defaults'
 import { startFakeOverlayIfRequested } from './copilot/overlay-runtime'
 import { killSttSidecars } from './copilot/stt/moonshine'
 import { resumeHandlers } from './resume'
@@ -265,6 +265,7 @@ function registerHandlers(): void {
       }
     })
   }
+  if (copilotSupported()) sweepCopilotShots() // frames a crashed run left behind
   if (copilotSupported()) ipcMain.on('careerloom:copilotAudio', (_event, msg: unknown) => copilotAudioIn(msg)) // high-rate mic frames: send, not invoke
   ipcMain.handle('open-external', async (_event, url: unknown) => {
     const target = typeof url === 'string' ? externalUrlToOpen(url) : null
@@ -330,7 +331,7 @@ function bootstrap(): void {
     if (win?.isMinimized()) win.restore()
     win?.focus()
   })
-  app.on('before-quit', () => { cancelAll(); stopPrescreen(); killSttSidecars() })
+  app.on('before-quit', () => { cancelAll(); stopPrescreen(); killSttSidecars(); clearCopilotShots() })
   void app.whenReady().then(() => {
     sweepCookieTemp() // plaintext cookie copies a crashed browser scan left behind
     registerHandlers()

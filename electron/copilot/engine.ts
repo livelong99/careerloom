@@ -10,6 +10,7 @@ import { estimateTokens, windowLines, type GroundingContext } from './context'
 import { buildPrompt, parseSuggestion, type PromptKind } from './prompts'
 import { collectText, LlmError } from './providers/openrouter'
 import { createRedactor } from './redact'
+import { userContentWithImage, type ImagePart, type TextPart } from './vision'
 import type { Route } from './routing'
 import { stageMs, type TraceLog, type TraceMarks, type TurnInfo } from './trace'
 import type { CopilotConfig, DetectedQuestion, Suggestion, TranscriptLine } from './types'
@@ -20,10 +21,12 @@ import type { CopilotConfig, DetectedQuestion, Suggestion, TranscriptLine } from
 export type AnswerRequest = { question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind; signal: AbortSignal; marks?: TraceMarks; route?: Route
   /** How the turn was routed and started (trace only). Shared like `marks`: read at the end of the request. */
   info?: TurnInfo
+  /** A downscaled screenshot (JPEG) to send with the question; only ever goes to a vision model (see `EngineDeps.isVision`). */
+  image?: { jpeg: Buffer; captureMs?: number; encodeMs?: number }
   /** Held (speculative) requests: the trace record is written when this resolves, once the late marks (speech end, release) are in. */
   afterRelease?: Promise<void> }
 export type ProviderPrompt = {
-  system: string; messages: Array<{ role: 'user' | 'assistant'; content: string }>; model: string; signal: AbortSignal; maxTokens?: number
+  system: string; messages: Array<{ role: 'user' | 'assistant'; content: string | Array<TextPart | ImagePart> }>; model: string; signal: AbortSignal; maxTokens?: number
   /** Sticky-routing key (one per session) so follow-up turns land on the endpoint that holds the prompt cache. */
   sessionId?: string
   /** Latency trace hooks: the request left / the first response byte arrived. */
@@ -47,10 +50,18 @@ export interface AnswerEngine {
 }
 
 type Tier = Suggestion['tier']
-type Recommended = { tiers: Record<Tier, Array<{ id: string }>> }
+type Recommended = { tiers: Record<Tier, Array<{ id: string; vision?: boolean }>> }
 const REC = recommended as Recommended
 export const defaultModelFor = (tier: Tier): string => REC.tiers[tier][0]!.id
-const fallbacksFor = (tier: Tier, primary: string): string[] => REC.tiers[tier].map(m => m.id).filter(id => id !== primary).slice(0, 2)
+export const recVision = (id: string): boolean => Object.values(REC.tiers).some(l => l.some(m => m.id === id && m.vision === true))
+const fallbacksFor = (tier: Tier, primary: string, ok: (id: string) => boolean = () => true): string[] => REC.tiers[tier].map(m => m.id).filter(id => id !== primary && ok(id)).slice(0, 2)
+/** The error for sending an image to a model that can't read it, with a vision model to offer (offer, never switch); null when fine. */
+export function checkVision(model: string, tier: Tier, isVision: (id: string) => boolean = recVision): LlmError | null {
+  if (isVision(model)) return null
+  const e = new LlmError('no_vision', `${model} can't read images. Pick a vision model to use screenshots.`)
+  e.suggestion = [...REC.tiers[tier], ...Object.values(REC.tiers).flat()].find(m => isVision(m.id))?.id
+  return e
+}
 
 /** Design and coding questions go to the Deep tier when escalation is on; everything else uses the chosen tier. */
 export function pickTier(cfg: CopilotConfig['engine'], type: DetectedQuestion['type'], kind: PromptKind): Tier {
@@ -76,6 +87,8 @@ export type EngineDeps = {
   trace?: TraceLog
   /** Sticky-routing key: one per session keeps follow-up turns on the endpoint holding the prompt cache. */
   sessionId?: () => string | undefined
+  /** Does this model accept images? Defaults to the `vision` flag in recommended-models.json; the app adds OpenRouter's live list. */
+  isVision?: (modelId: string) => boolean
 }
 
 // Headline-first answers are short: fast/balanced fit the longest format (script x 5-6 sentences + 5 bullets + STAR) in about 300/400 tokens.
@@ -90,6 +103,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
   const cost = deps.cost ?? createCostMeter()
   const active = new Set<AbortController>()
   const gap = deps.partialEveryMs ?? 80
+  const isVision = deps.isVision ?? recVision
 
   async function* answer(req: AnswerRequest): AsyncGenerator<Suggestion> {
     const cfg = deps.config()
@@ -104,12 +118,17 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
     try {
       const tier = req.route?.tier ?? pickTier(cfg.engine, req.question.type, req.kind)
       const model = cfg.engine.models[tier] ?? defaultModelFor(tier)
+      const noVision = req.image ? checkVision(model, tier, isVision) : null
+      if (noVision) throw noVision // never drop the image silently
       const g = await deps.grounding()
       const mask = cfg.privacy.redact ? createRedactor(deps.redactNames?.() ?? []) : (t: string) => t
       const lines = windowLines(req.transcript, WINDOW_TOKENS, { maxLines: WINDOW_LINES }).map(l => ({ ...l, text: mask(l.text) }))
       const question = { ...req.question, text: mask(req.question.text) }
       const prompt = buildPrompt({ grounding: g.prefix, coaching: cfg.coaching, question, transcript: lines, kind: req.kind, variant: req.route?.variant })
       const promptChars = prompt.system.length + prompt.messages.reduce((n, m) => n + m.content.length, 0)
+      const messages = req.image ? prompt.messages.map(m => ({ ...m, content: userContentWithImage(m.content, req.image!.jpeg) })) : prompt.messages
+      const shot = req.image && { captureMs: req.image.captureMs ?? 0, encodeMs: req.image.encodeMs ?? 0, bytes: req.image.jpeg.length }
+      const turnInfo = (): TurnInfo | undefined => shot ? { ...(req.info ?? { kind: req.route?.kind ?? (req.question.type === 'coding' || req.question.type === 'system-design' ? req.question.type : 'behavioural'), tier, auto: req.question.auto, spec: null, gate: null, gateMs: null }), shot } : req.info
 
       const start = now()
       const turn = deps.trace?.start(req.question.id, req.marks ?? {}, start)
@@ -120,11 +139,11 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       let usage: StreamUsage | null = null
       let usedModel = model
       const base: Suggestion = { questionId: req.question.id, model, tier, say: '', bullets: [], star: null, proof: [], flags: [], done: false, firstTokenMs: null, totalMs: null, costUsd: null }
-      const snapshot = (done: boolean): Suggestion => ({ ...base, model: usedModel, ...parseSuggestion(text, done), done, firstTokenMs, totalMs: done ? now() - start : null, trace: stageMs(marks, { promptTokens: usage?.promptTokens, cachedTokens: usage?.cachedTokens }, req.info) })
+      const snapshot = (done: boolean): Suggestion => ({ ...base, model: usedModel, ...parseSuggestion(text, done), done, firstTokenMs, totalMs: done ? now() - start : null, trace: stageMs(marks, { promptTokens: usage?.promptTokens, cachedTokens: usage?.cachedTokens }, turnInfo()) })
 
-      const stream = withFailover(modelOrder(model, fallbacksFor(tier, model)), m => {
+      const stream = withFailover(modelOrder(model, fallbacksFor(tier, model, req.image ? isVision : undefined)), m => {
         usedModel = m
-        return deps.provider.stream({ system: prompt.system, messages: prompt.messages, model: m, signal: ac.signal, maxTokens: Math.round(MAX_TOKENS[tier] * (req.route?.maxTokensScale ?? 1)), sessionId: deps.sessionId?.(), onMark: k => mark(k === 'first-byte' ? 'firstByteAt' : 'requestSentAt') })
+        return deps.provider.stream({ system: prompt.system, messages, model: m, signal: ac.signal, maxTokens: Math.round(MAX_TOKENS[tier] * (req.route?.maxTokensScale ?? 1)), sessionId: deps.sessionId?.(), onMark: k => mark(k === 'first-byte' ? 'firstByteAt' : 'requestSentAt') })
       }, { signal: ac.signal, sleep: deps.sleep, onRetry: deps.onRetry })
 
       let lastYield = -Infinity
@@ -153,7 +172,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       const record = (): void => {
         if (!turn) return
         for (const k of Object.keys(marks) as Array<keyof TraceMarks>) turn.mark(k, marks[k]!) // late marks (speech end, release)
-        turn.finish({ promptTokens, cachedTokens: usage?.cachedTokens ?? null }, req.info)
+        turn.finish({ promptTokens, cachedTokens: usage?.cachedTokens ?? null }, turnInfo())
       }
       if (req.afterRelease) void req.afterRelease.then(record); else record()
       const final = snapshot(true)

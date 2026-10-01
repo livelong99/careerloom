@@ -2,11 +2,12 @@
 // session recorder (plan §3). Pure: every collaborator is injected, so the whole live flow is unit-testable with fakes.
 import { createAutoAsk } from './auto-ask'
 import { questionType, type QuestionDetector } from './detector'
-import type { AnswerEngine } from './engine'
+import { checkVision, defaultModelFor, type AnswerEngine } from './engine'
 import type { PromptKind } from './prompts'
 import { friendlyLlmError } from './providers/errors'
 import { LlmError } from './providers/openrouter'
 import { routeQuestion, type Route } from './routing'
+import { ScreenshotError, type Shot } from './screenshots'
 import { createSpeculator, type SpecRun } from './speculate'
 import type { TraceMarks, TurnInfo } from './trace'
 import type { CopilotConfig, CopilotEvents, CopilotMode, DetectedQuestion, SourceId, Speaker, StopReason, Suggestion, TranscriptLine } from './types'
@@ -18,6 +19,28 @@ export type WiringHost = {
   setSessionHooks(h: { stopCapture(): Promise<void> | void; abortRequests(): void }): void
   onAction(cb: (a: string) => void): void
 }
+/** Screen reading (M3), injected so the flow is testable with fakes. All of it is inert unless `engine.screenshots` is on. */
+export type ScreenDeps = {
+  /** Hides the overlay, grabs, downsizes; throws ScreenshotError('permission' | 'budget' | 'capture'). */
+  capture(): Promise<Pick<Shot, 'jpeg' | 'timings'>>
+  /** A frame no older than `maxAgeMs` (the end-of-turn pre-capture), else null. */
+  latest(maxAgeMs: number): Pick<Shot, 'jpeg' | 'timings'> | null
+  /** Deletes every held frame (session end, panic, new session). */
+  clear(): void
+  isVision(model: string): boolean
+}
+type ShotLike = Pick<Shot, 'jpeg' | 'timings'>
+type Blocked = NonNullable<CopilotEvents['copilotScreen']['reason']>
+const BLOCK_TEXT: Record<Exclude<Blocked, 'no-vision'>, string> = {
+  off: 'Screenshots are off. Turn on "Read the screen" in Settings → Copilot → Engine.',
+  ocr: 'Text-only (OCR) screen reading is not available yet. Choose "Vision model" in Settings → Copilot → Engine.',
+  permission: 'Screen Recording is off for Careerloom. Allow it in System Settings → Privacy & Security → Screen Recording, then reopen Careerloom.',
+  budget: 'Screenshot limit for this session reached. Answers keep working without the screen.',
+  failed: 'Could not capture the screen. Answers keep working without it.',
+}
+const PRE_MAX_AGE_MS = 30_000
+const SENT_MS = 2500
+
 export type WiringDeps = {
   host: WiringHost
   recorder: { line(l: TranscriptLine): void; question(q: DetectedQuestion): void; suggestion(s: Suggestion): void }
@@ -31,6 +54,9 @@ export type WiringDeps = {
   onStopped(): void
   /** Keep-alive ping period while listening (default 20 s). */
   warmEveryMs?: number
+  screen?: ScreenDeps
+  /** How long an answer waits for a screen capture before going out text-only (default 800 ms). */
+  screenWaitMs?: number
 }
 
 const MAX_LINES = 200
@@ -67,7 +93,58 @@ export function createLiveWiring(d: WiringDeps) {
     warmTimer = setInterval(() => { void d.engine.warm?.().catch(() => undefined) }, d.warmEveryMs ?? 20_000)
     warmTimer.unref?.()
   }
-  const reset = (): void => { lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; d.detector.reset(); auto.reset(); spec.cancel() }
+  // Screen reading: a held late frame, the one capture in flight, and an epoch so a capture finishing after the session ended is discarded.
+  let lateShot: ShotLike | null = null
+  let pending: Promise<ShotLike> | null = null
+  let epoch = 0
+  let sentTimer: ReturnType<typeof setTimeout> | null = null
+  const screenEvent = (p: CopilotEvents['copilotScreen']): void => d.host.publish('copilotScreen', p)
+  const block = (reason: Blocked, extra: { message?: string; suggestion?: string } = {}): void => screenEvent({ state: 'blocked', reason, message: extra.message ?? (reason === 'no-vision' ? undefined : BLOCK_TEXT[reason]), ...(extra.suggestion ? { suggestion: extra.suggestion } : {}) })
+  const sent = (): void => { screenEvent({ state: 'sent' }); if (sentTimer) clearTimeout(sentTimer); sentTimer = setTimeout(() => screenEvent({ state: 'idle' }), SENT_MS); sentTimer.unref?.() }
+  const dropScreen = (): void => { epoch++; lateShot = null; pending = null; if (sentTimer) clearTimeout(sentTimer); sentTimer = null; d.screen?.clear() }
+  const grab = (): Promise<ShotLike> => (pending ??= d.screen!.capture().finally(() => { pending = null }))
+  const blockFor = (e: unknown): void => block(e instanceof ScreenshotError && (e.code === 'permission' || e.code === 'budget') ? e.code : 'failed')
+  /** Why this route can't use the screen right now (null = it can). Config → vision model; permission and budget are the capture's own. */
+  function screenGate(tier: Route['tier']): { reason: Blocked; suggestion?: string } | null {
+    const cfg = d.config().engine
+    if (!cfg.screenshots) return { reason: 'off' }
+    if (cfg.vision === 'ocr') return { reason: 'ocr' } // ponytail: OCR needs a dependency (tesseract.js) we don't ship; add when someone needs offline screen reading
+    const e = checkVision(cfg.models[tier] ?? defaultModelFor(tier), tier, d.screen!.isVision)
+    return e ? { reason: 'no-vision', suggestion: e.suggestion } : null
+  }
+  const noVisionText = (m: string, s?: string): string => `${m}${s ? ` Try ${s}.` : ''}`
+  const blockGate = (g: NonNullable<ReturnType<typeof screenGate>>): void => block(g.reason, g.reason === 'no-vision' ? { message: noVisionText("This model can't read images.", g.suggestion), suggestion: g.suggestion } : {})
+
+  /** The frame for this turn: null = answer text-only. `press` = the user asked for the screen (shows progress and failures). */
+  async function screenFor(route: Route, press: boolean): Promise<ShotLike | null | 'stop'> {
+    if (!d.screen || (!press && !route.needsScreenshot)) return null
+    const g = screenGate(route.tier)
+    if (g) { if (press) { blockGate(g); return 'stop' } return null }
+    const held = lateShot ?? d.screen.latest(PRE_MAX_AGE_MS)
+    lateShot = null
+    if (held) { sent(); return held }
+    const mine = epoch
+    const p = grab()
+    if (press) {
+      screenEvent({ state: 'capturing' })
+      try { const s = await p; sent(); return s } catch (e) { blockFor(e); return 'stop' }
+    }
+    const r = await Promise.race([p.then(s => ({ s }), (e: unknown) => ({ e })), new Promise<{ late: true }>(res => { const t = setTimeout(() => res({ late: true }), d.screenWaitMs ?? 800); t.unref?.() })])
+    if ('s' in r) { sent(); return r.s }
+    if ('e' in r) { blockFor(r.e); return null }
+    // Slow: the text answer goes first; the frame is offered afterwards ("Re-answer with screen").
+    void p.then(s => { if (mine !== epoch) return d.screen!.clear(); lateShot = s; screenEvent({ state: 'ready' }) }, () => undefined)
+    return null
+  }
+  /** End-of-turn pre-capture: starts the capture while the question is being routed so the frame is ready when the answer asks. Never throws, never blocks. */
+  function prefetch(q: DetectedQuestion): void {
+    if (!d.screen) return
+    const route = routeQuestion(q, d.config().engine)
+    if (!route.needsScreenshot || screenGate(route.tier) || d.screen.latest(PRE_MAX_AGE_MS)) return
+    grab().catch(() => undefined)
+  }
+
+  const reset = (): void => { dropScreen(); lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; d.detector.reset(); auto.reset(); spec.cancel() }
   const error = (message: string, extra: { actions?: CopilotEvents['copilotError']['actions']; suggestion?: string } = {}): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false, ...extra })
   const engineError = (e: unknown): void => {
     if (!(e instanceof LlmError)) return error(msg(e))
@@ -84,16 +161,20 @@ export function createLiveWiring(d: WiringDeps) {
     const taken = spec.take(l.id, l.text, q?.id ?? '') // an early request for this line: adopted if the final matches, aborted otherwise
     if (!q) return taken.run?.abort()
     addQuestion(q)
+    prefetch(q)
     const cfg = d.config()
     const decision = cfg.engine.autoAnswer ? auto.decide(q, l, sources, cfg.engine) : null
     if (!decision?.ask) return taken.run?.abort()
+    const screenTurn = decision.route.needsScreenshot && d.screen !== undefined && screenGate(decision.route.tier) === null
+    if (screenTurn) taken.run?.abort() // an early text-only request can't carry the frame
     // speech end = the line's audio end; STT-final and detector times come from the wall clock (PERF-1 trace).
     const marks: TraceMarks = { speechEndAt: l.t1 ?? sttFinalAt, sttFinalAt, detectedAt: now() }
     const info: TurnInfo = { kind: decision.route.kind, tier: decision.route.tier, auto: true, spec: taken.outcome, gate: q.hint?.source ?? null, gateMs: q.hint?.gateMs ?? null }
-    await answer('answer', q.id, { route: decision.route, run: taken.run ?? undefined, marks, info })
+    await answer('answer', q.id, { route: decision.route, run: screenTurn ? undefined : taken.run ?? undefined, marks, info })
   }
 
-  async function answer(kind: PromptKind, questionId?: string, extra: { route?: Route; run?: SpecRun; marks?: TraceMarks; info?: TurnInfo } = {}): Promise<void> {    let q = (questionId ? questions.get(questionId) : undefined) ?? lastQuestion
+  async function answer(kind: PromptKind, questionId?: string, extra: { route?: Route; run?: SpecRun; marks?: TraceMarks; info?: TurnInfo; press?: boolean } = {}): Promise<void> {
+    let q = (questionId ? questions.get(questionId) : undefined) ?? lastQuestion
     if (!q) {
       // Flush what is still being said: the key is often pressed before the engine has finalised the question.
       const heard = kind === 'summarise' ? undefined : [...lines].reverse().find(l => l.text.trim() !== '')
@@ -111,24 +192,40 @@ export function createLiveWiring(d: WiringDeps) {
     try {
       const route = extra.route ?? routeQuestion(q, d.config().engine, kind)
       const info: TurnInfo = extra.info ?? { kind: route.kind, tier: route.tier, auto: q.auto, spec: null, gate: q.hint?.source ?? null, gateMs: q.hint?.gateMs ?? null }
+      const frame = await screenFor(route, extra.press === true)
+      if (frame === 'stop') return
+      if (ac.signal.aborted) return
+      const image = frame ? { jpeg: frame.jpeg, captureMs: frame.timings.captureMs, encodeMs: frame.timings.encodeMs } : undefined
       if (run) { // adopt the early request: it learns its real turn marks now, then its held answer is released
         Object.assign(run.marks, extra.marks); Object.assign(run.info, { gate: info.gate, gateMs: info.gateMs })
         run.release()
       }
-      for await (const s of run?.stream ?? d.engine.answer({ question: q, transcript: lines.filter(l => l.final), kind, signal: ac.signal, route, marks: extra.marks, info })) {
+      for await (const s of run?.stream ?? d.engine.answer({ question: q, transcript: lines.filter(l => l.final), kind, signal: ac.signal, route, marks: extra.marks, info, ...(image ? { image } : {}) })) {
         d.recorder.suggestion(s)
         d.host.publish('copilotSuggestion', s)
       }
-    } catch (e) { engineError(e) }
+    } catch (e) {
+      if (e instanceof LlmError && e.code === 'no_vision') block('no-vision', { message: noVisionText("This model can't read images.", e.suggestion), suggestion: e.suggestion })
+      else engineError(e)
+    }
   }
 
-  d.host.onAction(a => { if (ANSWER_KINDS.has(a)) void answer(a as PromptKind) })
+  /** The Screenshot button / hotkey: answer the current question with the screen. Gates first so nothing is captured when it can't be used. */
+  async function screenshot(): Promise<void> {
+    if (!d.screen) return screenEvent({ state: 'blocked', reason: 'failed', message: 'Screenshots are not available in this build.' })
+    const cfg = d.config().engine
+    const g = screenGate(lastQuestion ? routeQuestion(lastQuestion, cfg).tier : cfg.tier)
+    if (g) return blockGate(g)
+    await answer('answer', undefined, { press: true })
+  }
+
+  d.host.onAction(a => { if (ANSWER_KINDS.has(a)) void answer(a as PromptKind); else if (a === 'screenshot') void screenshot() })
 
   const emit: Emit = (ev, payload) => {
     if (ev === 'copilotState') {
       const s = payload as CopilotEvents['copilotState']
       if (s.state === 'armed') { reset(); startWarm() }
-      if (s.state === 'stopped') stopWarm()
+      if (s.state === 'stopped') { stopWarm(); dropScreen() }
       mode = s.mode; sources = s.sources.length ? s.sources : sources
       d.host.publishState(s)
       if (s.state === 'stopped') d.onStopped()
@@ -155,12 +252,12 @@ export function createLiveWiring(d: WiringDeps) {
   }
 
   return {
-    emit, endOfTurn, answer,
+    emit, endOfTurn, answer, screenshot,
     /** Counters for the trace: speculative hit rate and wasted tokens. */
     metrics: () => ({ speculation: spec.stats() }),
     /** The session controller arrives after the wiring (it needs `emit`): the kill switch closes over it. */
     bindSession(ctl: { stop(reason: StopReason): Promise<void> }): void {
-      d.host.setSessionHooks({ stopCapture: () => ctl.stop('panic'), abortRequests: () => { d.engine.cancelAll(); current?.abort() } })
+      d.host.setSessionHooks({ stopCapture: () => ctl.stop('panic'), abortRequests: () => { d.engine.cancelAll(); current?.abort(); dropScreen() } })
     },
   }
 }

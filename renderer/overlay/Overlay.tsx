@@ -78,6 +78,7 @@ export function Overlay() {
   const on: OverlayActions = {
     answer: kind => { b.copilotAnswer(kind, model.question?.id).catch(() => undefined) },
     screenshot: () => { b.copilotScreenshot().catch(() => undefined) },
+    fixScreen: () => { b.copilotOpenSystemSettings('screen').catch(() => undefined) },
     collapse: () => { b.copilotOverlay({ collapse: true }).catch(() => undefined) },
     expand: () => { b.copilotOverlay({ collapse: false }).catch(() => undefined) },
     stop: () => { b.copilotStop('panic').catch(() => undefined) },

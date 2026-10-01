@@ -48,6 +48,7 @@ export function buildOverlayData(m: OverlayModel, { cfg, layout, now, wiped }: C
     tier: TIER_LABEL[s?.tier ?? cfg.engine.tier],
     savedMinutes: Math.round((now - started) / 60_000),
     problem: problemOf(m, state),
+    screen: m.screen,
     keys: { answer: kbdLabel(hk.answer), followup: kbdLabel(hk.followup), clarify: kbdLabel(hk.clarify), screenshot: kbdLabel(hk.screenshot), summarise: kbdLabel(hk.summarise), expand: kbdLabel(hk.expand), listen: kbdLabel(hk.listen), panic: kbdLabel(hk.panic) },
   }
 }
