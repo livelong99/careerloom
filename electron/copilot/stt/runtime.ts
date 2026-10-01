@@ -30,7 +30,7 @@ export const engineDir = (engine: SttEngineId, root = sttDir()) => path.join(roo
 export const readyFile = (dir: string) => path.join(dir, 'ready.json')
 
 /** Shown (toast / overlay error) when a session starts without the chosen local model. */
-export const STT_NOT_INSTALLED = 'Speech recognition is not installed yet. Open Settings → Copilot → Transcription, press Install, then start again.'
+export const STT_NOT_INSTALLED = 'Speech recognition is not installed yet. Install the speech model in Settings → Local models, then start again.'
 
 export type SttRuntime = { python: string; script: string; cache: string; pin: string; models: string[] }
 
