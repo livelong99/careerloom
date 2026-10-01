@@ -33,12 +33,13 @@ function voiceSample(root: string, given: string | undefined): string | undefine
   }
   return undefined
 }
-const asOptions = (v: unknown): DocsOptions => {
+/** Per-document choices win; anything not given falls back to the Settings defaults (prefs.docs). */
+const asOptions = (v: unknown, d = readSettings().prefs.docs): DocsOptions => {
   const o = (v ?? {}) as Record<string, unknown>
   return {
-    tone: o.tone === 'concise' || o.tone === 'formal' ? o.tone : 'warm',
-    length: o.length === 'short' ? 'short' : 'standard',
-    humanize: o.humanize !== false,
+    tone: o.tone === 'concise' || o.tone === 'formal' || o.tone === 'warm' ? o.tone : d.tone,
+    length: o.length === 'short' || o.length === 'standard' ? o.length : d.length,
+    humanize: typeof o.humanize === 'boolean' ? o.humanize : d.humanize,
     voiceSample: typeof o.voiceSample === 'string' ? o.voiceSample : undefined,
   }
 }
