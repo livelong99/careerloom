@@ -15,6 +15,7 @@ import { SkillUpTab } from '../components/job/SkillUpTab'
 import { useJob } from '../components/job/useJob'
 import { useJobAts } from '../components/job/useJobAts'
 import { SectionSkeleton } from '../components/Skeleton'
+import { JOB_TAB_KEY } from '../lib/jobNav'
 import { navigate } from '../lib/nav'
 
 const TABS = [['overview', 'Overview'], ['job', 'Job'], ['match', 'Match'], ['skillup', 'Skill-up'], ['documents', 'Documents'], ['report', 'Report']] as const
@@ -24,7 +25,11 @@ export function Job({ id }: { id: string }) {
   const { job, view, jobs, prescreen } = useJob(id)
   const ats = useJobAts(id)
   const [tab, setTab] = useState('overview')
-  useEffect(() => setTab('overview'), [id])
+  useEffect(() => {
+    let want: string | null = null
+    try { want = sessionStorage.getItem(JOB_TAB_KEY); sessionStorage.removeItem(JOB_TAB_KEY) } catch { /* storage can be unavailable */ }
+    setTab(TABS.some(([t]) => t === want) ? want! : 'overview')
+  }, [id])
 
   if (jobs.error && !job) return <EmptyNote>{jobs.error.message}</EmptyNote>
   if (!job) return jobs.data ? <EmptyNote>This job is no longer in your list.</EmptyNote> : <SectionSkeleton label="Loading job" rows={5} />

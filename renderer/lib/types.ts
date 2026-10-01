@@ -42,6 +42,8 @@ export type Run = {
   status: RunStatus
   usage?: RunUsage | null
   sessionId?: string | null
+  /** The job this run was about, when it was started for one (evaluate, tailored CV, cover letter, ATS, posting structuring). */
+  jobId?: string | null
 }
 export type RunEvent = { id: string; kind: 'chunk'; text: string } | { id: string; kind: 'exit'; status: RunStatus }
 

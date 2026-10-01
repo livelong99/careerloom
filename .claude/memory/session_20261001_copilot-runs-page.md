@@ -1,6 +1,6 @@
 ---
 name: 20261001-runs-page
-description: Runs side drawer replaced by a full Runs page (⌘7): filters, live runs, windowed redacted log viewer, delete/clear, deleteRuns IPC; cloned-profile QA 23/23
+description: Runs side drawer replaced by a full Runs page (⌘7): filters, live runs, windowed redacted log viewer, delete/clear, deleteRuns IPC; cloned-profile QA 33/33
 type: project
 ---
 
@@ -19,5 +19,7 @@ type: project
 - Windowed viewer with fixed 18 px rows, no new dependency.
 - Only scan/web-board logs survive a restart (existing behaviour); UI says so.
 - Redact in main AND renderer: live chunks are raw until read back.
+
+- Job awareness (lead's follow-up): additive `jobId` on RunRecord/Run, stamped by evaluate batch, job-view structuring, docs-gen (résumé/cover), ATS; `indexJobs` resolves run→job by jobId, then posting URL, then report number (report modes), then legacy "Evaluate Company — Title" label. Job filter, Group by None/Job/Status, JobCard (read-only) with Open job / Open match (`openJob(id, 'match')` via sessionStorage tab key). Copilot runs untouched (electron/copilot/** off-limits), so they only resolve by url/report.
 
 **State:** done. **Next steps:** none required; M: Re-run only for agent runners whose mode is in `modes()`.
