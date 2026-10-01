@@ -49,3 +49,7 @@ export function createEchoGate(opts: { echo: 'speakers' | 'headphones'; tailMs: 
     },
   }
 }
+
+/** Mic-leak self-test verdict (plan §6.5): RMS (0..1 full scale) of the mic during a 1 s tone vs. before it. */
+// ponytail: fixed thresholds (3× the room floor and ≥ 0.01 FS) from reasoning, not measurement; tune from S-E1 data on real hardware.
+export const micLeaks = (rmsDuringTone: number, rmsBaseline: number): boolean => rmsDuringTone >= Math.max(0.01, rmsBaseline * 3)

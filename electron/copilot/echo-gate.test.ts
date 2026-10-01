@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
-import { createEchoGate } from './echo-gate'
+import { createEchoGate, micLeaks } from './echo-gate'
 
 const mk = (echo: 'speakers' | 'headphones' = 'speakers', tailMs = 350) => {
   let t = 1000
@@ -95,4 +95,8 @@ describe('text-echo filter', () => {
     gate.noteSpoken('Are you ready to begin the interview now?')
     expect(gate.isEcho('ready to begin')).toBe(false)
   })
+})
+
+describe('mic-leak self-test verdict', () => {
+  it.each([[0.2, 0.002, true], [0.012, 0.001, true], [0.009, 0.001, false], [0.02, 0.01, false], [0.04, 0.01, true]])('tone %f vs floor %f → leaks %s', (tone, floor, want) => { expect(micLeaks(tone, floor)).toBe(want) })
 })
