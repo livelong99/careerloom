@@ -164,3 +164,31 @@ describe('live wiring', () => {
     expect(of('copilotError')).toHaveLength(1)
   })
 })
+
+describe('pre-warm and trace marks (PERF-1)', () => {
+  it('warms the connection when a session arms, keeps it warm while listening, and stops on stop', async () => {
+    vi.useFakeTimers()
+    try {
+      const warm = vi.fn(async () => undefined)
+      const eng: AnswerEngine = { answer: async function* () { /* none */ }, cancelAll: vi.fn(), warm }
+      const { w } = setup({ warmEveryMs: 1000 }, eng)
+      w.emit('copilotState', state('armed'))
+      expect(warm).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(2500)
+      expect(warm).toHaveBeenCalledTimes(3)
+      w.emit('copilotState', state('stopped'))
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(warm).toHaveBeenCalledTimes(3)
+    } finally { vi.useRealTimers() }
+  })
+  it('auto-ask passes speech-end, STT-final and detector times to the engine', async () => {
+    const seen: unknown[] = []
+    const eng: AnswerEngine = { answer: async function* (req) { seen.push(req.marks); yield suggestion(req.question.id, true) }, cancelAll: vi.fn() }
+    const { w, cfg, of } = setup({}, eng)
+    cfg.engine.autoAnswer = true
+    w.emit('copilotState', state('listening'))
+    w.emit('copilotTranscript', line('a', 'you', 'What is your biggest weakness?'))
+    await vi.waitFor(() => expect(of('copilotSuggestion')).toHaveLength(1))
+    expect(seen[0]).toEqual({ speechEndAt: 1, sttFinalAt: 1000, detectedAt: 1000 })
+  })
+})

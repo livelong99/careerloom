@@ -5,6 +5,7 @@ import type { AnswerEngine } from './engine'
 import type { PromptKind } from './prompts'
 import { friendlyLlmError } from './providers/errors'
 import { LlmError } from './providers/openrouter'
+import type { TraceMarks } from './trace'
 import type { CopilotConfig, CopilotEvents, CopilotMode, DetectedQuestion, SourceId, Speaker, StopReason, Suggestion, TranscriptLine } from './types'
 
 type Emit = <K extends keyof CopilotEvents>(ev: K, payload: CopilotEvents[K]) => void
@@ -25,6 +26,8 @@ export type WiringDeps = {
   now?: () => number
   /** The capture state reached 'stopped' (panic, tray, hotkey or user): persist and score the session. */
   onStopped(): void
+  /** Keep-alive ping period while listening (default 20 s). */
+  warmEveryMs?: number
 }
 
 const MAX_LINES = 200
@@ -49,6 +52,16 @@ export function createLiveWiring(d: WiringDeps) {
   const answeredLines = new Set<string>() // transcript lines already answered on demand: their final is not a new question
   let current: AbortController | null = null
 
+  // Connection pre-warm: a tokenless request at session start, repeated while listening so the socket never idles out
+  // (Node's HTTP client closes idle keep-alive sockets after seconds). Best effort: the provider swallows failures.
+  let warmTimer: ReturnType<typeof setInterval> | null = null
+  const stopWarm = (): void => { if (warmTimer) clearInterval(warmTimer); warmTimer = null }
+  const startWarm = (): void => {
+    stopWarm()
+    void d.engine.warm?.().catch(() => undefined)
+    warmTimer = setInterval(() => { void d.engine.warm?.().catch(() => undefined) }, d.warmEveryMs ?? 20_000)
+    warmTimer.unref?.()
+  }
   const reset = (): void => { lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; d.detector.reset() }
   const error = (message: string, extra: { actions?: CopilotEvents['copilotError']['actions']; suggestion?: string } = {}): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false, ...extra })
   const engineError = (e: unknown): void => {
@@ -61,14 +74,15 @@ export function createLiveWiring(d: WiringDeps) {
   /** Mic-only live has no interviewer channel: the mic hears both sides, so its finals are candidates too (rules filter chatter). */
   const detectable = (l: TranscriptLine): boolean => mode === 'live' && l.final && !answeredLines.has(l.id) && (l.speaker === 'interviewer' || !sources.includes('system'))
 
-  async function detect(l: TranscriptLine): Promise<void> {
+  async function detect(l: TranscriptLine, sttFinalAt: number): Promise<void> {
     const q = await d.detector.feed({ ...l, speaker: 'interviewer' })
     if (!q) return
     addQuestion(q)
-    if (d.config().engine.autoAnswer) await answer('answer', q.id)
+    // speech end = the line's audio end; STT-final and detector times come from the wall clock (PERF-1 trace).
+    if (d.config().engine.autoAnswer) await answer('answer', q.id, { speechEndAt: l.t1 ?? sttFinalAt, sttFinalAt, detectedAt: now() })
   }
 
-  async function answer(kind: PromptKind, questionId?: string): Promise<void> {
+  async function answer(kind: PromptKind, questionId?: string, marks?: TraceMarks): Promise<void> {
     let q = (questionId ? questions.get(questionId) : undefined) ?? lastQuestion
     if (!q) {
       // Flush what is still being said: the key is often pressed before the engine has finalised the question.
@@ -83,7 +97,7 @@ export function createLiveWiring(d: WiringDeps) {
     const ac = new AbortController()
     current = ac
     try {
-      for await (const s of d.engine.answer({ question: q, transcript: lines.filter(l => l.final), kind, signal: ac.signal })) {
+      for await (const s of d.engine.answer({ question: q, transcript: lines.filter(l => l.final), kind, signal: ac.signal, marks })) {
         d.recorder.suggestion(s)
         d.host.publish('copilotSuggestion', s)
       }
@@ -95,7 +109,8 @@ export function createLiveWiring(d: WiringDeps) {
   const emit: Emit = (ev, payload) => {
     if (ev === 'copilotState') {
       const s = payload as CopilotEvents['copilotState']
-      if (s.state === 'armed') reset()
+      if (s.state === 'armed') { reset(); startWarm() }
+      if (s.state === 'stopped') stopWarm()
       mode = s.mode; sources = s.sources.length ? s.sources : sources
       d.host.publishState(s)
       if (s.state === 'stopped') d.onStopped()
@@ -106,7 +121,7 @@ export function createLiveWiring(d: WiringDeps) {
       lines = upsert(lines, l)
       d.recorder.line(l)
       if (l.final && l.speaker === 'you') turn = [...turn, l]
-      if (detectable(l)) void detect(l)
+      if (detectable(l)) void detect(l, now())
     }
     d.host.publish(ev, payload)
   }
