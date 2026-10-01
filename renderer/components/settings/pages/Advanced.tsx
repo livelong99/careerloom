@@ -30,6 +30,11 @@ export function AdvancedPage(_props: PageProps) {
   const diag = usePolled(() => careerloom.diagnostics(), [], { intervalMs: null })
   const { runs } = useRuns()
   const [recheck, setRecheck] = useState(false)
+  const [tail, setTail] = useState<{ id: string; text: string } | null>(null)
+  const toggleTail = async (id: string) => {
+    if (tail?.id === id) return setTail(null)
+    try { setTail({ id, text: await careerloom.runLogTail(id, 20) }) } catch (err) { showToast(normalizeCliError(err).message, 'error', 6000) }
+  }
 
   const rows = diag.data?.rows ?? []
   const report = () => [...rows.map(r => `${r.label}: ${r.value ?? '—'} (${STATUS_TEXT[r.status]})`), diag.data ? `Memory: ${gb(diag.data.memory.freeBytes)} GB free of ${gb(diag.data.memory.totalBytes)} GB` : ''].filter(Boolean).join('\n')
@@ -61,8 +66,10 @@ export function AdvancedPage(_props: PageProps) {
           <Row key={r.id} label={r.label} hint={`${r.runner} · ${new Date(r.startedAt).toLocaleString()}`}>
             <ReadinessBadge state={r.status === 'done' ? 'ready' : r.status === 'running' ? 'checking' : r.status === 'failed' ? 'error' : 'off'} label={r.status} />
             <Button size="sm" variant="outline" onClick={() => openRuns(r.id)}>Log</Button>
+            <Button size="sm" variant="outline" aria-expanded={tail?.id === r.id} onClick={() => void toggleTail(r.id)}>{tail?.id === r.id ? 'Hide tail' : 'Last lines'}</Button>
           </Row>
         ))}
+        {tail && <pre aria-label="Last log lines" className="m-0 mt-2 max-h-48 overflow-auto rounded-lg border border-border bg-muted/40 p-2 text-xs">{tail.text || 'No log saved for this run (only scan logs are kept after a restart).'}</pre>}
       </Group>
 
       <Group title="Limits" focus="limits">
