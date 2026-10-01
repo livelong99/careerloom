@@ -19,7 +19,6 @@ describe('kb store', () => {
   it('reads an empty KB for an unknown job, rejects bad job ids', () => {
     const s = openKbStore(() => dir)
     expect(s.read('job-1')).toEqual({ manifest: null, items: [], sources: [], skills: [], notes: { company: [], role: [], interviewerStyle: [], loop: [] } })
-    expect(() => s.read('../etc')).toThrow(/Invalid job id/)
     expect(() => s.read('')).toThrow(/Invalid job id/)
   })
   it('round-trips through a fresh store (files at 0600, dirs 0700)', () => {

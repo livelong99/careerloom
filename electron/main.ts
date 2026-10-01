@@ -17,6 +17,7 @@ import { jobViewHandlers } from './job-view/handlers'
 import { docsHandlers } from './docs-gen/handlers'
 import { copilotHandlers } from './copilot/handlers'
 import { kbHandlers } from './kb/handlers'
+import { onTtsPlayback } from './kb/voice'
 import { redactLog } from './log-redact'
 import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
 import { setKey } from './settings/keys'
@@ -275,6 +276,10 @@ function registerHandlers(): void {
   }
   if (copilotSupported()) sweepCopilotShots() // frames a crashed run left behind
   if (copilotSupported()) ipcMain.on('careerloom:copilotAudio', (_event, msg: unknown) => copilotAudioIn(msg)) // high-rate mic frames: send, not invoke
+  ipcMain.on('careerloom:ttsPlayback', (_event, msg: unknown) => { // overlay → echo gate: send, not invoke
+    const m = msg as { phase?: unknown; utteranceId?: unknown } | null
+    if (m && typeof m.utteranceId === 'string' && (m.phase === 'started' || m.phase === 'ended' || m.phase === 'cancelled')) onTtsPlayback({ phase: m.phase, utteranceId: m.utteranceId })
+  })
   ipcMain.handle('open-external', async (_event, url: unknown) => {
     const target = typeof url === 'string' ? externalUrlToOpen(url) : null
     if (target) await shell.openExternal(target)

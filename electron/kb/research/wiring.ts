@@ -1,5 +1,4 @@
 // Real-world wiring for research (electron main only): config, keychain keys, job facts, helper-tier model, store, network.
-import { createHash } from 'node:crypto'
 import { app } from 'electron'
 
 import { launchTask, readSecret, runs, userFile, broadcast } from '../../context'
@@ -11,13 +10,12 @@ import { readCv } from '../../resume-agent'
 import { defaultPrices, estimateUsd } from '../../copilot/cost'
 import { secretName } from '../../settings/keys'
 import { readInterviewConfig } from '../config'
-import { openKbStore } from '../store'
+import { kbJobDir } from '../hash'
+import { getKbStore } from '../runtime'
 import { realHttp } from './fetch'
 import { createResearchService } from './service'
 import { openResearchState } from './state'
 
-/** The job id is a URL, so folders are named by its hash. WP1's store must use the same name (`kbJobDir`). */
-export const kbJobDir = (jobId: string): string => createHash('sha1').update(jobId).digest('hex').slice(0, 24)
 const kbRoot = (): string => userFile('kb')
 /** Used when the model has no price-table entry: deliberately above nano-class rates so the cap errs on the safe side. */
 const FALLBACK_USD_PER_1K_TOKENS = 0.0006
@@ -40,7 +38,7 @@ export function researchService() {
       return { title: c.job.title, company: c.job.company, posting: c.posting, gaps: c.keywords.filter(k => k.status === 'missing').map(k => k.keyword), cv: readCv()?.markdown ?? '' }
     },
     llm: (prompt, jobId) => runText(prompt, { tier: 'helper', label: 'Job research', jobId }),
-    store: () => openKbStore(kbRoot),
+    store: getKbStore,
     state: openResearchState(kbRoot, kbJobDir),
     net: {
       http: realHttp(`Careerloom/${app.getVersion()}`), resolve: assertPublicResolution,

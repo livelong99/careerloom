@@ -1,9 +1,10 @@
 // Per-job folder of JSON under userData/kb (plan §5): atomic writes, merge-by-id, bounded, never throws on a corrupt file.
 // ponytail: every operation is synchronous, so Node's single thread already serialises research commits and user edits;
 // add a real mutex only if a write ever becomes async.
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { kbJobDir } from './hash'
 import { LIMITS, parseItems, parseManifest, parseNotes, parseSkills, parseSources } from './schema-guard'
 import type { KbItem, KbManifest, KbNotes, SkillNode, SourceRef } from './types'
 
@@ -14,13 +15,16 @@ export interface KbStore {
   /** Merges by `item.id`, preserving `user.*` and `stats.*`; atomic. Items/sources/skills merge, manifest/notes replace. */
   commit(jobId: string, data: Partial<KbData>): KbData
   updateItem(jobId: string, itemId: string, patch: (item: KbItem) => KbItem): KbItem
+  /** Deletes one item (user items only by contract; the caller decides). */
+  removeItem(jobId: string, itemId: string): void
   remove(jobId: string): void
+  /** A source by id across all jobs (kbOpenSource has only the id). */
+  findSource(sourceId: string): SourceRef | null
   /** Bumps on every write to the job (in-process): index caches key on it. */
   revision(jobId: string): number
 }
 
-const ID = /^[\w-]{1,80}$/
-const checkId = (id: string): string => { if (!ID.test(id)) throw new Error('Invalid job id'); return id }
+const checkId = (id: string): string => { if (typeof id !== 'string' || id.trim() === '' || id.length > 2000) throw new Error('Invalid job id'); return id }
 const EMPTY_NOTES: KbNotes = { company: [], role: [], interviewerStyle: [], loop: [] }
 const FILES = ['manifest', 'items', 'sources', 'skills', 'notes'] as const
 
@@ -49,7 +53,7 @@ export function openKbStore(dir: () => string): KbStore {
   const cache = new Map<string, KbData>()
   const revs = new Map<string, number>()
   const bump = (jobId: string): void => { revs.set(jobId, (revs.get(jobId) ?? 0) + 1) }
-  const jobDir = (jobId: string): string => join(dir(), checkId(jobId))
+  const jobDir = (jobId: string): string => join(dir(), kbJobDir(checkId(jobId)))
 
   const load = (jobId: string): KbData => {
     const d = jobDir(jobId)
@@ -102,6 +106,20 @@ export function openKbStore(dir: () => string): KbStore {
       if (next.id !== itemId) throw new Error('An item id cannot change')
       save(jobId, { ...cur, items: cur.items.map(i => (i.id === itemId ? next : i)) }, ['items'])
       return next
+    },
+    removeItem(jobId, itemId) {
+      const cur = read(jobId)
+      if (!cur.items.some(i => i.id === itemId)) throw new Error('Item not found')
+      save(jobId, { ...cur, items: cur.items.filter(i => i.id !== itemId) }, ['items'])
+    },
+    findSource(sourceId) {
+      let names: string[] = []
+      try { names = readdirSync(dir()) } catch { return null }
+      for (const n of names) {
+        const hit = parseSources(readJson(join(dir(), n, 'sources.json'))).find(x => x.id === sourceId)
+        if (hit) return hit
+      }
+      return null
     },
     remove(jobId) { rmSync(jobDir(jobId), { recursive: true, force: true }); cache.delete(jobId); bump(jobId) },
     revision: jobId => revs.get(jobId) ?? 0,

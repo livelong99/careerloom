@@ -1,6 +1,5 @@
 // Queries from the structured posting + gaps + skills; the privacy filter (plan §3.2 step 2, §9).
 // Queries are built from role/company/skill strings only. The cv is read solely to REJECT a query that echoes it.
-import { createHash } from 'node:crypto'
 
 import type { Expected, ResearchOptions, ResearchPlan, SearchBackendId, SkillNode } from '../types'
 import { squash } from './guard'
@@ -71,7 +70,4 @@ export function buildPlan(input: PlanInput): ResearchPlan {
   return { jobId: input.jobId, skills, queries: queries.slice(0, QUERY_CAP[input.depth]), backend: input.backend }
 }
 
-/** Same recipe as hash.ts `inputHash` (WP1): changes when the posting, gaps, role or company change. TODO(integration): use '../hash' once WP1 is merged; pinned by hash-parity.test.ts. */
-export function inputHashOf(parts: { jd: unknown; gaps: unknown; role: string; company: string }): string {
-  return createHash('sha1').update(JSON.stringify([parts.jd, parts.gaps, parts.role, parts.company])).digest('hex')
-}
+export { inputHash as inputHashOf } from '../hash'

@@ -65,6 +65,8 @@ export type ResearchProgress = { runId: string; phase: ResearchPhase; done: numb
 export type ResearchPlan = { jobId: string; skills: SkillNode[]; queries: string[]; backend: SearchBackendId | 'none' }
 
 export type VoiceInfo = { engine: TtsEngineId; id: string; name: string; lang: string; offline: boolean; installed: boolean; sizeMb: number | null; note: string | null }
+/** contract v2 */
+export type KokoroStatus = { supported: boolean; installed: boolean; installing: boolean; downloadMb: number }
 export type PlanPreview = { questions: number; sourced: number; usd: number; minutes: number }
 
 /** What an unimplemented stub handler resolves with (WP0 only; the owning package replaces it). */
@@ -93,6 +95,8 @@ export interface KbApi {
   interviewVoices(): VoiceInfo[]
   interviewPreviewVoice(engine: TtsEngineId, voiceId: string, speed: number): void
   interviewInstallVoice(engine: 'kokoro'): { runId: string }
+  /** contract v2: Settings > Local models row (install state of the Kokoro voice). */
+  interviewKokoroStatus(): KokoroStatus
   interviewPlanPreview(jobId: string, plan: InterviewPlan): PlanPreview
 }
 
@@ -102,6 +106,8 @@ export type KbEvents = {
   kbChanged: { jobId: string }
   interviewerState: { state: 'speaking' | 'thinking' | 'listening' | 'idle'; questionId: string | null; voice: string | null }
   ttsPlayback: { phase: 'started' | 'ended' | 'cancelled'; utteranceId: string }
+  /** contract v2: one short line for the overlay ("Kokoro is unavailable, using the system voice"). */
+  interviewerNotice: { text: string }
 }
 /** main → overlay PCM (`send`, channel `careerloom:ttsAudio`). */
 export type TtsAudioMsg = { utteranceId: string; seq: number; pcm16: ArrayBuffer; sampleRate: 24000; last: boolean }
@@ -111,6 +117,8 @@ type Promisified<T> = { [K in keyof T]: T[K] extends (...a: infer A) => infer R 
 export type KbBridge = Promisified<KbApi> & {
   onKbEvent<K extends Exclude<keyof KbEvents, 'ttsPlayback'>>(event: K, cb: (payload: KbEvents[K]) => void): () => void
   kbTtsPlayback(msg: KbEvents['ttsPlayback']): void
+  /** contract v2: PCM from main (`careerloom:ttsAudio`); the overlay plays it once armed. */
+  onTtsAudio(cb: (m: TtsAudioMsg) => void): () => void
 }
 
 // ————— interview.json (plan §7) —————

@@ -193,8 +193,10 @@ const bridge = {
   interviewVoices: (...a: unknown[]) => invoke('interviewVoices', ...a),
   interviewPreviewVoice: (...a: unknown[]) => invoke('interviewPreviewVoice', ...a),
   interviewInstallVoice: (...a: unknown[]) => invoke('interviewInstallVoice', ...a),
+  interviewKokoroStatus: (...a: unknown[]) => invoke('interviewKokoroStatus', ...a),
   interviewPlanPreview: (...a: unknown[]) => invoke('interviewPlanPreview', ...a),
   onKbEvent: (event: string, cb: (payload: unknown) => void) => subscribe(event, cb),
+  onTtsAudio: (cb: (m: unknown) => void) => subscribe('ttsAudio', cb),
   kbTtsPlayback: (msg: unknown) => ipcRenderer.send('careerloom:ttsPlayback', msg), // WP5 listens in main (echo gate)
   // Pipeline
   setStatus: (nums: number[], status: string) => invoke('setStatus', nums, status),
