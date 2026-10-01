@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 
 import { goToSettings } from '@/lib/nav'
+import type { PageId } from './pages'
 
 /** A setting shown read-only on a working screen, with a deep link to its single editor in Settings. */
-export function SettingChip({ label, value, page, focus }: { label: string; value?: ReactNode; page: string; focus?: string }) {
+export function SettingChip({ label, value, page, focus }: { label: string; value?: ReactNode; page: PageId; focus?: string }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 py-0.5 pr-1 pl-3 text-xs">
       <span className="text-muted-foreground">{label}</span>
