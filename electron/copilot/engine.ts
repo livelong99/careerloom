@@ -108,6 +108,8 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       } catch (e) {
         if (ac.signal.aborted || (e instanceof LlmError && e.code === 'aborted')) return // superseded or stopped: say nothing more
         if (text) yield snapshot(false) // keep what the user is already reading; the caller surfaces the error
+        // Offer, never apply: the user decides whether a different model (and its data policy) is acceptable.
+        if (e instanceof LlmError && (e.code === 'policy' || e.code === 'model_unavailable')) e.suggestion = fallbacksFor(tier, usedModel)[0]
         throw e
       }
       if (ac.signal.aborted) return

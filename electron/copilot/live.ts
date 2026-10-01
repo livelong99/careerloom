@@ -23,5 +23,16 @@ const liveModelDeps = (): ModelListDeps => ({
   writeCache: c => { try { fs.writeFileSync(cacheFile(), JSON.stringify(c)) } catch { /* cache is an optimisation */ } },
 })
 
-export const listLiveModels = () => listLlmModels(liveModelDeps())
-export const testLiveModel = (id: string) => testLlmModel(liveProvider(), id)
+const probeFile = () => userFile('copilot-llm-probes.json')
+const readProbes = (): Record<string, 'ok' | 'policy'> => { try { return JSON.parse(fs.readFileSync(probeFile(), 'utf8')) } catch { return {} } }
+
+export const listLiveModels = () => listLlmModels({ ...liveModelDeps(), readProbes })
+export async function testLiveModel(id: string) {
+  const dataCollection = readCopilotConfig().engine.openrouter.dataCollection
+  const r = await testLlmModel(liveProvider(), id, { dataCollection })
+  // Only a deny-policy run says anything about the policy fit; remember it so the picker can badge the model.
+  if (dataCollection === 'deny' && (r.ok || r.code === 'policy')) {
+    try { fs.writeFileSync(probeFile(), JSON.stringify({ ...readProbes(), [id]: r.ok ? 'ok' : 'policy' })) } catch { /* cache is an optimisation */ }
+  }
+  return r
+}
