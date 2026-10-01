@@ -2,8 +2,10 @@
 // WP1 (store/index), WP2 (research), WP4 (interviewer) and WP5 (voices) replace the bodies. Voice and interviewer calls are
 // macOS-only (the Copilot is); the KB itself works everywhere (plan §13).
 import { str, type Handler } from '../context'
+import type { DeepPartial } from '../copilot/types'
 import { copilotSupported } from '../copilot/capabilities'
-import type { KbApi, KbNotImplemented, ResearchOptions } from './types'
+import { readInterviewConfig, writeInterviewConfig } from './config'
+import type { InterviewConfig, KbApi, KbNotImplemented, ResearchOptions } from './types'
 
 const stub = (method: string): KbNotImplemented => ({ status: 'not-implemented', method })
 const KB_METHODS = ['kbSummary', 'kbList', 'kbItem', 'kbItemUpdate', 'kbItemAdd', 'kbItemRemove', 'kbExport', 'kbImport', 'kbSearchKeyTest', 'kbOpenSource'] as const
@@ -13,6 +15,9 @@ const MAC_METHODS = ['interviewVoices', 'interviewPreviewVoice', 'interviewInsta
 const research = async () => (await import('./research/wiring.js')).researchService()
 
 export const kbHandlers: Record<keyof KbApi, Handler> = {
+  // contract v1.1: interview.json (validated and clamped; holds no secrets)
+  interviewConfig: async () => readInterviewConfig(),
+  interviewSetConfig: async (patch: unknown) => writeInterviewConfig(patch as DeepPartial<InterviewConfig>),
   ...Object.fromEntries(KB_METHODS.map(m => [m, async () => stub(m)])),
   kbEstimate: async (jobId, opts) => { const id = str(jobId, 'job id'); return (await research()).estimate(id, opts as ResearchOptions) },
   kbResearchStart: async (jobId, opts) => { const id = str(jobId, 'job id'); return (await research()).start(id, opts as ResearchOptions) },

@@ -1,5 +1,6 @@
 // Job knowledge base contract (types only; frozen at G-A, docs/plans/job-knowledge-base/plan.md §4–§7).
 // Re-exported by electron/contract.ts and renderer/lib/types.ts. Additive changes go through WP0 only.
+import type { DeepPartial } from '../copilot/types'
 import type { InterviewPlan, TtsEngineId } from '../interviewer/types'
 
 export type KbQuestionType = 'behavioural' | 'technical' | 'system-design' | 'coding' | 'situational' | 'recruiter'
@@ -86,6 +87,9 @@ export interface KbApi {
   kbSearchKeyTest(): { ok: boolean; backend: string; message?: string }
   /** http(s) allow-list; resolves the id to the stored URL in main, then shell.openExternal. */
   kbOpenSource(sourceId: string): boolean
+  /** contract v1.1: interview.json, validated and clamped; no secrets. */
+  interviewConfig(): InterviewConfig
+  interviewSetConfig(patch: DeepPartial<InterviewConfig>): InterviewConfig
   interviewVoices(): VoiceInfo[]
   interviewPreviewVoice(engine: TtsEngineId, voiceId: string, speed: number): void
   interviewInstallVoice(engine: 'kokoro'): { runId: string }

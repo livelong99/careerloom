@@ -8,6 +8,7 @@ import { recordTest, secretName } from './keys'
 import type { KeyId, KeyTest } from './types'
 
 export const TEST_TIMEOUT_MS = 8_000
+const BRAVE_PROBE = 'https://api.search.brave.com/res/v1/web/search?q=test&count=1' // one result: the cheapest billable call
 const OPENROUTER_AUTH = 'https://openrouter.ai/api/v1/auth/key'
 
 export type KeyTestDeps = { fetch?: typeof fetch; now?: () => number }
@@ -26,6 +27,7 @@ async function probe(id: KeyId, f: typeof fetch): Promise<{ status: number } | n
   const signal = AbortSignal.timeout(TEST_TIMEOUT_MS)
   try {
     if (id === 'openrouter') return { status: (await f(OPENROUTER_AUTH, { headers: { authorization: `Bearer ${key}` }, signal })).status }
+    if (id === 'brave') return { status: (await f(BRAVE_PROBE, { headers: { 'x-subscription-token': key ?? '', accept: 'application/json' }, signal })).status }
     if (id === 'opencode') return { status: (await f(`${ZEN_URL}/models`, { headers: { authorization: `Bearer ${key}` }, signal })).status }
     const url = parseBaseUrl(readRegistry().firecrawl.url).toString()
     return { status: (await f(url, { headers: key ? { authorization: `Bearer ${key}` } : {}, signal })).status }
@@ -34,7 +36,7 @@ async function probe(id: KeyId, f: typeof fetch): Promise<{ status: number } | n
 
 const LABEL: Record<KeyId, string> = { openrouter: 'OpenRouter', opencode: 'OpenCode Zen', firecrawl: 'Firecrawl', brave: 'Brave Search', exa: 'Exa', serper: 'Serper' }
 
-const SEARCH_IDS: ReadonlySet<KeyId> = new Set(['brave', 'exa', 'serper']) // ponytail: stub until WP6 adds the one-query test call
+const SEARCH_IDS: ReadonlySet<KeyId> = new Set(['exa', 'serper']) // ponytail: fallbacks, test call added with their adapters
 
 /** One test per provider at a time; a second click joins the running one. */
 export function testKey(id: KeyId, deps: KeyTestDeps = {}): Promise<KeyTest> {
@@ -42,7 +44,7 @@ export function testKey(id: KeyId, deps: KeyTestDeps = {}): Promise<KeyTest> {
   if (running) return running
   const run = (async (): Promise<KeyTest> => {
     if (id !== 'firecrawl' && readSecret(secretName(id)) === null) throw new Error(`Add a key first — no ${LABEL[id]} key is saved`)
-    if (SEARCH_IDS.has(id)) throw new Error(`The ${LABEL[id]} connection test arrives with the research feature`)
+    if (SEARCH_IDS.has(id)) throw new Error(`The ${LABEL[id]} connection test arrives with its search adapter`)
     const now = deps.now ?? Date.now
     const started = now()
     const res = await probe(id, deps.fetch ?? globalThis.fetch)

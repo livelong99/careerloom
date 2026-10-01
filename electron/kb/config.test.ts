@@ -86,6 +86,18 @@ describe('migration', () => {
   })
 })
 
+describe('consent follows the search provider', () => {
+  it('changing the backend clears the stored consent; other edits and the same backend keep it', () => {
+    writeInterviewConfig({ research: { consentVersion: 'v1' } })
+    expect(writeInterviewConfig({ research: { depth: 'deep' } }).research.consentVersion).toBe('v1')
+    expect(writeInterviewConfig({ research: { search: { backend: 'brave' } } }).research.consentVersion).toBe('v1')
+    expect(writeInterviewConfig({ research: { search: { backend: 'exa' } } }).research.consentVersion).toBeNull()
+  })
+  it('a patch that grants consent and switches provider together keeps the grant', () => {
+    expect(writeInterviewConfig({ research: { consentVersion: 'v2', search: { backend: 'serper' } } }).research.consentVersion).toBe('v2')
+  })
+})
+
 describe('write / read round trip', () => {
   it('persists a deep patch and keeps untouched siblings', () => {
     const next = writeInterviewConfig({ research: { depth: 'quick', search: { backend: 'exa' } }, voice: { echo: 'headphones' } })
