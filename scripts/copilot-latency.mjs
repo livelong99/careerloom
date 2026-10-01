@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Interview Copilot latency harness (plan §12, PERF-1). Two modes, both through the real engine + OpenRouter provider + trace:
 //   npm run build:electron && node scripts/copilot-latency.mjs [--runs 12] [--profile all|fast|balanced|slow-reasoner] [--no-warm]
+//     `--kb` (fake mode) adds a `## QUESTION BASE` prefix block + 3 per-question matches in the user turn (WP7) and a `kb` stage column.
 //     FAKE (default, no key, no spend): local SSE server with injected, SYNTHETIC latency profiles. It proves the instrumentation,
 //     pre-warm and prefix-cache plumbing; the millisecond values are the profile's, not any real model's.
 //   OPENROUTER_API_KEY=... node scripts/copilot-latency.mjs --live --models a/b,c/d --runs 12 --max-usd 2
@@ -41,7 +42,10 @@ const provider = live ? createOpenRouter({ baseUrl: args['base-url'], getKey: ()
 const cv = readFileSync(join(fx, 'harness-cv.md'), 'utf8')
 const questions = JSON.parse(readFileSync(join(fx, 'harness-questions.json'), 'utf8'))
 const report = parseReport(REPORT)
-const grounding = buildGrounding({ jobId: 'fixture', title: 'Senior Platform Engineer', company: 'Acme Corp', report, rawReport: REPORT, posting: null }, cv)
+const withKb = args.kb === 'true'
+const KB_BLOCK = ['## QUESTION BASE (questions this interviewer may ask; never claims about the candidate)', 'Skills: Kubernetes (strong), Terraform (working)', ...Array.from({ length: 8 }, (_, i) => `- Q: Fixture interview question ${i} about platform reliability and trade-offs → state the goal first`)].join('\n')
+const kbMatch = (_job, text) => Array.from({ length: 3 }, (_, i) => ({ id: `k${i}`, text: `Related to "${text.slice(0, 40)}": fixture question ${i}?`, outline: 'state the goal first', sourceId: null, source: null }))
+const grounding = buildGrounding({ jobId: 'fixture', title: 'Senior Platform Engineer', company: 'Acme Corp', report, rawReport: REPORT, posting: null }, cv, withKb ? KB_BLOCK : '')
 
 let spent = 0
 const pct = (xs, p) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.ceil(p * s.length) - 1)] }
@@ -90,8 +94,8 @@ async function benchDetector(model) {
 
 const ms = v => (v == null ? '-' : `${Math.round(v)} ms`)
 const st = x => (x ? `${ms(x.p50)} / ${ms(x.p95)}` : '-')
-const stageRow = recs => { const sm = summarizeTraces(recs.map(r => r.ms)); const c = recs.map(r => r.ms.connect).filter(v => v != null); return { turns: sm.turns, connectP50: pct(c, 0.5), ttft: sm.ttft, firstSay: sm.firstSay, endToSay: sm.endToSay, total: sm.total, cacheHitRate: sm.cacheHitRate } }
-const stageTable = rows => ['| run | turns | connect p50 | first token p50/p95 | first visible line p50/p95 | speech end -> line p50 | done p50 | cache hit |', '|---|---|---|---|---|---|---|---|', ...rows.map(([name, r]) => `| ${name} | ${r.turns} | ${ms(r.connectP50)} | ${st(r.ttft)} | ${st(r.firstSay)} | ${ms(r.endToSay?.p50)} | ${ms(r.total?.p50)} | ${r.cacheHitRate == null ? '-' : `${Math.round(r.cacheHitRate * 100)}%`} |`)]
+const stageRow = recs => { const sm = summarizeTraces(recs.map(r => r.ms)); const c = recs.map(r => r.ms.connect).filter(v => v != null); const kb = recs.map(r => r.ms.kb).filter(v => v != null); return { turns: sm.turns, kbP50: kb.length ? pct(kb, 0.5) : null, connectP50: pct(c, 0.5), ttft: sm.ttft, firstSay: sm.firstSay, endToSay: sm.endToSay, total: sm.total, cacheHitRate: sm.cacheHitRate } }
+const stageTable = rows => ['| run | turns | connect p50 | first token p50/p95 | first visible line p50/p95 | speech end -> line p50 | done p50 | cache hit | kb p50 |', '|---|---|---|---|---|---|---|---|---|', ...rows.map(([name, r]) => `| ${name} | ${r.turns} | ${ms(r.connectP50)} | ${st(r.ttft)} | ${st(r.firstSay)} | ${ms(r.endToSay?.p50)} | ${ms(r.total?.p50)} | ${r.cacheHitRate == null ? '-' : `${Math.round(r.cacheHitRate * 100)}%`} | ${ms(r.kbP50)} |`)]
 
 async function runFake() {
   const { startFakeServer, PROFILES } = await import('./copilot-fake-sse.mjs')
@@ -102,7 +106,7 @@ async function runFake() {
     const fake = await startFakeServer(PROFILES[name])
     const trace = createTraceLog()
     const p = createOpenRouter({ baseUrl: fake.baseUrl, getKey: () => 'fake-key', config: orConfig })
-    const engine = createAnswerEngine({ provider: p, config: () => cfgFor(`fake/${name}`), grounding: () => grounding, trace, partialEveryMs: 1e9, sessionId: () => 'harness' })
+    const engine = createAnswerEngine({ provider: p, config: () => cfgFor(`fake/${name}`), grounding: () => grounding, trace, partialEveryMs: 1e9, sessionId: () => 'harness', ...(withKb ? { kbMatch } : {}) })
     if (warm) await engine.warm()
     for (let i = 0; i < runs; i++) {
       const q = questions[i % questions.length]

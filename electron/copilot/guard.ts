@@ -30,6 +30,8 @@ export function guardSuggestion(src: GuardSources, s: Suggestion, opts: { factCh
   const pool = collapse(`${src.cv}\n${src.stories ?? ''}`)
   const seen = new Set<string>()
   const proof = s.proof.flatMap(p => {
+    // Question-base text is interview-side context: a `kb` source is never proof about the candidate, even if the words happen to match.
+    if (/^kb\b/i.test(p.source.trim())) return []
     const quote = collapse(p.quote)
     if (quote.length < MIN_QUOTE || !pool.includes(quote) || seen.has(quote)) return []
     seen.add(quote)

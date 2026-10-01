@@ -136,5 +136,5 @@ export type InterviewConfig = {
     consentVersion: string | null; refreshAfterDays: number
   }
   voice: { engine: TtsEngineId; voiceId: string | null; speed: number; echo: 'speakers' | 'headphones'; tailMs: number; /** Electron accelerator */ pushToInterrupt: string }
-  kb: { retentionDays: number | null; maxItems: number }
+  kb: { retentionDays: number | null; maxItems: number; /** Use the job's question base in live Copilot sessions. */ useInLive: boolean }
 }

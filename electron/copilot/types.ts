@@ -20,6 +20,8 @@ export type TranscriptLine = { id: string; speaker: Speaker; text: string; final
 /** What the question gate learned about a turn (PERF-2); advisory, never authority. Additive, absent on older sessions. */
 export type QuestionHint = { kind: 'coding' | 'system-design' | 'behavioural' | 'factual' | 'small-talk'; complete: boolean; needsScreenshot: boolean; deep: boolean; source: 'heuristic' | 'jev'; /** model round trip, when a model answered */ gateMs?: number }
 export type DetectedQuestion = { id: string; text: string; type: QuestionType; confidence: number; at: number; auto: boolean; hint?: QuestionHint }
+/** A question-base item that informed a suggestion (interview-side context, never a claim about the candidate). `sourceId` resolves through `kbOpenSource`. */
+export type KbRef = { id: string; text: string; sourceId: string | null; source: string | null }
 export type Suggestion = {
   questionId: string; model: string; tier: 'fast' | 'balanced' | 'deep'
   say: string; bullets: string[]; star: { s: string; t: string; a: string; r: string } | null
@@ -27,6 +29,8 @@ export type Suggestion = {
   done: boolean; firstTokenMs: number | null; totalMs: number | null; costUsd: number | null
   /** Numbers-only stage timings of this turn (PERF-1); additive, absent on older sessions. */
   trace?: StageMs
+  /** Question-base items shown to the model for this turn (WP7); absent when none matched or the setting is off. */
+  kb?: KbRef[]
 }
 export type SourceHealth = { source: SourceId; status: 'ok' | 'silent' | 'denied' | 'missing'; level: number }
 

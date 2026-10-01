@@ -11,5 +11,5 @@ export const DEFAULT_INTERVIEW_CONFIG: InterviewConfig = {
   },
   // speakers + half-duplex is the safe default; the picker lists installed en_IN system voices first
   voice: { engine: 'system', voiceId: null, speed: 1, echo: 'speakers', tailMs: 350, pushToInterrupt: 'Control+Alt+I' },
-  kb: { retentionDays: null, maxItems: 400 },
+  kb: { retentionDays: null, maxItems: 400, useInLive: true },
 }

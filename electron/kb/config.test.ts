@@ -19,7 +19,7 @@ describe('defaults (plan §7, §15)', () => {
     expect(DEFAULT_INTERVIEW_CONFIG.research.search).toEqual({ backend: 'brave', fallbackOrder: ['brave', 'exa', 'serper', 'searxng'], searxngUrl: null })
     expect(Object.values(DEFAULT_INTERVIEW_CONFIG.research.sources).every(Boolean)).toBe(true)
     expect(DEFAULT_INTERVIEW_CONFIG.voice).toEqual({ engine: 'system', voiceId: null, speed: 1, echo: 'speakers', tailMs: 350, pushToInterrupt: 'Control+Alt+I' })
-    expect(DEFAULT_INTERVIEW_CONFIG.kb).toEqual({ retentionDays: null, maxItems: 400 })
+    expect(DEFAULT_INTERVIEW_CONFIG.kb).toEqual({ retentionDays: null, maxItems: 400, useInLive: true })
   })
   it('read returns defaults when the file is missing or corrupt', () => {
     expect(readInterviewConfig()).toEqual(DEFAULT_INTERVIEW_CONFIG)
