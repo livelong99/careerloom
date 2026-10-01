@@ -11,6 +11,7 @@ import { resolveBin } from '../runner'
 import { logTail } from '../scan-history'
 import { clearDir, dirStats, pruneOlderThan } from './data'
 import { isKeyId, keysList, setKey } from './keys'
+import { availableMemory } from './memory'
 import { testKey } from './keys-test'
 import { applyPrefsPatch, defaultPrefs, KEY_IDS } from './prefs'
 import type { DataLocation, DataStats, Diagnostics, DiagnosticRow, KeyInfo, KeyTest, Prefs, PruneResult } from './types'
@@ -116,5 +117,5 @@ export const settingsHandlers: Record<string, Handler> = {
     changed()
     return publicSettings()
   },
-  diagnostics: (): Diagnostics => ({ rows: diagnosticRows(), memory: { totalBytes: os.totalmem(), freeBytes: os.freemem() } }),
+  diagnostics: (): Diagnostics => ({ rows: diagnosticRows(), memory: { totalBytes: os.totalmem(), freeBytes: availableMemory() } }),
 }

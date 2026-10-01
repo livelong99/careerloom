@@ -43,7 +43,7 @@ export function LocalModelsPage(_props: PageProps) {
     <>
       <Group title="Memory" focus="memory">
         {diag.error ? <p className="m-0 text-xs text-muted-foreground">Memory check not available yet: {diag.error.message}</p> : mem ? (
-          <Row label="This computer" hint="Install and run one model at a time; models load into memory while they work. macOS keeps cached files in memory, so “free” reads low.">
+          <Row label="This computer" hint="Install and run one model at a time; models load into memory while they work.">
             <ReadinessBadge state="ready" label={`${gb(mem.freeBytes)} GB free of ${gb(mem.totalBytes)} GB`} />
           </Row>
         ) : <p className="m-0 text-xs text-muted-foreground">Checking…</p>}

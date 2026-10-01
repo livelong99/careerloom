@@ -95,7 +95,7 @@ Run on a **cloned profile** (`--user-data-dir` copy, Singleton locks removed, `o
 
 ## Remaining gaps
 
-- Memory badge on Local models uses `os.freemem()` (macOS counts cache as used): shows e.g. "0.1 GB free of 16 GB" in green while `memory_pressure` reports ~38% free. Wording notes it; a real "available" figure needs `vm_stat`/`memory_pressure` in main (A).
+- Memory badge (fixed after QA): main now reports free + inactive + speculative pages from `vm_stat` (`electron/settings/memory.ts`, parsed-output unit test, falls back to `os.freemem()`); the clone reading went from 0.1 GB to 3.2 GB while `memory_pressure` shows 39% free. Re-verified by calling the module on this Mac, not re-screenshotted.
 - No successful provider test (needs a real key); only the 401 path. Windows untested. Boards editor "Browser login settings" link and the Firecrawl-down link not exercised live.
 - "Show in Finder" opens a real Finder window on the clone folders (verified no error; window not asserted).
 - Panic/hotkey settings live in the Copilot workspace, not Settings search by design.

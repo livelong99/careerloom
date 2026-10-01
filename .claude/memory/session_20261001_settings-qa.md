@@ -14,6 +14,8 @@ type: project
 - `renderer/components/integrations/{IntegrationTable,CategoryNav}.tsx`: `data-setting-id` on rows/tabs
 - `scripts/settings-qa/*.mjs`: CDP QA drivers (clone only); `docs/plans/settings-rebuild/{qa.md,evidence/QA/}`
 
+- `electron/settings/memory.ts` (+test), `handlers.ts`, `types.ts`: Local models/Advanced memory = vm_stat free+inactive+speculative (was os.freemem, read 0.1 GB on macOS)
+
 **Decisions made:**
 - `data-setting-id` over `data-focus`: Jobs/Copilot wrappers already used it. Alternatives considered: keep both.
 - Search is label-first, registry order otherwise; no fuzzy scoring (YAGNI).
@@ -25,5 +27,4 @@ type: project
 **State:** done
 
 **Next steps:**
-- Real "available memory" in Local models (main uses os.freemem, reads low on macOS)
 - Live-check Boards editor "Browser login settings" link; Windows pass
