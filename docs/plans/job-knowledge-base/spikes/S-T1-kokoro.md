@@ -1,6 +1,6 @@
 # S-T1 — Kokoro first-audio and RAM (WP5)
 
-Setup: scratch venv under `/private/tmp/claude-501/tts-spike` (deleted after this write-up), CPython 3.10.16, Apple Silicon, 16 GB. Packages = the 17 hashed pins in `electron/tts/install.ts` (`pip --require-hashes --no-deps`; all hashes resolved, no loosening). Models: `kokoro-v1.0.int8.onnx` (92.4 MB, sha256 6e742170…6406cb), `voices-v1.0.bin` (28.2 MB, sha256 bca610b8…1fbf4a) from `thewh1teagle/kokoro-onnx` release `model-files-v1.0`. `--selftest` of the shipped sidecar script passes. One model process at a time (no Whisper/other model running; checked `pgrep`).
+Setup: scratch venv under `/private/tmp/claude-501/tts-spike` (deleted after this write-up), CPython 3.10.16, Apple Silicon, 16 GB. Packages = the 17 hashed pins in `electron/tts/install.ts` (`pip --require-hashes --no-deps`; all hashes resolved, no loosening). Models: `kokoro-v1.0.int8.onnx` (92.4 MB, sha256 6e742170…6406cb), `voices-v1.0.bin` (28.2 MB, sha256 bca610b8…1fbf7d) from `thewh1teagle/kokoro-onnx` release `model-files-v1.0`. `--selftest` of the shipped sidecar script passes. One model process at a time (no Whisper/other model running; checked `pgrep`).
 
 **Caveat:** the Mac was heavily loaded by other agents during every run (load average 17–25, 40 % memory free). Numbers are pessimistic; re-run on an idle machine with `node scripts/tts-latency.mjs --engine kokoro` (also `--engine system`) before final G-T.
 

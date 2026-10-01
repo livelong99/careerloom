@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261002 KB WP5 TTS](session_20261002_kb-wp5-tts.md) — TTS service/engines (system en_IN, hashed Kokoro install, OpenRouter), echo gate, gapless queue; S-V1/S-T1 numbers, S-E1 deferred
 - [20261002 KB WP0](session_20261002_kb-wp0.md) — job knowledge base contract/shell/config skeleton: kb + interviewer types, kb* IPC stubs, interview.json, brave/exa/serper key ids, Settings + Job tab stubs, module stubs; tag kb-contract-v1
 - [20261001 Runs page](session_20261001_copilot-runs-page.md) — Runs drawer → full Runs page (⌘7): filters, live runs, windowed redacted log viewer, deleteRuns IPC; job-aware grouping/filter/card, cloned-profile QA 33/33
 - [20261001 Job knowledge base plan](session_20261001_job-knowledge-base-plan.md) — docs-only research/design/plan: web-researched per-job question base, AI-interviewer practice + TTS, live retrieval; G1 approved
