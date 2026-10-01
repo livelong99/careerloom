@@ -6,7 +6,7 @@ import { attach, clickText, goto, JOB, mainWindow, openJobTab, record, shotBoth,
 
 const QA = process.env.QA
 const logLines = () => fs.readFileSync(`${QA}/app.log`, 'utf8').split('\n').filter(l => l.includes('[kb-e2e]'))
-const sayArgs = () => { try { return execSync(`ps -axo args | grep -E "^say " | grep -v grep || true`, { encoding: 'utf8' }).trim() } catch { return '' } }
+const sayArgs = () => { try { return execSync(`ps -axo args | grep -E "^say .* -r [0-9]+" | grep -v grep || true`, { encoding: 'utf8' }).trim() } catch { return '' } }
 const main = await mainWindow()
 await main.evaluate(`window.careerloom.copilotStop('user')`); await sleep(1500)
 await main.evaluate(`window.careerloom.copilotDeleteSession('all')`)

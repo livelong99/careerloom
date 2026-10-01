@@ -23,7 +23,7 @@ import { useEscape } from '../../hooks/useEscape'
 import { Button } from '@/components/ui/button'
 import { ConsentDialog } from '../kb/ConsentDialog'
 import { KB_CONSENT } from '../kb/consentCopy'
-import { FALLBACK_OPTS, useInterviewConfig } from '../kb/useConfig'
+import { useInterviewConfig } from '../kb/useConfig'
 
 const note = (m: string): void => showToast(m, 'error', 6000)
 
@@ -45,8 +45,8 @@ export function KnowledgeTab({ jobId, jobTitle = 'this job' }: { jobId: string; 
 
   const status = summary?.status ?? 'none'
   useEffect(() => { // the cost/time hint and the "needs a key" fork for the empty states
-    if (status === 'none') kb().kbEstimate(jobId, FALLBACK_OPTS).then(setEstimate, () => setEstimate(null))
-  }, [jobId, status])
+    if (status === 'none') kb().kbEstimate(jobId, DEFAULTS).then(setEstimate, () => setEstimate(null))
+  }, [jobId, status, DEFAULTS.depth, DEFAULTS.budgetUsd, DEFAULTS.minutes]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setSelectedId(null); setFilter(NO_FILTER) }, [jobId])
   useEffect(() => {
     if (!selectedId) { setDetail(null); return }
