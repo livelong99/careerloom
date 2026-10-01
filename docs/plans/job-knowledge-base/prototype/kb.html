@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Job › Knowledge base — prototype</title>
+<link rel="stylesheet" href="css/tokens.css"><link rel="stylesheet" href="css/app.css"><link rel="stylesheet" href="css/kb.css">
+<script src="js/shell.js"></script><script src="js/icons.js"></script></head>
+<body><div class="app" id="app">
+<header class="top"><h1>Jobs</h1><span class="sp"></span></header>
+<main class="main"><div class="ws one" style="position:relative">
+ <div class="jobhead"><h2>Senior Backend Engineer</h2><small>Northwind Payments · Bengaluru · Hybrid</small><span class="badge brand">Evaluated A−</span><span class="sp" style="flex:1"></span><button class="btn sm">Open posting <span data-i="ext" data-s="13"></span></button></div>
+ <nav class="tabs" aria-label="Job pages"><a href="#">Overview</a><a href="#">Job</a><a href="#">Match</a><a href="#">Skill-up</a><a href="#">Documents</a><a href="#">Report</a><a class="on" href="#" aria-current="page"><span data-i="book" data-s="14"></span>Knowledge base</a></nav>
+ <div class="body" id="body"></div>
+</div></main></div>
+<script>
+document.getElementById('app').insertAdjacentHTML('afterbegin', sidebar('jobs'));
+const state = Q.get('state') || 'ready';
+const SK = [ // name, have(items), need, inCv, level
+ ['Kafka',9,8,true,'strong'],['PostgreSQL',8,6,true,'strong'],['System design',11,10,true,'strong'],['Go',6,6,true,'working'],['Kubernetes',2,6,false,'working'],['Leadership',5,5,true,'working'],['Observability',1,4,false,'working']];
+const IT = [ // text,type,skill,diff,prov,src,pinned,seen
+ ['How would you design an idempotent payment-capture flow when the card network times out?','System design','System design',4,'s','Eng blog · Northwind-like “payments at scale”',true,3],
+ ['What guarantees does Kafka give you, and which would you give up first to cut latency?','Technical','Kafka',3,'s','GitHub · system-design-primer (CC BY 4.0)',false,4],
+ ['Walk me through a time you reduced p99 latency on a hot database path.','Behavioural','PostgreSQL',3,'g','Generated from your gap: no tuning story',false,0],
+ ['A Kubernetes rollout stalls at 50%. How do you find out why?','Technical','Kubernetes',3,'s','Stack Overflow · CC BY-SA, 2 authors',false,2],
+ ['Tell me about a time you disagreed with a design and how it ended.','Behavioural','Leadership',2,'s','O*NET task statements · CC BY 4.0',false,2],
+ ['How do you decide what to put on an on-call dashboard?','Situational','Observability',3,'g','Generated from JD: “own observability”',false,0],
+ ['Explain MVCC and where it bites in long-running transactions.','Technical','PostgreSQL',4,'s','Docs · postgresql.org',false,3],
+ ['When would you choose exactly-once over at-least-once with idempotency?','Technical','Kafka',4,'s','Eng blog · Confluent-style article',false,2],
+ ['Which of my questions would you push back on in a design review? (mine)','Behavioural','Leadership',2,'u','Added by you',false,0]];
+const typeCls = {Technical:'info','System design':'violet',Behavioural:'brand',Situational:'warn'};
+const dots = n => `<span class="dots" aria-label="difficulty ${n} of 5">${[1,2,3,4,5].map(i=>`<i class="${i<=n?'on':''}"></i>`).join('')}</span>`;
+const prov = {s:['Sourced','ok'],g:['Generated','warn'],u:['Yours','info']};
+function status() {
+ if (state==='empty') return `<div class="emp"><h3>No research for this job yet</h3><p>Careerloom searches the web for the skills in this posting and your gaps, then builds a question bank you can practise from and use in live sessions. Estimated cost <b>$0.10–0.20</b>, about 3 minutes.</p><button class="btn primary"><span data-i="play"></span>Research this job</button> <button class="btn">Add a question myself</button></div>`;
+ if (state==='nokey') return `<div class="emp"><h3>Web search needs a key</h3><p>Add a Brave Search key in Settings to get sourced questions. Without one, Careerloom can still read pages you paste and generate labelled questions from the posting — expect fewer results.</p><button class="btn primary">Add a key in Settings <span data-i="ext" data-s="13"></span></button> <button class="btn">Research without search</button></div>`;
+ if (state==='running') return `<div class="run" role="status" aria-live="polite"><div style="display:flex;align-items:center;gap:10px"><b style="font-size:15px">Researching Senior Backend Engineer</b><span class="badge brand">Step 3 of 6</span><span style="flex:1"></span><a class="lnk" href="#">View run in Runs <span data-i="ext" data-s="13"></span></a><button class="btn sm danger"><span data-i="stop" data-s="13"></span>Stop</button></div>
+ <ul class="stepsv"><li class="done"><span class="si" data-i="check" data-s="12"></span>Plan queries<span class="bar3"><i style="width:100%"></i></span><small>18 queries</small></li>
+ <li class="done"><span class="si" data-i="check" data-s="12"></span>Search<span class="bar3"><i style="width:100%"></i></span><small>18 / 18</small></li>
+ <li class="now"><span class="si" data-i="down" data-s="12"></span>Read pages<span class="bar3"><i style="width:58%"></i></span><small>17 / 29</small></li>
+ <li><span class="si"></span>Extract questions<span class="bar3"><i style="width:0"></i></span><small></small></li><li><span class="si"></span>Dedupe & rank<span class="bar3"><i style="width:0"></i></span><small></small></li><li><span class="si"></span>Write outlines<span class="bar3"><i style="width:0"></i></span><small></small></li></ul>
+ <div class="meta"><span>Elapsed <b>1:12</b></span><span>Spent <b>$0.04</b> of $0.30</span><span>Pages read <b>17</b></span><span>Questions found so far <b>31</b></span></div></div>`;
+ const partial = state==='partial', off = state==='offline';
+ return `${partial?`<div class="notice warn" style="margin-bottom:10px"><span class="ic" data-i="warn"></span><div><b>Partial results — budget reached.</b> Stopped at $0.30 after 22 of 29 pages. Kubernetes and Observability have fewer questions than needed. <a class="lnk" href="#">Continue for up to $0.10 more</a></div></div>`:''}
+ ${off?`<div class="notice bad" style="margin-bottom:10px"><span class="ic" data-i="warn"></span><div><b>Can’t reach the web.</b> Showing the bank from 14 Sep. Refresh when you’re back online.</div></div>`:''}
+ <div class="status"><span class="badge ok">${partial?'Partial':'Up to date'}</span><div class="facts"><span>Researched <b>${off?'14 Sep':'today, 14:20'}</b></span><span><b>${partial?'38':'46'}</b> questions</span><span><b>${partial?'61':'64'}%</b> sourced</span><span><b>14</b> sources</span><span>Cost <b>$${partial?'0.30':'0.14'}</b></span></div><span class="sp"></span><a class="lnk" href="#">Run in Runs <span data-i="ext" data-s="13"></span></a><button class="btn sm" ${off?'disabled':''}><span data-i="refresh" data-s="13"></span>Refresh</button><button class="btn sm"><span data-i="plus" data-s="13"></span>Add question</button><button class="btn sm primary"><span data-i="play" data-s="13"></span>Practise this job</button></div>
+ <div class="cov" role="group" aria-label="Coverage by skill">${SK.map(s=>`<button aria-pressed="false"><div class="n">${s[0]}<span>${s[1]}</span></div><div class="bar3"><i class="${s[1]<s[2]?'g':''}" style="width:${Math.min(100,s[1]/s[2]*100)}%"></i></div><div class="${s[1]<s[2]?'gap':'need'}">${s[1]<s[2]?`Need ${s[2]-s[1]} more`:'Covered'} · ${s[4]} expected${s[3]?'':' · not on your résumé'}</div></button>`).join('')}</div>
+ <div class="filters"><div class="seg" role="group" aria-label="Type">${['All','Behavioural','Technical','System design','Situational'].map((t,i)=>`<button aria-pressed="${i==0}">${t}</button>`).join('')}</div>
+ <select class="sel" aria-label="Skill" style="min-width:110px"><option>All skills</option></select><select class="sel" aria-label="Difficulty" style="min-width:110px"><option>Any difficulty</option></select><select class="sel" aria-label="Source" style="min-width:110px"><option>Any source</option></select>
+ <span class="sp"></span><label style="display:flex;gap:8px;align-items:center"><button class="sw" role="switch" aria-checked="false" aria-label="Hide generated questions"></button>Hide generated</label></div>
+ <div class="legend" style="margin:0 0 8px"><span><span class="th s"></span>Sourced — has a link</span><span><span class="th g"></span>Generated — no source, treat as practice only</span><span><span class="th u"></span>Yours</span></div>
+ <div class="bank"><table><thead><tr><th>Question</th><th style="width:108px">Type</th><th style="width:70px">Level</th><th style="width:88px">Origin</th></tr></thead><tbody>${IT.map((r,i)=>`<tr class="${r[4]==='g'?'gen':r[4]==='u'?'usr':''} ${i==0?'on':''}"><td class="q"><div class="qt">${r[6]?'<span class="pin" data-i="tag" data-s="13" title="Pinned"></span> ':''}${r[0]}</div><div class="qm"><span class="badge">${r[2]}</span><span>${r[5]}</span>${r[7]?`<span>· seen in ${r[7]} sources</span>`:''}</div></td><td><span class="badge ${typeCls[r[1]]}">${r[1]}</span></td><td>${dots(r[3])}</td><td><span class="badge ${prov[r[4]][1]}">${prov[r[4]][0]}</span></td></tr>`).join('')}</tbody></table></div>`;
+}
+const sheet = `<aside class="sheet" aria-label="Question detail"><div style="display:flex;gap:6px;align-items:center"><span class="badge violet">System design</span><span class="badge ok">Sourced</span><span style="flex:1"></span><button class="ib" style="width:28px;height:28px;border:0;background:transparent;color:var(--mut)" aria-label="Close" data-i="x"></button></div>
+<h3>How would you design an idempotent payment-capture flow when the card network times out?</h3>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm"><span data-i="tag" data-s="13"></span>Pinned</button><button class="btn sm"><span data-i="eyeoff" data-s="13"></span>Hide</button><button class="btn sm">Edit</button><button class="btn sm primary"><span data-i="play" data-s="13"></span>Practise this</button></div>
+<h5>Why this one for you</h5><div class="why">The posting says “own payment correctness”, and your résumé shows Kafka and Postgres but no idempotency story. Your best-fit STAR story: <b>Ledger migration</b>.</div>
+<h5>Sources (3)</h5><div class="src1"><span data-i="ext" data-s="14"></span><div class="t"><b>Payments at scale: retries without double-charging</b><span>Company engineering blog · fetched today · our summary: asks for idempotency keys and a reconciliation job.</span></div></div>
+<div class="src1"><span data-i="ext" data-s="14"></span><div class="t"><b>system-design-primer</b><span>GitHub · CC BY 4.0 · attribution kept</span></div></div>
+<div class="src1"><span data-i="ext" data-s="14"></span><div class="t"><b>“Designing a payment system” thread</b><span>Hacker News · comment link only</span></div></div>
+<h5>Suggested outline <span class="badge warn" style="margin-left:4px">Generated</span></h5><ul><li>Clarify: partial failure modes, volume, consistency needs</li><li>Idempotency key per capture, stored before the network call</li><li>Retry with backoff; reconcile unknown outcomes against the network</li><li>Trade-offs: latency vs. certainty, operational cost</li></ul>
+<h5>What a good answer shows</h5><div class="rub"><span class="h"></span><span class="h">Strong</span><span class="h">Weak</span><b>Correctness</b><span>Names the unknown-outcome case</span><span>Assumes the timeout means failure</span><b>Trade-offs</b><span>Compares at-least-once + dedupe</span><span>Only one design</span><b>Depth</b><span>Reconciliation and monitoring</span><span>Stops at the happy path</span></div>
+<h5>Likely follow-ups</h5><ul><li>What if the key store is down?</li><li>How do you test this?</li></ul>
+<h5>Red flags</h5><ul><li>“Just retry until it works.”</li></ul>
+<h5>Your history</h5><span style="color:var(--mut)">Asked 2 times · last score 3.2 / 5</span></aside>`;
+const b=document.getElementById('body'), open=['ready','partial','offline'].includes(state);
+b.className = 'body' + (open?' split':''); b.innerHTML = open ? `<div class="lc">${status()}</div>${sheet}` : status();
+icons();
+</script></body></html>
