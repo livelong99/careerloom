@@ -1,13 +1,14 @@
 // IPC handlers for the Settings rebuild (registered in main.ts as `careerloom:<name>`).
-import { app } from 'electron'
+import { app, shell } from 'electron'
 import os from 'node:os'
 import path from 'node:path'
 
 import { checkRoot } from '../careerops'
-import { broadcast, readApiKey, readOpencodeKey, readRunHistory, readSettings, userFile, writeSettings, type Handler } from '../context'
+import { broadcast, readApiKey, readOpencodeKey, readRunHistory, readSettings, runLog, userFile, writeSettings, type Handler } from '../context'
 import { acknowledgeList, revokeAck } from '../integrations/browser-login'
 import { findRuntime, modelDir } from '../prescreen-model'
 import { resolveBin } from '../runner'
+import { logTail } from '../scan-history'
 import { clearDir, dirStats, pruneOlderThan } from './data'
 import { isKeyId, keysList, setKey } from './keys'
 import { testKey } from './keys-test'
@@ -45,6 +46,16 @@ function diagnosticRows(): DiagnosticRow[] {
   ]
 }
 
+function dataLocations(): DataLocation[] {
+  const { root } = readSettings()
+  return [
+    { id: 'appData', label: 'App data', path: app.getPath('userData') },
+    { id: 'careerOps', label: 'career-ops folder', path: root },
+    { id: 'models', label: 'Local models', path: path.dirname(modelDir()) },
+    { id: 'copilot', label: 'Copilot sessions', path: userFile('copilot') },
+  ]
+}
+
 export const settingsHandlers: Record<string, Handler> = {
   keysList: (): KeyInfo[] => keysList(),
   keysSet: (id: unknown, value: unknown): KeyInfo => {
@@ -73,14 +84,19 @@ export const settingsHandlers: Record<string, Handler> = {
     changed()
     return left
   },
-  dataLocations: (): DataLocation[] => {
-    const { root } = readSettings()
-    return [
-      { id: 'appData', label: 'App data', path: app.getPath('userData') },
-      { id: 'careerOps', label: 'career-ops folder', path: root },
-      { id: 'models', label: 'Local models', path: path.dirname(modelDir()) },
-      { id: 'copilot', label: 'Copilot sessions', path: userFile('copilot') },
-    ]
+  dataLocations,
+  /** Opens a listed data folder in the OS file manager; any other path is refused. */
+  revealPath: async (p: unknown): Promise<boolean> => {
+    if (typeof p !== 'string' || !dataLocations().some(l => l.path === p)) throw new Error('Not a data location')
+    const err = await shell.openPath(p)
+    if (err) throw new Error(err)
+    return true
+  },
+  /** Last `lines` (1–200) lines of one run's log, credential-like lines dropped (same filter as saved scan logs). */
+  runLogTail: (id: unknown, lines: unknown): string => {
+    if (typeof id !== 'string' || !id) throw new Error('id must be a string')
+    const n = Math.min(200, Math.max(1, Number.isInteger(lines) ? (lines as number) : 50))
+    return logTail(runLog(id)).split('\n').slice(-n).join('\n')
   },
   dataStats: (): DataStats => {
     const logs = dirStats(RUN_LOGS(), '.log')

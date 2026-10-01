@@ -6,9 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const dir = vi.hoisted(() => ({ value: '' }))
 const sent = vi.hoisted(() => ({ events: [] as string[] }))
+const opened = vi.hoisted(() => ({ paths: [] as string[], error: '' }))
 vi.mock('electron', () => ({
   app: { getPath: () => dir.value, getVersion: () => '0.2.0' },
   BrowserWindow: { getAllWindows: () => [{ isDestroyed: () => false, webContents: { send: (c: string) => sent.events.push(c) } }] },
+  shell: { openPath: async (p: string) => { opened.paths.push(p); return opened.error } },
   safeStorage: { isEncryptionAvailable: () => true, encryptString: (s: string) => Buffer.from(`enc:${s}`), decryptString: (b: Buffer) => b.toString().replace(/^enc:/, '') },
 }))
 
@@ -31,7 +33,7 @@ const touch = (rel: string, ageDays = 0, bytes = 4) => {
   fs.utimesSync(file(rel), t, t)
 }
 
-beforeEach(() => { dir.value = fs.mkdtempSync(path.join(os.tmpdir(), 'handlers-')); sent.events.length = 0 })
+beforeEach(() => { opened.paths.length = 0; opened.error = ''; dir.value = fs.mkdtempSync(path.join(os.tmpdir(), 'handlers-')); sent.events.length = 0 })
 afterEach(() => { fs.rmSync(dir.value, { recursive: true, force: true }); vi.restoreAllMocks() })
 
 describe('prefs', () => {
@@ -60,6 +62,32 @@ describe('data', () => {
     const locs = h.dataLocations!() as Array<{ id: string; path: string | null }>
     expect(locs.find(l => l.id === 'appData')?.path).toBe(dir.value)
     expect(locs.find(l => l.id === 'careerOps')?.path).toBeNull()
+  })
+})
+
+describe('revealPath', () => {
+  it('opens only a listed data location', async () => {
+    await h.revealPath!(dir.value)
+    expect(opened.paths).toEqual([dir.value])
+    await expect(h.revealPath!('/etc')).rejects.toThrow(/data location/)
+    await expect(h.revealPath!(path.join(dir.value, '..'))).rejects.toThrow(/data location/)
+    await expect(h.revealPath!(null)).rejects.toThrow(/data location/)
+    expect(opened.paths).toHaveLength(1)
+  })
+  it('surfaces the OS error text', async () => {
+    opened.error = 'no such folder'
+    await expect(h.revealPath!(dir.value)).rejects.toThrow('no such folder')
+  })
+})
+
+describe('runLogTail', () => {
+  it('returns the last N lines of a saved run log without credential-like lines', () => {
+    fs.mkdirSync(file('run-logs'), { recursive: true })
+    fs.writeFileSync(file('run-logs', 'r1.log'), ['one', 'Authorization: Bearer sk-or-v1-SENTINELsecretvalue0001', 'two', 'api_key=abc', 'three'].join('\n'))
+    expect(h.runLogTail!('r1', 2)).toBe('two\nthree')
+    expect(h.runLogTail!('r1', 99)).toBe('one\ntwo\nthree')
+    expect(h.runLogTail!('nope', 5)).toBe('')
+    expect(() => h.runLogTail!(5, 5)).toThrow()
   })
 })
 
