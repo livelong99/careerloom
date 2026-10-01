@@ -1,6 +1,8 @@
 // Harness only: a fake bridge whose data matches what the backend returned before (?v=before) and after (?v=after) the fix,
 // for a free model under the default deny policy. The "after" values are what electron/copilot/models.ts + providers/errors.ts produce (unit-tested).
-const after = new URLSearchParams(location.search).get('v') === 'after'
+const q = new URLSearchParams(location.search)
+const after = q.get('v') === 'after'
+const dc = q.get('dc') === 'allow' ? 'allow' : 'deny' // before-fix default was deny; after-fix default is allow
 const RAW = 'No endpoints found matching your data policy (Free model training). Configure: https://openrouter.ai/settings/privacy'
 const m = (id: string, name: string, p: number, c: number, free = false) => ({ id, name, contextTokens: 262144, promptUsdPerM: p, completionUsdPerM: c, dataPolicy: free && after ? 'may-collect' : 'unknown', supportsStreaming: true })
 const models = [
@@ -9,7 +11,7 @@ const models = [
 ]
 let config: Record<string, any> = {
   version: 1, coaching: {}, hotkeys: { answer: 'Control+Alt+A' }, privacy: {}, overlay: {}, audio: {}, stt: {},
-  engine: { tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter', openrouter: { dataCollection: 'deny', zdr: false, sort: 'latency' }, models: { fast: 'qwen/qwen3.8-27b:free', balanced: 'nvidia/nemotron-3.5-lightning:free', deep: 'cohere/north-mini-code:free' }, factCheck: true, vision: 'vision', autoAnswer: false },
+  engine: { tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter', openrouter: { dataCollection: dc, zdr: false, sort: 'latency', policyMigrated: true }, models: { fast: 'qwen/qwen3.8-27b:free', balanced: 'nvidia/nemotron-3.5-lightning:free', deep: 'cohere/north-mini-code:free' }, factCheck: true, vision: 'vision', autoAnswer: false },
 }
 const merge = (a: any, b: any): any => (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(b) ? Object.fromEntries([...new Set([...Object.keys(a), ...Object.keys(b)])].map(k => [k, k in b ? merge(a[k], b[k]) : a[k]])) : b)
 const impl: Record<string, (...a: any[]) => unknown> = {
@@ -17,7 +19,7 @@ const impl: Record<string, (...a: any[]) => unknown> = {
   copilotGetConfig: () => config,
   copilotSetConfig: (p: unknown) => (config = merge(config, p)),
   copilotListLlmModels: () => models,
-  copilotTestLlmModel: () => after
+  copilotTestLlmModel: () => dc === 'allow' ? { ok: true, firstTokenMs: 740 } : after
     ? { ok: false, firstTokenMs: null, code: 'policy', actions: ['change-model', 'privacy-settings'], message: 'This model may use your prompts (free models can train on them), which your privacy setting blocks. Pick a paid model, or allow free models.' }
     : { ok: false, firstTokenMs: null, message: RAW },
   getSettings: () => ({ root: null, runner: 'claude', models: {}, helperModels: {}, hasApiKey: true, hasOpencodeKey: false, rootCheck: null }),

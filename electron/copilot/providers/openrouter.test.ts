@@ -76,7 +76,7 @@ function fakeFetch(body: string[], init: { status?: number; json?: unknown; hang
   }) as unknown as typeof fetch
   return { f, calls }
 }
-const cfg = { dataCollection: 'deny', zdr: false, sort: 'latency' } as const
+const cfg = { dataCollection: 'deny', zdr: false, sort: 'latency', policyMigrated: true } as const
 const prompt = (signal = new AbortController().signal) => ({ system: 'sys', messages: [{ role: 'user' as const, content: 'hi' }], model: 'anthropic/claude-haiku-4.5', signal })
 
 describe('createOpenRouter', () => {

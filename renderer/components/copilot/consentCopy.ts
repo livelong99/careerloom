@@ -3,7 +3,7 @@
 // (electron/copilot/consent.ts) whenever any of it changes, so older confirmations are refused by main.
 export const CONSENT_COPY = {
   title: 'Before you start a live session',
-  intro: (retention: string) => `Careerloom will listen on this computer (audio never leaves it) and send the conversation's text to OpenRouter to suggest answers. Transcripts are kept for ${retention} (change in Privacy). A "Listening" indicator is shown by default.`,
+  intro: (retention: string, providersMayKeep = false) => `Careerloom will listen on this computer (audio never leaves it) and send the conversation's text to OpenRouter to suggest answers. Transcripts are kept for ${retention} (change in Privacy). A "Listening" indicator is shown by default.${providersMayKeep ? ' With "Providers may keep or train on your text" on (Settings, Copilot, Answer engine), the text that is sent, including what the interviewer says, may be retained and used for training by the model provider. Turn it off to restrict answers to providers that promise not to.' : ''}`,
   mic: { title: 'Your microphone', hint: 'Always included in a live session' },
   system: { title: 'System audio (the other person)', hint: 'Records them. Off unless you turn it on.' },
   aiAllowed: "I'm allowed to use AI assistance in this conversation. I've checked the employer's or interviewer's rules.",

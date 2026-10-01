@@ -15,9 +15,9 @@ beforeEach(() => fs.rmSync(file, { force: true }))
 afterEach(() => fs.rmSync(file, { force: true }))
 
 describe('defaults (plan §7)', () => {
-  it('are answer-on-demand, OpenRouter deny, 90-day retention, privacy mode off', () => {
+  it('are answer-on-demand, OpenRouter allow (user-approved, migrated), 90-day retention, privacy mode off', () => {
     expect(DEFAULT_CONFIG.engine).toMatchObject({ tier: 'fast', provider: 'openrouter', autoAnswer: false, escalateForDesignCoding: true })
-    expect(DEFAULT_CONFIG.engine.openrouter.dataCollection).toBe('deny')
+    expect(DEFAULT_CONFIG.engine.openrouter).toMatchObject({ dataCollection: 'allow', policyMigrated: true })
     expect(DEFAULT_CONFIG.privacy.retentionDays).toBe(90)
     expect(DEFAULT_CONFIG.privacy.redact).toBe(true)
     expect(DEFAULT_CONFIG.privacy.mode).toMatchObject({ enabled: false, hideFromCapture: false, noDockIcon: false, neutralTitle: false, indicator: 'chip' })
@@ -38,7 +38,7 @@ describe('write / read round trip', () => {
   it('persists a deep patch and keeps untouched siblings', () => {
     const next = writeCopilotConfig({ engine: { tier: 'deep', openrouter: { zdr: true } }, overlay: { anchor: 'bl' } })
     expect(next.engine.tier).toBe('deep')
-    expect(next.engine.openrouter).toEqual({ dataCollection: 'deny', zdr: true, sort: 'latency' })
+    expect(next.engine.openrouter).toEqual({ dataCollection: 'allow', zdr: true, sort: 'latency', policyMigrated: true })
     expect(readCopilotConfig()).toEqual(next)
     expect(JSON.parse(fs.readFileSync(file, 'utf8')).version).toBe(1)
   })
@@ -113,5 +113,25 @@ describe('migration safety', () => {
     expect(c.audio.useSystem).toBe(true)
     expect(c.audio.systemSource).toBe('loopback')
     expect(c.practice).toEqual(DEFAULT_CONFIG.practice)
+  })
+})
+
+describe('data-policy migration (default flipped to allow, user-approved)', () => {
+  const saved = (or: object) => ({ version: 1, engine: { openrouter: or } })
+  it('moves an existing saved deny (no marker) to allow once, and marks it', () => {
+    expect(normalizeConfig(saved({ dataCollection: 'deny', zdr: false, sort: 'latency' })).engine.openrouter).toEqual({ dataCollection: 'allow', zdr: false, sort: 'latency', policyMigrated: true })
+    expect(normalizeConfig({}).engine.openrouter.dataCollection).toBe('allow')
+  })
+  it('afterwards respects whatever the user picks, including deny', () => {
+    const migrated = normalizeConfig(saved({ dataCollection: 'deny' }))
+    const picked = normalizeConfig({ ...migrated, engine: { ...migrated.engine, openrouter: { ...migrated.engine.openrouter, dataCollection: 'deny' } } })
+    expect(picked.engine.openrouter).toMatchObject({ dataCollection: 'deny', policyMigrated: true })
+    expect(normalizeConfig(picked).engine.openrouter.dataCollection).toBe('deny')
+  })
+  it('a file read from disk with deny and no marker is migrated; a later deny write sticks', () => {
+    fs.writeFileSync(file, JSON.stringify(saved({ dataCollection: 'deny' })))
+    expect(readCopilotConfig().engine.openrouter.dataCollection).toBe('allow')
+    writeCopilotConfig({ engine: { openrouter: { dataCollection: 'deny' } } })
+    expect(readCopilotConfig().engine.openrouter).toMatchObject({ dataCollection: 'deny', policyMigrated: true })
   })
 })
