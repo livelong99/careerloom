@@ -20,6 +20,8 @@ export type InterviewDeps = {
   speaker?(plan: InterviewPlan): Speaker
   /** Write-back of per-item stats (WP1 store). */
   recordStats?(jobId: string, itemId: string, stats: KbItem['stats']): void
+  /** The session is over (stop or done): release the voice. */
+  ended?(): void
   onState?(s: { state: SpeakState; questionId: string | null; voice: string | null }): void
 }
 export type Interview = { runner: InterviewerRunner; record(): InterviewRecord; control(c: 'replay' | 'skip' | 'hint'): void; skillSignal(): SkillSignal }

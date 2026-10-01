@@ -1,6 +1,5 @@
 // File-backed run checkpoint (`run.json`, deleted on completion) and the query/page caches (plan §5). Atomic writes, 0600/0700.
 // Only OUR derived data lands here: search results (url, title, ≤ 200-char snippet) and extracted items. Never page text.
-import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -39,10 +38,7 @@ export interface ResearchState {
   putPage(rec: PageRecord): void
 }
 
-const key = (...parts: string[]): string => createHash('sha1').update(parts.join('\u0000')).digest('hex')
-/** Same recipe as hash.ts `queryKey`/`pageKey` (WP1). TODO(integration): import them from '../../hash' once WP1 is merged; pinned by hash-parity.test.ts. */
-export const queryKey = (backend: string, query: string): string => key(backend, query.trim().toLowerCase())
-export const pageKey = (url: string): string => key(url)
+import { pageKey, queryKey } from '../hash'
 
 function writeJson(file: string, data: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })

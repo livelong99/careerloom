@@ -2,6 +2,7 @@
 import { chmodSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { kbJobDir } from './hash'
 import { parseItem } from './schema-guard'
 import type { KbStore } from './store'
 
@@ -13,7 +14,7 @@ const IMPORT_MAX_ITEMS = 1000
 export function exportKb(store: KbStore, jobId: string, outDir: string): string {
   const items = store.read(jobId).items.map(i => ({ text: i.text, type: i.type, skills: i.skills, difficulty: i.difficulty, idealOutline: i.idealOutline, followUps: i.followUps, rubric: i.rubric, redFlags: i.redFlags }))
   mkdirSync(outDir, { recursive: true, mode: 0o700 })
-  const file = join(outDir, `kb-${jobId}.json`)
+  const file = join(outDir, `kb-${kbJobDir(jobId)}.json`)
   writeFileSync(file, JSON.stringify({ format: FORMAT, version: 1, items }, null, 1), { mode: 0o600 })
   chmodSync(file, 0o600)
   return file

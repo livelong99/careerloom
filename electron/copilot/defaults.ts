@@ -20,7 +20,6 @@ import type { CopilotDeps, createCopilot } from './handlers'
 import { createConfiguredClassify } from './gate/configured'
 import { createLiveWiring } from './live-wiring'
 import { listLiveModels, liveProvider, testLiveModel } from './live'
-import { parseAudioMsg } from './audio-in'
 import { getOverlayHost } from './overlay-runtime'
 import { createScoreCall, nameFromCv, redactIfOn } from './privacy-calls'
 import { PRIVACY_NOTICE_VERSION } from './privacy-mode'
@@ -33,6 +32,9 @@ import { benchmarkStt } from './stt/benchmark'
 import { killSttSidecars } from './stt/child'
 import { createSttAdapter, listSttModels } from './stt/engines'
 import { interviewPool } from '../interviewer/pool'
+import { getKbStore } from '../kb/runtime'
+import { endInterviewVoice, interviewSpeaker, ttsRuntime } from '../kb/voice'
+import { gateAudioMsg, parseAudioMsg } from './audio-in'
 import { installStt } from './stt/install'
 import { createProbeHub } from './stt/probe'
 import { defaultModel, findSttRuntime } from './stt/runtime'
@@ -82,7 +84,8 @@ export function copilotAudioIn(raw: unknown): void {
   const m = parseAudioMsg(raw)
   if (!m) return
   probeHub.tap(m)
-  audioSink?.(m)
+  const heard = gateAudioMsg(m, ttsRuntime().gate()) // mic frames are dropped while the interviewer speaks (half-duplex)
+  if (heard) audioSink?.(heard)
 }
 
 export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
@@ -184,6 +187,9 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
       pool: interviewPool,
       complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: mask(user) }], model: fastModel(), maxTokens: 500, signal: AbortSignal.timeout(15_000) })).text,
       events: { line: l => live().wiring.emit('copilotTranscript', l), question: q => { void live().wiring.interviewerAsked(q) } },
+      speaker: interviewSpeaker,
+      ended: endInterviewVoice,
+      recordStats: (jobId, itemId, stats) => { getKbStore().updateItem(jobId, itemId, i => ({ ...i, stats })); broadcast('careerloom:kbChanged', { jobId }) },
       onState: s => broadcast('careerloom:interviewerState', s),
     },
     overlay: cmd => getOverlayHost().overlayCommand(cmd),

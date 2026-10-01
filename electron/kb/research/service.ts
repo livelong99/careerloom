@@ -41,6 +41,9 @@ const ID_MAX = 2000
 
 export class ResearchRefused extends Error {}
 
+/** Changes when the posting, the CV gaps, the role or the company change (kbSummary compares it with the manifest's). */
+const hashOf = (f: JobFacts): string => inputHashOf({ jd: { stack: f.posting?.techStack ?? [], skills: f.posting?.skills ?? [], req: f.posting?.requirements ?? null }, gaps: f.gaps, role: f.title || f.posting?.title || 'Untitled role', company: f.company || f.posting?.company || '' })
+
 export function createResearchService(env: ServiceEnv) {
   const live = new Map<string, { runId: string; ac: AbortController }>()
   /** Latest progress per running job, for `kbSummary.progress` (the KB tab polls the summary). */
@@ -118,7 +121,7 @@ export function createResearchService(env: ServiceEnv) {
             jobId, title, company, seniority: posting?.seniority ?? null, techStack: posting?.techStack ?? [], skills: posting?.skills ?? [],
             requirements: [...(posting?.requirements.required ?? []), ...(posting?.requirements.preferred ?? [])], gaps: facts.gaps, cv: facts.cv, ...(facts.userName ? { userName: facts.userName } : {}),
           },
-          inputHash: inputHashOf({ jd: { stack: posting?.techStack ?? [], skills: posting?.skills ?? [], req: posting?.requirements ?? null }, gaps: facts.gaps, role: title, company }),
+          inputHash: hashOf(facts),
           backends: list, fetch: fetchPage, store: env.store(), state: env.state, enabledGroups: enabled,
           llm: async (system, user) => {
             const r = await env.llm(`${system}\n\n${user}`, jobId)
@@ -156,6 +159,8 @@ export function createResearchService(env: ServiceEnv) {
 
   return {
     estimate, start, stop,
+    /** Null when the job is gone. */
+    inputHash: (jobId: string): string | null => { try { return hashOf(env.job(jobId)) } catch { return null } },
     running: (jobId: string): string | null => live.get(jobId)?.runId ?? null,
     /** The `progress` field of `kbSummary` (WP1's handler merges it): null when no research is running for the job. */
     progress: (jobId: string): KbEvents['kbProgress'] | null => latest.get(jobId) ?? null,

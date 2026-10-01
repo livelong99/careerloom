@@ -154,6 +154,7 @@ export function createCopilot(deps: CopilotDeps) {
     try { await deps.session?.stop(reason) } catch (err) { console.error('copilot capture stop failed:', err instanceof Error ? err.message : String(err)) }
     practice?.stop(); practice = null
     const iv = interview; interview = null
+    if (iv) deps.interviewer?.ended?.()
     const ended = recorder.end()
     const done = ended && iv ? saveInterview(ended, iv) : ended
     if (!deps.session) broadcast('careerloom:copilotState', { state: 'stopped', mode: done?.mode ?? 'practice', sessionId: null, sources: [], startedAt: null })

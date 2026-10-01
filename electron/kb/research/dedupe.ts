@@ -1,12 +1,9 @@
 // Normalise + shingle Jaccard ≥ .8 merge with a `seen` count (plan §3.2 step 6). Ids are sha1(normalised text) so a refresh merges stably.
-import { createHash } from 'node:crypto'
-
 import type { KbItem } from '../types'
 
 /** Keeps `c++`, `c#`, `node.js`; drops sentence punctuation (a trailing `.` is not part of a word). */
 export const normalise = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}+#.]+/gu, ' ').replace(/(^|\s)\.+|\.+(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim()
-/** Same recipe as hash.ts `itemId` (WP1). TODO(integration): import it from '../hash' once WP1 is merged; pinned by hash-parity.test.ts. */
-export const itemId = (text: string): string => createHash('sha1').update(normalise(text)).digest('hex')
+export { itemId } from '../hash'
 
 const shingles = (text: string): Set<string> => {
   const w = normalise(text).split(' ').filter(Boolean)
