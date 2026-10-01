@@ -43,7 +43,7 @@ describe('SettingsShell', () => {
   it('opens the deep-linked page and pulses the focused control', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     shell({ target: { page: 'general', focus: 'theme', nonce: 1 } })
-    const row = document.querySelector('[data-focus="theme"]')!
+    const row = document.querySelector('[data-setting-id="theme"]')!
     await waitFor(() => expect(row.classList.contains('ring-2')).toBe(true))
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
     act(() => { vi.advanceTimersByTime(1300) })
@@ -53,7 +53,7 @@ describe('SettingsShell', () => {
 
   it('re-pulses when the same link is followed again (new nonce)', async () => {
     const { rerender } = shell({ target: { page: 'general', focus: 'theme', nonce: 1 } })
-    const row = document.querySelector('[data-focus="theme"]')!
+    const row = document.querySelector('[data-setting-id="theme"]')!
     await waitFor(() => expect(row.classList.contains('ring-2')).toBe(true))
     rerender(<WithRuns><SettingsShell settings={settingsFixture()} onChanged={() => {}} target={{ page: 'general', focus: 'theme', nonce: 2 }} /></WithRuns>)
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2)
@@ -69,7 +69,7 @@ describe('SettingsShell', () => {
     await userEvent.type(screen.getByRole('combobox', { name: 'Search settings' }), 'retention')
     await userEvent.click(await screen.findByText('Run-log retention'))
     expect(screen.getByRole('tab', { name: 'Data & privacy' })).toHaveAttribute('aria-selected', 'true')
-    await waitFor(() => expect(document.querySelector('[data-focus="retention"]')!.classList.contains('ring-2')).toBe(true))
+    await waitFor(() => expect(document.querySelector('[data-setting-id="retention"]')!.classList.contains('ring-2')).toBe(true))
   })
 
   it('"/" focuses the search box', () => {

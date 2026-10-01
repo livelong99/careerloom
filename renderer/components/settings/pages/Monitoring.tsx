@@ -4,6 +4,7 @@ import { errorText, useAsync } from '@/components/copilot/api'
 import { Group, Note, Row } from '@/components/copilot/Group'
 import { selectClass } from '@/components/copilot/hwControls'
 import { SettingChip } from '@/components/settings/SettingChip'
+import { applyWithUndo } from '../kit'
 import { Button } from '@/components/ui/button'
 import { careerloom } from '@/lib/ipc'
 import { ACT_SLOW_MS, REFRESH_OPTIONS, YIELD_SLOW_MS, useRefreshCadence } from '@/lib/refreshCadence'
@@ -42,7 +43,7 @@ export function MonitoringPage() {
       </Group>
       <Group title="Run logs">
         <Row label="Keep run logs for" htmlFor="mon-retention" hint="Older logs are deleted. Run history and costs stay; only the saved output is removed. Upgrading never deletes anything by itself.">
-          <select id="mon-retention" className={selectClass} disabled={!prefs} value={days === null ? 'forever' : String(days)} onChange={e => { const k = KEEP.find(o => o.value === e.target.value); if (k) void patch({ retention: { runLogDays: k.days } }) }}>
+          <select id="mon-retention" className={selectClass} disabled={!prefs} value={days === null ? 'forever' : String(days)} onChange={e => { const k = KEEP.find(o => o.value === e.target.value); if (k) applyWithUndo(`Run-log retention: ${k.label}`, days, k.days, v => patch({ retention: { runLogDays: v } })) }}>
             {KEEP.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </Row>

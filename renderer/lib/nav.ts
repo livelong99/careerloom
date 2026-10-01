@@ -14,6 +14,6 @@ export function navigate(section: Section | 'integrations', opts: { id?: string;
   window.dispatchEvent(new CustomEvent<NavTarget>(NAVIGATE_EVENT, { detail }))
 }
 
-/** Open a Settings page, optionally scrolling to and pulsing one control (`data-focus` id, e.g. `key:openrouter`). */
+/** Open a Settings page, optionally scrolling to and pulsing one control (`data-setting-id` id, e.g. `key:openrouter`). */
 export const goToSettings = (page: PageId, focus?: string) => navigate('settings', { page, focus })
 export const goToIntegrations = () => goToSettings('integrations')

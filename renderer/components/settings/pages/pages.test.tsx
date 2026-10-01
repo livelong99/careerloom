@@ -34,7 +34,7 @@ describe('registry points at real controls on the pages this package owns', () =
   const cases: Array<[string, () => React.ReactNode]> = [['general', () => <GeneralPage {...props()} />], ['data', () => <DataPage {...props()} />], ['advanced', () => <AdvancedPage {...props()} />]]
   it.each(cases)('%s', (page, ui) => {
     const { container } = mount(ui())
-    const have = new Set([...container.querySelectorAll('[data-focus]')].map(n => (n as HTMLElement).dataset.focus))
+    const have = new Set([...container.querySelectorAll('[data-setting-id]')].map(n => (n as HTMLElement).dataset.settingId))
     const missing = REGISTRY.filter(e => e.page === page && e.focus && !have.has(e.focus)).map(e => e.focus)
     expect(missing).toEqual([])
   })

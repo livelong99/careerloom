@@ -113,7 +113,7 @@ function ClearZone({ runLogs, chats, sessions, onDone }: { runLogs: string; chat
   )
   return (
     <>
-      <DangerZone data-focus="danger">
+      <DangerZone focus="danger">
         {row('run-logs', 'clear-run-logs', 'Clear run logs', `${runLogs}. Costs and totals are kept.`)}
         {row('chats', 'clear-chats', 'Delete chat threads', chats)}
         {row('copilot', 'clear-copilot', 'Delete Copilot sessions', `${sessions}, including summaries.`)}

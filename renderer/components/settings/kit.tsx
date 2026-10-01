@@ -1,15 +1,13 @@
-// Small shared pieces for every Settings page: save state, readiness badge, setting chip, test result, danger zone.
+// Small shared pieces for every Settings page: save state, readiness badge, test result, danger zone.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { goToSettings } from '../../lib/nav'
 import { showToast } from '../../lib/toast'
 import type { KeyTest } from '../../lib/types'
 import { Icon } from '../icons'
-import type { PageId } from './pages'
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'unsaved' | 'error'
 
@@ -70,17 +68,6 @@ export function ReadinessBadge({ state, label }: { state: ReadyState; label?: st
   )
 }
 
-/** Read-only echo of a setting on another screen, with a deep link to its one editor. */
-export function SettingChip({ label, value, state, page, focus }: { label: string; value: string; state?: ReadyState; page: PageId; focus?: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-      <span>{label}: <b className="font-medium text-foreground">{value}</b></span>
-      {state && <ReadinessBadge state={state} />}
-      <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => goToSettings(page, focus)}>Manage in Settings</button>
-    </span>
-  )
-}
-
 const ago = (at: number, now = Date.now()): string => {
   const s = Math.max(0, Math.round((now - at) / 1000))
   if (s < 60) return 'just now'
@@ -102,10 +89,10 @@ export function TestResult({ result, running }: { result: KeyTest | null; runnin
 }
 
 /** Collapsed-by-default bordered group for destructive actions; pair each action with <ConfirmDialog>. */
-export function DangerZone({ children, title = 'Danger zone', 'data-focus': focus }: { children: ReactNode; title?: string; 'data-focus'?: string }) {
+export function DangerZone({ children, title = 'Danger zone', focus }: { children: ReactNode; title?: string; focus?: string }) {
   return (
     <Collapsible asChild>
-      <section data-focus={focus} aria-label={title} className="rounded-xl border p-4" style={{ borderColor: 'color-mix(in srgb, var(--bad) 45%, transparent)' }}>
+      <section data-setting-id={focus} aria-label={title} className="rounded-xl border p-4" style={{ borderColor: 'color-mix(in srgb, var(--bad) 45%, transparent)' }}>
         <CollapsibleTrigger className="flex w-full items-center justify-between text-left text-sm font-semibold" style={{ color: 'var(--bad)' }}>
           {title}<Icon name="chevron-down" />
         </CollapsibleTrigger>
