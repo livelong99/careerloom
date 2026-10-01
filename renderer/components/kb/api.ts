@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { careerloom } from '../../lib/ipc'
+import { CONSENT_VERSION } from './consentCopy'
 import { createFakeKb, FAKE_STATES, type FakeState, type KbClient } from '../../lib/kbFake'
 
 export type { KbClient }
@@ -18,7 +19,7 @@ export function kb(): KbClient {
   if (!import.meta.env.DEV) return careerloom // inlined so the fake (and its data) is dropped from production bundles
   const s = fakeState()
   if (!s) return careerloom
-  if (fake?.state !== s) fake = { state: s, client: createFakeKb(s) }
+  if (fake?.state !== s) fake = { state: s, client: createFakeKb(s, new URLSearchParams(location.search).get('fakeConsent') === '0' ? null : CONSENT_VERSION) }
   return fake.client
 }
 

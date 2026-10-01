@@ -38,5 +38,14 @@ export function useKb(jobId: string): KbData {
     return () => { seq.current += 1; offChanged(); offProgress() }
   }, [jobId, reload])
 
+  // The summary carries no progress, so while a run is active re-read it (and the bank) every 3 s: a tab opened mid-run
+  // still sees the partial bank grow and notices when the run ends even if a kbChanged event was missed.
+  const running = summary?.status === 'running'
+  useEffect(() => {
+    if (!running) return
+    const t = setInterval(() => void reload(), 3000)
+    return () => clearInterval(t)
+  }, [running, reload])
+
   return { summary, items, progress, ...state, reload }
 }

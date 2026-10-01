@@ -1,6 +1,6 @@
 // Dev-only fake KB backend (`?fakeKb=ready|running|empty|nokey|partial|offline|stale`, `1` = ready). Never reached in a production build.
 import type {
-  KbApi, KbEvents, KbFilter, KbItemDetail, KbItemView, KbSummary, KbQuestionType, Provenance, ResearchEstimate, ResearchOptions, ResearchProgress, SourceRef,
+  InterviewConfig, KbApi, KbEvents, KbFilter, KbItemDetail, KbItemView, KbSummary, KbQuestionType, Provenance, ResearchEstimate, ResearchOptions, ResearchProgress, SourceRef,
 } from '../../electron/kb/types'
 
 export type FakeState = 'ready' | 'running' | 'empty' | 'nokey' | 'partial' | 'offline' | 'stale'
@@ -45,7 +45,7 @@ const sourceOf = (i: number): SourceRef => {
 
 type Promised<T> = { [K in keyof T]: T[K] extends (...a: infer A) => infer R ? (...a: A) => Promise<R> : never }
 /** The slice of the bridge the KB tab uses; satisfied by `window.careerloom` and by this fake. */
-export type KbClient = Pick<Promised<KbApi>, 'kbSummary' | 'kbList' | 'kbItem' | 'kbEstimate' | 'kbResearchStart' | 'kbResearchStop' | 'kbItemUpdate' | 'kbItemAdd' | 'kbItemRemove' | 'kbExport' | 'kbSearchKeyTest' | 'kbOpenSource'> & {
+export type KbClient = Pick<Promised<KbApi>, 'kbSummary' | 'kbList' | 'kbItem' | 'kbEstimate' | 'kbResearchStart' | 'kbResearchStop' | 'kbItemUpdate' | 'kbItemAdd' | 'kbItemRemove' | 'kbExport' | 'kbSearchKeyTest' | 'kbOpenSource' | 'interviewConfig' | 'interviewSetConfig'> & {
   onKbEvent<K extends 'kbProgress' | 'kbChanged'>(event: K, cb: (p: KbEvents[K]) => void): () => void
 }
 
@@ -54,7 +54,17 @@ const PROGRESS: Array<Pick<ResearchProgress, 'phase' | 'done' | 'total' | 'note'
 ]
 
 /** In-memory backend: same shapes as the real handlers, plus a timer-driven research run for the live states. */
-export function createFakeKb(state: FakeState): KbClient {
+const CONFIG: InterviewConfig = {
+  version: 1,
+  research: { model: null, depth: 'standard', budgetUsd: 0.3, minutes: 5, allowAgent: false, search: { backend: 'brave', fallbackOrder: ['brave', 'exa', 'serper', 'searxng'], searxngUrl: null },
+    sources: { stackexchange: true, github: true, taxonomy: true, hn: true, companyPages: true, articles: true }, consentVersion: null, refreshAfterDays: 30 },
+  voice: { engine: 'system', voiceId: null, speed: 1, echo: 'speakers', tailMs: 400, pushToInterrupt: 'Alt+Space' },
+  kb: { retentionDays: null, maxItems: 400 },
+}
+
+/** `consentVersion` set = the first-run web-research acknowledgement is already given (`?fakeConsent=0` starts without it). */
+export function createFakeKb(state: FakeState, consentVersion: string | null = '2026-10-v1'): KbClient {
+  let config: InterviewConfig = { ...CONFIG, research: { ...CONFIG.research, consentVersion } }
   let status: KbSummary['status'] = state === 'empty' || state === 'nokey' ? 'none' : state === 'running' ? 'running' : state === 'partial' ? 'partial' : state === 'stale' ? 'stale' : 'complete'
   let items: KbItemView[] = status === 'none' ? [] : SEEDS.map((s, i) => viewOf(s, i))
   if (state === 'partial') items = items.slice(0, 6)
@@ -108,6 +118,8 @@ export function createFakeKb(state: FakeState): KbClient {
     },
     kbItemRemove: async (_j, id) => { items = items.filter(i => i.id !== id); emitChanged() },
     kbExport: async () => '/tmp/careerloom-exports/fake-kb.json',
+    interviewConfig: async () => config,
+    interviewSetConfig: async patch => { config = { ...config, research: { ...config.research, ...(patch.research as object | undefined) } as InterviewConfig['research'] }; return config },
     kbSearchKeyTest: async () => ({ ok: state !== 'nokey', backend: 'brave' }),
     kbOpenSource: async () => true,
     onKbEvent: <K extends 'kbProgress' | 'kbChanged'>(event: K, cb: (p: KbEvents[K]) => void) => {

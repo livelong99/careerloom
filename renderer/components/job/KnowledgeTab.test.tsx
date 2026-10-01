@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { FakeState } from '../../lib/kbFake'
-import { resetFakeKb } from '../kb/api'
+import { kb, resetFakeKb } from '../kb/api'
 import { KnowledgeTab } from './KnowledgeTab'
 
-async function open(state: FakeState) {
-  window.history.replaceState({}, '', `/?fakeKb=${state}`)
+async function open(state: FakeState, consent = true) {
+  window.history.replaceState({}, '', `/?fakeKb=${state}${consent ? '' : '&fakeConsent=0'}`)
   resetFakeKb()
   const r = render(<KnowledgeTab jobId="job-1" />)
   await waitFor(() => expect(screen.queryByLabelText('Loading knowledge base')).toBeNull())
@@ -126,6 +126,37 @@ describe('KnowledgeTab states (fake backend)', () => {
     await open('stale')
     expect(screen.getByText('The posting changed since this was researched.')).toBeInTheDocument()
     for (const b of screen.getAllByRole('button', { name: 'Refresh' })) expect(b).toBeEnabled()
+  })
+
+  it('first run: research is locked until the web-research acknowledgement is given, then it starts', async () => {
+    await open('empty', false)
+    expect(screen.getByRole('button', { name: /Research this job/ })).toBeDisabled()
+    expect(screen.getByText(/Research needs your OK first/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Review and agree' }))
+    const dlg = await screen.findByRole('dialog')
+    expect(dlg).toHaveTextContent(/never your résumé text/)
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Agree and continue' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(screen.queryByText(/Research needs your OK first/)).toBeNull())
+    expect(screen.getByRole('button', { name: /Research this job/ })).toBeEnabled()
+  })
+
+  it('a Refresh from the banner before consent opens the dialog and then runs it', async () => {
+    await open('stale', false)
+    await userEvent.click(screen.getAllByRole('button', { name: 'Refresh' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    const dlg = await screen.findByRole('dialog')
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Agree and continue' }))
+    expect(await screen.findByText(/Researching this job/)).toBeInTheDocument()
+  })
+
+  it('re-reads the summary every 3 s while a run is active', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      await open('running')
+      const spy = vi.spyOn(kb(), 'kbSummary')
+      await act(async () => { await vi.advanceTimersByTimeAsync(3100) })
+      expect(spy).toHaveBeenCalled()
+    } finally { vi.useRealTimers() }
   })
 
   it('no dead or unnamed controls in the ready state', async () => {
