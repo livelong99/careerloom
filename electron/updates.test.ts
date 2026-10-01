@@ -55,6 +55,15 @@ describe('createUpdateChecker', () => {
     expect(fetchReleasesImpl).not.toHaveBeenCalled()
   })
 
+  it('peek reports the last known status without touching the network', async () => {
+    const fetchReleasesImpl = vi.fn(async () => [release('v0.9.17')] as never)
+    const c = createUpdateChecker({ currentVersion: CURRENT, fetchReleasesImpl })
+    expect(c.peek()).toEqual({ currentVersion: CURRENT, latestVersion: null, updateAvailable: false, tag: null })
+    expect(fetchReleasesImpl).not.toHaveBeenCalled()
+    await c.check()
+    expect(c.peek()).toMatchObject({ updateAvailable: true, latestVersion: '0.9.17' })
+  })
+
   it('flags an update when a newer desktop release exists', async () => {
     const status = await checker([release('v0.9.17')]).getStatus()
     expect(status).toEqual({ currentVersion: '0.9.16', latestVersion: '0.9.17', updateAvailable: true, tag: 'v0.9.17' })

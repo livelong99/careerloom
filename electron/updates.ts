@@ -79,6 +79,8 @@ export type UpdateChecker = {
   getStatus(): Promise<UpdateStatus>
   /** Force a fresh check now (launch + the 24h timer call this). */
   check(): Promise<UpdateStatus>
+  /** The last known status without any network call (used while update checks are switched off). */
+  peek(): UpdateStatus
 }
 
 export function createUpdateChecker(opts: {
@@ -101,7 +103,7 @@ export function createUpdateChecker(opts: {
   // announce a version the Store cannot install yet (#1520).
   if (opts.storeManaged) {
     const status: UpdateStatus = { ...baselineStatus(opts.currentVersion), storeManaged: true }
-    return { getStatus: () => Promise.resolve(status), check: () => Promise.resolve(status) }
+    return { getStatus: () => Promise.resolve(status), check: () => Promise.resolve(status), peek: () => status }
   }
 
   const check = (): Promise<UpdateStatus> => {
@@ -141,5 +143,5 @@ export function createUpdateChecker(opts: {
     return check()
   }
 
-  return { getStatus, check }
+  return { getStatus, check, peek: () => cached }
 }

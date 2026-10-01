@@ -127,6 +127,14 @@ export function acknowledge(domains: string[]): void {
   writeRegistry({ browser: { ...cfg, acks: [...new Set([...cfg.acks, ...clean])] } })
 }
 
+export const acknowledgeList = (): string[] => [...readRegistry().browser.acks]
+export function revokeAck(domain: string): string[] {
+  const cfg = readRegistry().browser
+  const acks = cfg.acks.filter(d => d !== domain)
+  writeRegistry({ browser: { ...cfg, acks } })
+  return acks
+}
+
 // ————— Integrations card —————
 
 function profileOptions(): string[] {

@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { checkRoot, listReports, readPipeline, readReport, readTracker } from './careerops'
-import { broadcast, dataRoot, launch, setSkillContext, readApiKey, readOpencodeKey, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSecret, writeSettings, type Handler } from './context'
+import { broadcast, dataRoot, launch, setSkillContext, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSettings, type Handler } from './context'
 import { chatHandlers } from './chat'
 import { onboardingHandlers } from './onboarding'
 import { prescreenHandlers, stopPrescreen } from './prescreen'
@@ -16,7 +16,8 @@ import { atsHandlers } from './ats/handlers'
 import { jobViewHandlers } from './job-view/handlers'
 import { docsHandlers } from './docs-gen/handlers'
 import { copilotHandlers } from './copilot/handlers'
-import { settingsHandlers } from './settings/handlers'
+import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
+import { setKey } from './settings/keys'
 import { isAllowedPermission } from './copilot/audio-perms'
 import { copilotSupported } from './copilot/capabilities'
 import { copilotAudioIn } from './copilot/defaults'
@@ -54,16 +55,6 @@ async function refreshReadiness(): Promise<Readiness | null> {
   }
   broadcast('careerloom:readiness', { readiness, switchedTo: next })
   return readiness
-}
-
-function writeApiKey(key: string | null, provider: unknown = 'openrouter'): void {
-  if (provider === 'opencode') {
-    if (key && !/^[\w.-]{16,200}$/.test(key.trim())) throw new Error('That does not look like an OpenCode Zen API key')
-    writeSecret('opencode', key)
-    return
-  }
-  if (key && !/^sk-or-[\w-]{10,}$/.test(key.trim())) throw new Error('That does not look like an OpenRouter key (sk-or-…)')
-  writeSecret('openrouter', key)
 }
 
 let opencodeModels: Array<{ id: string; label: string }> | null = null
@@ -125,8 +116,7 @@ const pickedDirs = new Set<string>()
 
 const handlers: Record<string, Handler> = {
   getSettings: () => {
-    const s = readSettings()
-    return { ...s, hasApiKey: readApiKey() !== null, hasOpencodeKey: readOpencodeKey() !== null, rootCheck: s.root ? checkRoot(s.root) : null }
+    return publicSettings()
   },
   setRoot: (root: unknown) => {
     // Only folders the user picked in the native dialog (or the current one) — never a raw renderer path.
@@ -159,8 +149,7 @@ const handlers: Record<string, Handler> = {
     throw new Error('Unknown runner')
   },
   setApiKey: (key: unknown, provider: unknown) => {
-    writeApiKey(key === null ? null : str(key, 'key'), provider)
-    return (provider === 'opencode' ? readOpencodeKey() : readApiKey()) !== null
+    return setKey(provider === 'opencode' ? 'opencode' : 'openrouter', key === null ? null : str(key, 'key')).hasKey
   },
   chooseDirectory: async () => {
     const res = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
@@ -188,7 +177,13 @@ const handlers: Record<string, Handler> = {
   getPipeline: () => readPipeline(dataRoot()),
   listReports: () => listReports(dataRoot()),
   readReport: (rel: unknown) => readReport(dataRoot(), str(rel, 'report')),
-  getUpdateStatus: () => updateChecker?.getStatus() ?? { currentVersion: app.getVersion(), latestVersion: null, updateAvailable: false, tag: null },
+  // Switched off in Settings → never touch the network on the renderer's behalf; "Check now" is explicit and still works.
+  getUpdateStatus: () => (readSettings().prefs.updates.enabled ? updateChecker?.getStatus() : updateChecker?.peek()) ?? { currentVersion: app.getVersion(), latestVersion: null, updateAvailable: false, tag: null },
+  checkForUpdates: async () => {
+    const status = (await updateChecker?.check()) ?? { currentVersion: app.getVersion(), latestVersion: null, updateAvailable: false, tag: null }
+    broadcast('careerloom:update', status)
+    return status
+  },
   listRuns: () => {
     const live = [...runs.values()].map(summary)
     const ids = new Set(live.map(r => r.id))
@@ -348,9 +343,10 @@ function bootstrap(): void {
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
     // Update availability (from codeburn): at launch, then daily. Notifies only — never installs.
     updateChecker = createUpdateChecker({ currentVersion: app.getVersion() })
-    const runUpdateCheck = () => { void updateChecker?.check().then(status => broadcast('careerloom:update', status)) }
+    const runUpdateCheck = () => { if (readSettings().prefs.updates.enabled) void updateChecker?.check().then(status => broadcast('careerloom:update', status)) }
     runUpdateCheck()
     setInterval(runUpdateCheck, 24 * 60 * 60 * 1000)
+    try { pruneRunLogs() } catch (err) { console.error('run-log retention failed:', err) } // no-op while retention is 'forever'
   })
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
 }
