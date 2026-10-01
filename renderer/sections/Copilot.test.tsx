@@ -14,11 +14,11 @@ vi.mock('@/lib/ipc', async orig => ({
 import { Copilot } from './Copilot'
 
 describe('Copilot shell', () => {
-  it('lists all 10 pages on macOS', () => {
+  it('lists the 7 live-tuning pages on macOS (speech, engine and privacy moved to Settings)', () => {
     mac.value = true
     render(<Copilot />)
     expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(
-      ['Setup', 'Practice', 'Audio', 'Transcription', 'Answer engine', 'Coaching', 'Appearance', 'Hotkeys', 'Privacy', 'Sessions'],
+      ['Setup', 'Practice', 'Audio', 'Coaching', 'Appearance', 'Hotkeys', 'Sessions'],
     )
   })
   it('says it is macOS-only elsewhere', () => {

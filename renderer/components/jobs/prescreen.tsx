@@ -1,27 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
-import { Filter, Loader2, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { Filter, Loader2, ThumbsDown, ThumbsUp } from 'lucide-react'
 
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ToggleSwitch } from '@/components/ui/toggle-switch'
 
 import { usePolled } from '../../hooks/usePolled'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
 import { showToast } from '../../lib/toast'
 import type { PrescreenEntry, PrescreenPolicy, PrescreenRun, PrescreenStatus } from '../../lib/types'
-import { LocalModelSetup } from '../onboarding/ModelStep'
-import { ThirdPartyNotices } from '../onboarding/notices'
+import { SettingChip } from '../settings/SettingChip'
 import type { ScreenedJob } from './filters'
 
 // Pre-screen UI: rule gates (location, function, seniority) then a job-fit model trained on local
 // verdict-small embeddings sort unevaluated jobs into likely / needs-agent / unlikely before a full agent run. Never discards.
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 const NONE: Record<string, PrescreenEntry> = {}
 const METHOD: Record<string, string> = { model: 'trained model', rules: 'rules' }
 export const unevaluated = (j: ScreenedJob) => j.reportNum === null && /^https?:\/\//i.test(j.url)
@@ -128,10 +125,10 @@ export function PrescreenControls({ jobs, selected, prescreen, onEvaluate }: Con
   )
 }
 
-const pts = (gain: number) => `${gain >= 0 ? '+' : ''}${Math.round(gain * 100)} pts`
+export const pts = (gain: number) => `${gain >= 0 ? '+' : ''}${Math.round(gain * 100)} pts`
 const enoughLabels = (s: PrescreenStatus) => s.labels.pos >= 5 && s.labels.neg >= 5
 const personal = (s: PrescreenStatus) => enoughLabels(s) && s.model?.personal ? s.model : null
-const methodLabel = (s: PrescreenStatus) => {
+export const methodLabel = (s: PrescreenStatus) => {
   if (!s.available || s.reason) return 'Rules only'
   const m = personal(s)
   return m ? `Base + personal · ${m.n} labels · ${pts(m.gain)}` : 'Base model (public data)'
@@ -143,100 +140,61 @@ const personalNote = (s: PrescreenStatus) =>
       : s.model ? `Personal layer not used — it didn’t beat the base model (${pts(s.model.gain)} in cross-validation). More marks may change that.`
         : 'Personal layer trains at the next pre-screen.'
 
-/** Where, how senior, and the local model: allowed countries, remote-anywhere, years; set up / retrain. */
-function PrescreenSettings({ status, prescreen }: { status: PrescreenStatus; prescreen: ReturnType<typeof usePrescreen> }) {
-  const [draft, setDraft] = useState<PrescreenPolicy>(status.policy)
-  const [country, setCountry] = useState('')
-  const [working, setWorking] = useState<null | 'save' | 'train'>(null)
-  const [setup, setSetup] = useState(false)
-  const set = (patch: Partial<PrescreenPolicy>) => setDraft(d => ({ ...d, ...patch }))
-  const add = () => {
-    const c = country.trim()
-    if (c && !draft.countries.some(x => x.toLowerCase() === c.toLowerCase())) set({ countries: [...draft.countries, c] })
-    setCountry('')
-  }
-  const act = async (kind: 'save' | 'train', fn: () => Promise<void>) => {
-    setWorking(kind)
-    try { await fn() } catch (err) { showToast(normalizeCliError(err).message, 'error', 6000) } finally { setWorking(null) }
-  }
-  const save = () => act('save', async () => {
-    setDraft(await careerloom.savePrescreenPolicy(draft))
-    await prescreen.reloadStatus()
-    await prescreen.run()
-  })
-  const retrain = () => act('train', async () => {
-    const m = await careerloom.retrainPrescreen()
-    showToast(m.personal
-      ? `Personal layer on ${plural(m.n, 'label')} beats the base model by ${pts(m.gain)} — in use`
-      : `Personal layer on ${plural(m.n, 'label')} didn’t beat the base model (${pts(m.gain)}) — keeping the base model`)
-    await prescreen.run()
-  })
+/** Train the personal layer, report whether it beat the base model, then re-screen. Shared by the Jobs popover and Settings › Jobs. */
+export async function retrainAndReport(rescreen: () => Promise<void>): Promise<void> {
+  const m = await careerloom.retrainPrescreen()
+  showToast(m.personal
+    ? `Personal layer on ${plural(m.n, 'label')} beats the base model by ${pts(m.gain)} — in use`
+    : `Personal layer on ${plural(m.n, 'label')} didn’t beat the base model (${pts(m.gain)}) — keeping the base model`)
+  await rescreen()
+}
 
+export const policySummary = (p: PrescreenPolicy): string =>
+  `${p.countries.length ? p.countries.join(', ') : 'Any location'} · remote-anywhere ${p.remoteAnywhere ? 'included' : 'to “Needs agent”'} · ${p.years === null ? 'no seniority check' : `up to ${p.years} years`}`
+
+/** Read-only popover: the policy and model in one line each, Retrain, and a link to the one editor (Settings › Jobs). */
+export function PrescreenSettings({ status, prescreen }: { status: PrescreenStatus; prescreen: ReturnType<typeof usePrescreen> }) {
+  const [working, setWorking] = useState(false)
+  const retrain = async () => {
+    setWorking(true)
+    try { await retrainAndReport(() => prescreen.run()) } catch (err) { showToast(normalizeCliError(err).message, 'error', 6000) } finally { setWorking(false) }
+  }
   return (
-    <Popover onOpenChange={o => { if (o) setDraft(status.policy) }}>
+    <Popover>
       <PopoverTrigger asChild>
         <button type="button" className="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-(--accent-text)" aria-label={`Pre-screen settings — ${methodLabel(status)}`}>
           <Badge variant={status.available && !status.reason ? 'info' : 'neutral'} title={status.groups.length ? `Target occupations: ${status.groups.join('; ')}` : undefined}>{methodLabel(status)}</Badge>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 space-y-4 text-sm" align="end">
-        <div className="space-y-2">
+      <PopoverContent className="w-96 space-y-3 text-sm" align="end">
+        <div className="space-y-1">
           <p className="font-medium">Where you're searching</p>
-          <div className="flex flex-wrap gap-1.5">
-            {draft.countries.map(c => (
-              <Badge key={c} variant="brand" className="gap-0.5 pr-1">
-                {c}
-                <button type="button" aria-label={`Remove ${c}`} className="cursor-pointer rounded-full hover:text-foreground focus-visible:outline-2 focus-visible:outline-(--accent-text)" onClick={() => set({ countries: draft.countries.filter(x => x !== c) })}><X className="h-3 w-3" /></button>
-              </Badge>
-            ))}
-            {!draft.countries.length && <span className="text-xs text-muted-foreground">Any location — the location gate is off</span>}
-          </div>
-          <Input
-            className="h-8 text-sm" placeholder="Add a country or city, then Enter" value={country} aria-label="Add a country"
-            onChange={e => setCountry(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
-          />
-          <label className="flex items-center justify-between gap-3">
-            <span>Include remote-anywhere and region-wide jobs <span className="block text-xs text-muted-foreground">Off: they go to “Needs agent” instead of passing</span></span>
-            <ToggleSwitch checked={draft.remoteAnywhere} onCheckedChange={v => set({ remoteAnywhere: v })} aria-label="Include remote-anywhere jobs" />
-          </label>
-          <label className="flex items-center justify-between gap-3">
-            <span>Years of experience <span className="block text-xs text-muted-foreground">Drops Staff / Principal / Director roles above it; blank skips the check</span></span>
-            <Input
-              type="number" min={0} max={60} className="h-8 w-20 text-sm" aria-label="Years of experience" value={draft.years ?? ''}
-              onChange={e => set({ years: e.target.value === '' ? null : Number(e.target.value) })}
-            />
-          </label>
-          <div className="flex gap-2">
-            <Button size="sm" className="h-8 text-xs" disabled={!!working || prescreen.busy} onClick={() => void save()}>
-              {working === 'save' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Save and re-screen
-            </Button>
-            <Button size="sm" variant="ghost" className="h-8 text-xs" disabled={!!working} onClick={() => setDraft(status.defaults)}>Reset to profile</Button>
-          </div>
+          <p className="text-muted-foreground">{policySummary(status.policy)}</p>
         </div>
-        <div className="space-y-2 border-t border-(--line) pt-3">
+        <div className="space-y-1 border-t border-(--line) pt-3">
           <p className="font-medium">Job-fit model</p>
-          <p className="text-muted-foreground">
-            {!status.available || status.reason
-              ? status.reason
-              : personal(status)
-                ? `Base model plus a personal layer from ${plural(status.model!.n, 'label')} (${status.model!.pos} relevant, ${status.model!.neg} not); it beat the base by ${pts(status.model!.gain)} in cross-validation. Retrains when your ratings or marks change.`
-                : `Base model (public data): scores titles against your profile’s target occupations. ${personalNote(status)}`}
-          </p>
-          {status.available && !status.reason && status.groups.length > 0 && <p className="text-xs text-muted-foreground">Target occupations: {status.groups.join('; ')}</p>}
-          {status.available && <ThirdPartyNotices />}
-          {!status.available && (setup
-            ? <LocalModelSetup onStatus={s => { if (s.installed) void prescreen.reloadStatus() }} />
-            : <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setSetup(true)}>Set up local model</Button>)}
+          <p className="text-muted-foreground">{modelNote(status)}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           {status.available && (
-            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!!working || prescreen.busy} onClick={() => void retrain()}>
-              {working === 'train' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Retrain
+            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={working || prescreen.busy} onClick={() => void retrain()}>
+              {working && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Retrain
             </Button>
           )}
+          <SettingChip label="Pre-screen policy" page="jobs" focus="prescreen" />
         </div>
       </PopoverContent>
     </Popover>
   )
 }
+
+/** One paragraph on which model is scoring jobs and why the personal layer is or isn't in use. */
+export const modelNote = (s: PrescreenStatus): string =>
+  !s.available || s.reason
+    ? (s.reason ?? 'No local model yet — pre-screening uses rules only.')
+    : personal(s)
+      ? `Base model plus a personal layer from ${plural(s.model!.n, 'label')} (${s.model!.pos} relevant, ${s.model!.neg} not); it beat the base by ${pts(s.model!.gain)} in cross-validation. Retrains when your ratings or marks change.`
+      : `Base model (public data): scores titles against your profile’s target occupations. ${personalNote(s)}`
 
 /** "Relevant" / "Not relevant": the user's own label — overrides the bucket and trains the model. */
 export function FeedbackButtons({ job, onChange }: { job: ScreenedJob; onChange: (e: PrescreenEntry | null) => void }) {

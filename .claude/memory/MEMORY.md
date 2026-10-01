@@ -9,6 +9,7 @@
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
 - [20261001 Settings WP-A](session_20261001_settings-wpa.md) — contract, atomic migration-safe settings.json, key manager + no-token tests, prefs, data/retention, reset, diagnostics
 - [20261001 Settings B shell](session_20261001_settings-b-shell.md) — settings shell/nav/search/deep links, General/Data/Advanced, providers, Integrations nav removed
+- [20261001 Settings E](session_20261001_settings-e-workflows.md) — workflow settings pages (jobs/resume/agent/copilot/monitoring) + Manage-in-Settings chips
 - [20261001 Copilot WP3b](session_20261001_copilot-wp3b-whisper.md) — Whisper MLX adapter + VAD/chunker, Whisper small default per S2, benchmark + audio-probe backends; live p50 772 ms on synthetic speech
 - [20261001 Copilot review](session_20261001_copilot-review.md) — independent review; 3 HIGH + M1-M8 fixed, M9/M10 follow-ups in docs/plans/interview-copilot/review.md
 - [20261001 Copilot INT](session_20261001_copilot-int.md) — WP1-4 merged + wired e2e (live wiring, mic in overlay, overlay actions); verified on cloned profile with fake mic/OpenRouter
