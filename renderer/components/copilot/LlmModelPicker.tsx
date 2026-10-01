@@ -55,15 +55,17 @@ export function LlmModelPicker({ tier, value, models, onChange }: { tier: string
   return (
     <div className="rounded-lg border border-border bg-card/40">
       <div className="flex flex-wrap items-center gap-3 p-3">
-        <span className="w-20 text-sm font-medium text-foreground">{tier}</span>
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-mono text-xs text-foreground">{value ?? 'No model chosen'}</div>
+        <span className="w-20 shrink-0 text-sm font-medium text-foreground">{tier}</span>
+        <div className="min-w-48 flex-1">
+          <div className="break-all font-mono text-xs text-foreground">{value ?? 'No model chosen'}</div>
           {current && <div className="text-xs text-muted-foreground">{meta(current)}</div>}
         </div>
         {current && <Badge variant={POLICY[current.dataPolicy].variant}>{POLICY[current.dataPolicy].text}</Badge>}
-        {probe && <Badge variant={probe.kind === 'ok' ? 'neutral' : 'warn'}>{probe.text}</Badge>}
-        <Button size="sm" variant="outline" onClick={() => setOpen(o => !o)} aria-expanded={open}>Change…</Button>
-        <Button size="sm" variant="ghost" onClick={() => void test()} disabled={!value || testing || probe?.kind === 'off'} title={probe?.kind === 'off' ? probe.text : undefined}>Test</Button>
+        {probe && <Badge variant={probe.kind === 'ok' ? 'neutral' : 'warn'} className="h-auto max-w-full whitespace-normal break-words">{probe.text}</Badge>}
+        <div className="flex shrink-0 gap-1">
+          <Button size="sm" variant="outline" onClick={() => setOpen(o => !o)} aria-expanded={open}>Change…</Button>
+          <Button size="sm" variant="ghost" onClick={() => void test()} disabled={!value || testing || probe?.kind === 'off'} title={probe?.kind === 'off' ? probe.text : undefined}>Test</Button>
+        </div>
       </div>
       {open && (
         <div className="flex flex-col gap-3 border-t border-border p-3">
