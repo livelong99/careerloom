@@ -35,7 +35,7 @@ function deps(jobId?: string): Deps {
     pages: extractPdfPages,
     runner: () => readSettings().runner,
     startAgent(prompt, o) {
-      startAgentPrompt('ATS analysis', 'ats', prompt, null, { resume: o.resume, textOnly: true, neutral: true, onExit: r => o.onExit({ status: r.status, log: r.log, sessionId: r.sessionId ?? null }) })
+      startAgentPrompt('ATS analysis', 'ats', prompt, null, { ...(jobId ? { jobId } : {}), resume: o.resume, textOnly: true, neutral: true, onExit: r => o.onExit({ status: r.status, log: r.log, sessionId: r.sessionId ?? null }) })
     },
     get sim() { return localSimCall() },
     fetcher: netFetcher,

@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { useRuns } from '../../hooks/useRuns'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
 import type { CliRunner } from '../../lib/types'
-import { RunLog } from '../RunsDrawer'
+import { RunLog } from '../RunLog'
 import { KeyField } from '../settings/KeyField'
 
 // Shared pieces of the first-run flow (renderer/sections/Onboarding.tsx).

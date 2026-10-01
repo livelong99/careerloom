@@ -55,8 +55,8 @@ async function generate(jobId: string, kind: DocKind, opts: DocsOptions): Promis
   const rel = jobDir(job)
   mkdirSync(join(root, rel), { recursive: true })
   const missing = missingSkills(jobId, keywords)
-  const main = (label: string) => (p: string) => runText(p, { tier: 'main', label })
-  const helper = (label: string) => (p: string) => runText(p, { tier: 'helper', label })
+  const main = (label: string) => (p: string) => runText(p, { tier: 'main', label, jobId })
+  const helper = (label: string) => (p: string) => runText(p, { tier: 'helper', label, jobId })
   const base = { id: sha(`${jobId}${kind}${Date.now()}`), jobId, kind, dir: rel, createdAt: Date.now(), inputHash: sha(JSON.stringify([cv, posting?.summary, opts])) }
 
   if (kind === 'resume') {
