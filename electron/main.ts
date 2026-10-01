@@ -335,7 +335,9 @@ function bootstrap(): void {
     sweepCookieTemp() // plaintext cookie copies a crashed browser scan left behind
     registerHandlers()
     // Only our own pages may ask for the microphone; every other permission keeps Electron's default (allowed).
-    session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) => cb(permission === 'media' ? isAllowedPermission(permission, details.requestingUrl) : true))
+    session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) => cb(permission === 'media' ? isAllowedPermission(permission, details.requestingUrl, 'mediaTypes' in details ? details.mediaTypes : undefined) : true))
+    // Same rule for the synchronous check (device labels, enumerateDevices): without it Chromium answers from the request handler's absence.
+    session.defaultSession.setPermissionCheckHandler((_wc, permission, origin, details) => permission === 'media' ? isAllowedPermission(permission, origin, details.mediaType === 'video' ? ['video'] : undefined) : true)
     void refreshReadiness().catch(err => console.error('readiness check failed:', err))
     Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate()))
     createWindow()

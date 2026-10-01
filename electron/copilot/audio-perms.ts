@@ -27,7 +27,9 @@ const PANES = {
 } as const
 export const settingsUrl = (pane: keyof typeof PANES) => `x-apple.systempreferences:com.apple.preference.security?${PANES[pane]}`
 
-/** Allow only `media` requests, and only from the app's own pages (file:// or the dev server). */
-export function isAllowedPermission(permission: string, requestingUrl: string): boolean {
-  return permission === 'media' && /^(file:\/\/|http:\/\/localhost:\d+\/)/.test(requestingUrl)
+const OWN_PAGE = /^(file:\/\/|http:\/\/(localhost|127\.0\.0\.1):\d+(\/|$))/
+
+/** Allow only microphone (audio-only `media`) requests, and only from the app's own pages (file:// or the dev server, which listens on 127.0.0.1). */
+export function isAllowedPermission(permission: string, requestingUrl: string, mediaTypes?: readonly string[]): boolean {
+  return permission === 'media' && OWN_PAGE.test(requestingUrl) && !mediaTypes?.includes('video')
 }
