@@ -32,6 +32,7 @@ import { createFakeAdapter, parseFixture } from './stt/fake'
 import { benchmarkStt } from './stt/benchmark'
 import { killSttSidecars } from './stt/child'
 import { createSttAdapter, listSttModels } from './stt/engines'
+import { interviewPool } from '../interviewer/pool'
 import { installStt } from './stt/install'
 import { createProbeHub } from './stt/probe'
 import { defaultModel, findSttRuntime } from './stt/runtime'
@@ -179,6 +180,12 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     context: { preview: id => context().preview(id) },
     complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: mask(user) }], model: fastModel(), maxTokens: 120, signal: AbortSignal.timeout(8000) })).text,
 
+    interviewer: {
+      pool: interviewPool,
+      complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: mask(user) }], model: fastModel(), maxTokens: 500, signal: AbortSignal.timeout(15_000) })).text,
+      events: { line: l => live().wiring.emit('copilotTranscript', l), question: q => { void live().wiring.interviewerAsked(q) } },
+      onState: s => broadcast('careerloom:interviewerState', s),
+    },
     overlay: cmd => getOverlayHost().overlayCommand(cmd),
     ackNotice: version => getOverlayHost().ackPrivacyNotice(version),
     checkHotkey: accel => getOverlayHost().checkHotkey(accel),

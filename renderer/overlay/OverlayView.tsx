@@ -2,6 +2,8 @@
 // and OverlayPreview; it holds no state and talks to nothing.
 import './overlay.css'
 
+import type { ReactNode } from 'react'
+
 import { ActionRow, OvButton } from './ActionRow'
 import { ListeningChip } from './ListeningChip'
 import { Meter } from './Meter'
@@ -12,7 +14,9 @@ import { SuggestionCard } from './SuggestionCard'
 import { Transcript } from './Transcript'
 import type { OverlayActions, OverlayViewData } from './types'
 
-type P = { data: OverlayViewData; on: OverlayActions; theme: 'dark' | 'light'; fontPx?: number; widthPx?: number; opacity?: number }
+type P = { data: OverlayViewData; on: OverlayActions; theme: 'dark' | 'light'; fontPx?: number; widthPx?: number; opacity?: number
+  /** AI-interviewer practice: the interviewer row + caption go above the cues, the controls below (the question banner is replaced by the caption). */
+  interview?: { top: ReactNode; bottom: ReactNode } }
 
 const inQuestion = (s: OverlayViewData['state']): boolean => s === 'question' || s === 'answering' || s === 'answered'
 const Kbd = ({ k }: { k: string }) => <span className="kbd">{k}</span>
@@ -72,10 +76,10 @@ function Footer({ d }: { d: OverlayViewData }) {
   )
 }
 
-function Body({ d, on }: { d: OverlayViewData; on: OverlayActions }) {
+function Body({ d, on, hideQuestion }: { d: OverlayViewData; on: OverlayActions; hideQuestion?: boolean }) {
   const acts = <ActionRow keys={d.keys} screen={d.screen} on={{ answer: on.answer, screenshot: on.screenshot, fixScreen: on.fixScreen }} />
   const tr = <Transcript lines={d.lines} />
-  const q = d.question
+  const q = hideQuestion ? null : d.question
   switch (d.state) {
     case 'idle':
       return <div className="prob"><div className="h"><OvIcon name="mic" size={16} />Ready when you are</div><p>Nothing is recorded until you start. Start from Careerloom, or press <Kbd k={d.keys.listen} />.</p><div className="bt"><OvButton icon="play" label="Start" kbd={d.keys.listen} primary onClick={on.start} /></div></div>
@@ -92,14 +96,14 @@ function Body({ d, on }: { d: OverlayViewData; on: OverlayActions }) {
   }
 }
 
-export function OverlayView({ data: d, on, theme, fontPx, widthPx, opacity }: P) {
+export function OverlayView({ data: d, on, theme, fontPx, widthPx, opacity, interview }: P) {
   if (d.wiped) return <div className="ov" data-theme={theme} data-wiped hidden /> // quick hide: no text survives in the DOM
   const style = { '--ov-fs': fontPx ? `${fontPx}px` : undefined, '--ovw': widthPx ? `${widthPx}px` : undefined, opacity: d.passive ? undefined : opacity } as React.CSSProperties
   return (
     <div className={`ov${d.passive ? ' passive' : ''}`} data-state={d.state} data-layout={d.layout} data-theme={theme} style={style}>
       <div className="thread" />
       <Header d={d} on={on} />
-      {d.layout === 'strip' ? null : <Body d={d} on={on} />}
+      {d.layout === 'strip' ? null : <>{interview?.top}<Body d={d} on={on} hideQuestion={interview !== undefined} />{interview?.bottom}</>}
     </div>
   )
 }
