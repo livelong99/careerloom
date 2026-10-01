@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261002 KB WP4](session_20261002_kb-wp4.md) — AI interviewer engine + Practice (text first): selector/probe/score/runner, live-path parity seam, Practice form, overlay row/controls, debrief heat map
 - [20261002 KB WP3 UI](session_20261002_kb-wp3-ui.md) — Job › Knowledge base tab on the kb contract: fake backend (?fakeKb), 7 states dark+light, RTL + a11y tests
 - [20261002 KB WP6 Settings](session_20261002_kb-wp6-settings.md) — Interview prep settings page, Brave one-query key test, consent reset on provider change, config IPC (contract v1.1)
 - [20261002 KB WP2](session_20261002_kb-wp2.md) — job KB research pipeline on fakes: search adapters, SSRF/robots/denylist-safe fetch, poison guard, budget, resume, Run registration; S-R1 not run (needs key)

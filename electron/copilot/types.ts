@@ -48,7 +48,7 @@ export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; que
 /** `questionIds`/`custom` (practice only): the chosen report questions and the user's own. Additive to the frozen contract. */
 export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[]; /** practice only: AI-interviewer plan from the job knowledge base; absent = the report-question path. Additive. */ interview?: InterviewPlan }
 /** `start` restarts the last practice session, `retry` reopens speech recognition for the running one, `debrief` opens the last session in Careerloom (overlay buttons). Additive. */
-export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean; debrief?: boolean }
+export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean; debrief?: boolean; /** AI interviewer controls (practice with an interview plan). Additive. */ interviewer?: 'replay' | 'skip' | 'hint'; /** Typed answer when speech recognition is unavailable (practice with an interview plan). Additive. */ typed?: string }
 export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper'
 export type SttDevice = 'auto' | 'cpu' | 'coreml' | 'cuda'
 export type SttBenchmark = { at: number; p50FinalMs: number; realTimeFactor: number; ramMb: number | null; wer: number | null }

@@ -12,7 +12,7 @@ const kbHandlers: Record<string, Handler> = typed
 
 const KB = ['kbSummary', 'kbList', 'kbItem', 'kbItemUpdate', 'kbItemAdd', 'kbItemRemove', 'kbExport', 'kbImport', 'kbSearchKeyTest', 'kbOpenSource']
 const CONFIG = ['interviewConfig', 'interviewSetConfig']
-const VOICE = ['interviewVoices', 'interviewPreviewVoice', 'interviewInstallVoice', 'interviewPlanPreview']
+const VOICE = ['interviewVoices', 'interviewPreviewVoice', 'interviewInstallVoice']
 const platform = (p: string) => Object.defineProperty(process, 'platform', { value: p })
 const real = process.platform
 afterEach(() => platform(real))
@@ -29,7 +29,7 @@ describe('interview config IPC (contract v1.1)', () => {
 
 describe('kb handler stubs (WP0)', () => {
   const RESEARCH = ['kbEstimate', 'kbResearchStart', 'kbResearchStop'] // WP2: real handlers (research/service.test.ts)
-  it('registers exactly the KbApi methods', () => expect(Object.keys(kbHandlers).sort()).toEqual([...KB, ...RESEARCH, ...CONFIG, ...VOICE].sort()))
+  it('registers exactly the KbApi methods', () => expect(Object.keys(kbHandlers).sort()).toEqual([...KB, ...RESEARCH, ...CONFIG, ...VOICE, 'interviewPlanPreview'].sort()))
   it.each(KB)('%s resolves not-implemented on every platform', async name => {
     for (const p of ['darwin', 'win32', 'linux']) {
       platform(p)
