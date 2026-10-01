@@ -51,7 +51,7 @@ export function EnginePage() {
         <Row label="Prefer" hint="How OpenRouter picks among providers for the same model.">
           <SegTabs options={[{ value: 'latency', label: 'Fastest' }, { value: 'price', label: 'Cheapest' }]} value={e.openrouter.sort} onChange={v => patch({ openrouter: { ...e.openrouter, sort: v as 'latency' | 'price' } })} />
         </Row>
-        <Row label="Answer automatically" hint={<>Off: press <Kbd>{accelLabel(config.hotkeys.answer)}</Kbd> when you want a suggestion. On: a suggestion starts when a question is detected.</>}>
+        <Row label="Answer automatically" hint={<>Off: press <Kbd>{accelLabel(config.hotkeys.answer)}</Kbd> when you want a suggestion. On: a suggestion starts when a question is detected. Needs the interviewer's audio on its own channel, so it does nothing with the microphone alone.</>}>
           <ToggleSwitch aria-label="Auto answer" checked={e.autoAnswer} onCheckedChange={v => patch({ autoAnswer: v })} />
         </Row>
         <Row label="Models" hint="One model per speed tier. Search the OpenRouter list, then test how fast it starts." stack>

@@ -29,5 +29,6 @@ Both documented shapes parse the same `answers`. `/v1/systemone` (docs.typesafe.
 2. Aborted speculative requests are not on the engine's cost meter. Mitigation: 3-miss shut-off + auto-ask rate cap; wasted tokens are an estimate (chars / 4).
 3. Streaming Moonshine keeps its own endpointing: `fastEndpoint` only affects the chunked (Whisper) adapter. Speculation is the lever there.
 
-## Follow-ups
-Show `metrics().speculation` (hit rate, wasted tokens) in the PERF-1 trace summary once that branch lands; screenshots (`route.needsScreenshot`) are consumed by PERF-3.
+## Merged with PERF-1 and PERF-3
+- **Trace (PERF-1) covers PERF-2 paths:** `TraceMarks.releasedAt` (a held speculative answer is visible only once released: `endToSay` = later of first say and release), `StageMs.turn = { kind, tier, auto, spec: 'hit'|'miss'|null, gate: 'heuristic'|'jev'|null, gateMs }` (closed-set labels and numbers, no text), `TraceSummary.speculation = { hits, misses }`. The engine now shares `req.marks` / `req.info` with the caller and, for held requests, writes the record on `req.afterRelease`. The record's `questionId` for a speculative turn is the speculative id (`qs…`); suggestions carry the final id.
+- **Screenshots (PERF-3):** one rule: `heuristicHint().needsScreenshot` = `vision.needsScreenshot` OR the wider phrase list; it surfaces as `route.needsScreenshot`. **Still unwired (needs the shared files, as PERF-3 listed):** `handlers.ts` `copilotScreenshot` -> `pipeline.capture()` + engine call; widen `ProviderPrompt.messages[].content` to `string | parts[]` and pick a vision model; `main.ts` `sweep()` / `clear()`; consuming `route.needsScreenshot` to pre-capture at end of turn once the pipeline is instantiated.

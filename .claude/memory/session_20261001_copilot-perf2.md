@@ -27,7 +27,9 @@ type: project
 - Fresh worktree had no node_modules -> `cp -cR` from a sibling (same lockfile).
 - Early decode blocked by a running partial -> skip partials in the quiet tail when `fastEndpoint`.
 
-**State:** done (live OpenRouter/Jev numbers pending a key)
+- Merged perf-1 (trace) then perf-3 (screenshots) here: trace now carries releasedAt, turn info (kind/tier/auto/spec/gate) and speculation counts; engine shares req.marks/info and defers the record to afterRelease for held requests. Conflicts in engine/live-wiring/prompts/MEMORY resolved by hand.
+
+**State:** done (live OpenRouter/Jev numbers pending a key; PERF-3 screenshot wiring still open, listed in perf-2.md)
 
 **Next steps:**
 - Run `scripts/copilot-gate-probe.mjs --live` and `scripts/copilot-latency.mjs` with a key; decide on turning speculation / Jev on.
