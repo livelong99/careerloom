@@ -10,6 +10,7 @@ import { launchTask, runs, summary, type Handler } from './context'
 import type { LocalModelStatus } from './contract'
 import { sidecarScript } from './fit-sidecar'
 import { resolveBin, spawnSpec, startRun, type SpawnSpec } from './runner'
+import { hasManagedTool } from './runtime/paths'
 
 export const MODEL = 'Manav2op/verdict-small'
 export const REV = '085a41e0ea269f00483dd202a286cfb68f7aa63a'
@@ -40,8 +41,10 @@ export function findRuntime(dir = modelDir()): Runtime | null {
 // ————— Python ≥ 3.10 —————
 
 /** Interpreters to try, best first: [bin, leading args]. */
-export const pythonCandidates = (platform = process.platform): Array<[string, string[]]> =>
-  platform === 'win32' ? [['py', ['-3']], ['python', []]] : [...['python3.13', 'python3.12', 'python3.11', 'python3.10', 'python3', 'python'].map((b): [string, string[]] => [b, []])]
+export const pythonCandidates = (platform = process.platform): Array<[string, string[]]> => {
+  const managed: Array<[string, string[]]> = hasManagedTool('python', platform) ? [[platform === 'win32' ? 'python' : 'python3', []]] : [] // resolves to Careerloom's own copy first
+  return [...managed, ...(platform === 'win32' ? [['py', ['-3']], ['python', []]] as Array<[string, string[]]> : ['python3.13', 'python3.12', 'python3.11', 'python3.10', 'python3', 'python'].map((b): [string, string[]] => [b, []]))]
+}
 
 export function pythonVersionOk(version: string | null): boolean {
   const [maj, min] = (version ?? '').split('.').map(Number)

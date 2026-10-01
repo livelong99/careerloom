@@ -6,9 +6,9 @@ import type { Decoder } from './buffer'
 import { encodeFrame, FRAME, lineSplitter } from './framing'
 import type { SidecarChild } from './sidecar'
 
-export type DecoderSpec = { spawn: () => SidecarChild; config: (o: SttStartOpts) => object; readyTimeoutMs?: number; stopGraceMs?: number }
+export type DecoderSpec = { spawn: () => SidecarChild; config: (o: SttStartOpts) => object; readyTimeoutMs?: number; stopGraceMs?: number; /** Extra fields of the ready line (e.g. the device a sidecar ended up on). */ onReady?: (l: { device?: string; reason?: string }) => void }
 type Pending = { frame: Buffer; resolve: (t: string) => void; reject: (e: Error) => void }
-type Line = { ev: string; id?: number; text?: string; message?: string }
+type Line = { ev: string; id?: number; text?: string; message?: string; device?: string; reason?: string | null }
 
 export function createSidecarDecoder(spec: DecoderSpec): Decoder {
   const pending = new Map<number, Pending>()
@@ -26,7 +26,7 @@ export function createSidecarDecoder(spec: DecoderSpec): Decoder {
     c.onData(lineSplitter(raw => {
       let l: Line
       try { l = JSON.parse(raw) as Line } catch { return } // ponytail: non-JSON chatter from native libs is ignored
-      if (l.ev === 'ready') return onReady()
+      if (l.ev === 'ready') { spec.onReady?.({ device: l.device, reason: l.reason ?? undefined }); return onReady() }
       const p = l.id === undefined ? undefined : pending.get(l.id)
       if (!p) return
       pending.delete(l.id!)

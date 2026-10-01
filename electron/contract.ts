@@ -197,6 +197,15 @@ export type ToolCheck = { path: string | null; version: string | null; ok: boole
 export type DirState = 'missing' | 'empty' | 'valid' | 'occupied'
 export type Prerequisites = { node: ToolCheck; npm: ToolCheck; git: ToolCheck; platform: string; defaultCareerOpsDir: string; defaultDirState: DirState }
 
+// ————— First-launch bootstrap (electron/runtime/bootstrap.ts): installs every dependency, no commands for the user —————
+export type BootstrapStepId = 'node' | 'python' | 'git' | 'career-ops' | 'opencode' | 'prescreen-model' | 'stt'
+export type BootstrapState = 'pending' | 'running' | 'done' | 'failed' | 'skipped'
+/** `prompt` is a self-contained text the user pastes into any agent CLI to fix this failure. */
+export type BootstrapFailure = { message: string; logTail: string; prompt: string }
+/** `core` steps gate onboarding; the others (large model downloads) run after them without blocking. */
+export type BootstrapStep = { id: BootstrapStepId; label: string; core: boolean; state: BootstrapState; detail: string | null; sizeMb: number | null; runId: string | null; error: BootstrapFailure | null }
+export type BootstrapStatus = { running: boolean; coreDone: boolean; allDone: boolean; platform: string; arch: string; steps: BootstrapStep[] }
+
 // ————— Pre-screen (electron/prescreen.ts): rule gates, then a public-data base model + gated personal layer on local verdict-small embeddings —————
 export type PrescreenMethod = 'model' | 'rules'
 export type PrescreenBucket = 'likely' | 'uncertain' | 'unlikely'

@@ -60,6 +60,12 @@ export function AdvancedPage(_props: PageProps) {
         {diag.data && <Row label="Memory"><code className="text-xs">{gb(diag.data.memory.freeBytes)} GB free of {gb(diag.data.memory.totalBytes)} GB</code></Row>}
       </Group>
 
+      <Group title="Setup & repair" focus="setup-repair">
+        <Row label="Re-run setup" hint="Re-checks Node, Python, Git, career-ops and OpenCode and reinstalls anything missing.">
+          <Button size="sm" variant="outline" onClick={() => void careerloom.bootstrapStart().then(() => showToast('Setup re-checking in the background'), e => showToast(normalizeCliError(e).message, 'error', 6000))}>Re-run setup</Button>
+        </Row>
+      </Group>
+
       <Group title="Recent runs & logs" focus="run-history" action={<Button size="sm" variant="outline" onClick={() => openRuns()}>Open Runs</Button>}>
         {runs.length === 0 && <p className="m-0 text-xs text-muted-foreground">No runs yet.</p>}
         {runs.slice(0, 8).map(r => (

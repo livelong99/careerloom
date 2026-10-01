@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 
+import { SetupView } from './components/bootstrap/SetupStep'
+import { useBootstrap } from './components/bootstrap/useBootstrap'
 import { CommandPalette } from './components/CommandPalette'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { OPEN_RUNS_EVENT, RunsDrawer } from './components/RunsDrawer'
@@ -95,6 +97,7 @@ function AppBody() {
   const settings = usePolled(() => careerloom.getSettings(), [runs.generation], { intervalMs: null })
   const ready = settings.data?.rootCheck?.ok === true
   const attention = useAttention(settings.data)
+  const boot = useBootstrap()
 
   useEffect(() => { applyTheme(readTheme()) }, [])
   useEffect(() => careerloom.onSettings(settings.refresh), [settings.refresh])
@@ -120,10 +123,13 @@ function AppBody() {
   // Until a valid career-ops folder is set, every section is Settings' setup pane.
   // First run (or a folder that went missing): the guided setup replaces every screen.
   const onboarding = settings.data != null && needsOnboarding(settings.data)
+  // Returning users whose required tools went missing get the same install screen; first-run has its own step.
+  const needsSetup = !onboarding && boot.status != null && !boot.status.coreDone
   const shown: Section = section
   let body: ReactNode
   if (!settings.data) body = <SectionSkeleton label="Loading" />
   else if (onboarding) body = <Onboarding onDone={settings.refresh} />
+  else if (needsSetup) body = <div className="workspace mx-auto flex w-full max-w-[640px] flex-col gap-5 py-8"><SetupView status={boot.status} error={boot.error} onRetry={boot.start} /></div>
   else if (shown === 'settings') body = <Settings settings={settings.data} onChanged={settings.refresh} target={settingsTarget} />
   else if (shown === 'overview') body = <Overview onNavigate={setSection} />
   else if (shown === 'jobs' || (shown === 'job' && !jobFocus)) body = <Jobs />
@@ -140,7 +146,7 @@ function AppBody() {
     <RunsContext.Provider value={runs}>
       <Window>
         {/* Setup is one focused flow: no navigation to screens that can't work yet. */}
-        {!onboarding && <Sidebar active={shown === 'job' ? 'jobs' : shown} onNavigate={setSection} attention={Object.keys(attention).length > 0} />}
+        {!onboarding && !needsSetup && <Sidebar active={shown === 'job' ? 'jobs' : shown} onNavigate={setSection} attention={Object.keys(attention).length > 0} />}
         <ToastHost />
         <div className="ct" aria-busy={running > 0}>
           <div className={running > 0 ? 'switch-line on' : 'switch-line'} aria-hidden="true" />

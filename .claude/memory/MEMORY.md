@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261001 Bundle bootstrap](session_20261001_bundle-bootstrap.md) — first-launch auto-install, Windows embedded runtimes, faster-whisper CUDA STT; feat/bundle-app, untested on Windows/GPU
 - [20261001 Copilot SS screenshots wired](session_20261001_copilot-screenshots-wired.md) — screenshot path end to end: image parts to vision models only, routing pre-capture, cleanup hooks, overlay states, opt-in setting; cloned-profile QA
 - [20261001 Copilot PERF-2](session_20261001_copilot-perf2.md) — adaptive endpointing (real Whisper −460 ms), auto-ask policy, heuristic/Jev gate, speculative start, per-turn routing
 - [20261001 Copilot PERF-1](session_20261001_copilot-perf1.md) — latency trace, headline-first/prefix-stable prompt, reasoning-param ladder, pre-warm, cached-token cost + report

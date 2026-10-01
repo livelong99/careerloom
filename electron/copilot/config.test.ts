@@ -107,10 +107,15 @@ describe('migration safety', () => {
     expect(JSON.parse(fs.readFileSync(file, 'utf8'))).not.toHaveProperty('futureThing')
     expect(JSON.parse(fs.readFileSync(file, 'utf8')).version).toBe(1)
   })
-  it('an engine that cannot run on this build (faster-whisper) falls back to the default instead of failing every session start', () => {
-    fs.writeFileSync(file, JSON.stringify({ version: 1, stt: { engine: 'faster-whisper', model: 'small' } }))
-    expect(readCopilotConfig().stt.engine).toBe(defaultEngine())
-    expect(writeCopilotConfig({ stt: { engine: 'faster-whisper' } }).stt.engine).toBe(defaultEngine())
+  it('faster-whisper is a valid engine; unknown engines fall back to the default', () => {
+    fs.writeFileSync(file, JSON.stringify({ version: 1, stt: { engine: 'faster-whisper', model: 'turbo', device: 'cuda' } }))
+    expect(readCopilotConfig().stt).toMatchObject({ engine: 'faster-whisper', model: 'turbo', device: 'cuda' })
+    expect(writeCopilotConfig({ stt: { engine: 'soniox' as never } }).stt.engine).toBe(defaultEngine())
+  })
+  it('keeps the extra benchmark fields (p95, decode times, device) and drops bad ones', () => {
+    const b = { at: 1, p50FinalMs: 400, realTimeFactor: 0.1, ramMb: null, wer: 0.05, p95FinalMs: 600, p50DecodeMs: 120, p95DecodeMs: 200, device: 'cuda' as const }
+    expect(writeCopilotConfig({ stt: { lastBenchmark: b } }).stt.lastBenchmark).toEqual(b)
+    expect(writeCopilotConfig({ stt: { lastBenchmark: { ...b, device: 'tpu', p95FinalMs: 'x' } as never } }).stt.lastBenchmark).toEqual({ at: 1, p50FinalMs: 400, realTimeFactor: 0.1, ramMb: null, wer: 0.05, p50DecodeMs: 120, p95DecodeMs: 200 })
   })
   it('a partial file (fields added in later releases) fills missing sections from defaults', () => {
     fs.writeFileSync(file, JSON.stringify({ version: 1, audio: { useSystem: true } }))
