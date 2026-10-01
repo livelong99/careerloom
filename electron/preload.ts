@@ -193,6 +193,7 @@ const bridge = {
   interviewVoices: (...a: unknown[]) => invoke('interviewVoices', ...a),
   interviewPreviewVoice: (...a: unknown[]) => invoke('interviewPreviewVoice', ...a),
   interviewInstallVoice: (...a: unknown[]) => invoke('interviewInstallVoice', ...a),
+  interviewSkillSignal: (...a: unknown[]) => invoke('interviewSkillSignal', ...a),
   interviewKokoroStatus: (...a: unknown[]) => invoke('interviewKokoroStatus', ...a),
   interviewPlanPreview: (...a: unknown[]) => invoke('interviewPlanPreview', ...a),
   onKbEvent: (event: string, cb: (payload: unknown) => void) => subscribe(event, cb),

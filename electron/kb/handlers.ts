@@ -7,6 +7,7 @@ import { copilotSupported } from '../copilot/capabilities'
 import type { DeepPartial } from '../copilot/types'
 import { interviewPlanPreview } from '../interviewer/handlers'
 import { setInterviewPool } from '../interviewer/pool'
+import { readSkillSignal } from '../interviewer/session'
 import { testKey } from '../settings/keys-test'
 import { createKbApi } from './api'
 import { readInterviewConfig, writeInterviewConfig } from './config'
@@ -59,6 +60,7 @@ export const kbHandlers: Record<keyof KbApi, Handler> = {
   },
   interviewPlanPreview,
   interviewKokoroStatus: async () => ({ supported: installSupported(), installed: findKokoro() !== null, installing: kokoroInstallRunning(), downloadMb: KOKORO_DOWNLOAD_MB.packages + KOKORO_DOWNLOAD_MB.models }),
+  interviewSkillSignal: async jobId => readSkillSignal(userFile('copilot'), str(jobId, 'job id')),
   interviewVoices: macOnly(() => voiceHandlers().interviewVoices()),
   interviewPreviewVoice: macOnly((...a: Parameters<KbApi['interviewPreviewVoice']>) => voiceHandlers().interviewPreviewVoice(...a)),
   interviewInstallVoice: macOnly((...a: Parameters<KbApi['interviewInstallVoice']>) => voiceHandlers().interviewInstallVoice(...a)),

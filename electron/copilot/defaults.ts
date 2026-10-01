@@ -33,7 +33,7 @@ import { killSttSidecars } from './stt/child'
 import { createSttAdapter, listSttModels } from './stt/engines'
 import { interviewPool } from '../interviewer/pool'
 import { getKbStore } from '../kb/runtime'
-import { endInterviewVoice, interviewSpeaker, ttsRuntime } from '../kb/voice'
+import { endInterviewVoice, interviewSpeaker, micPausesWhileSpeaking, ttsRuntime } from '../kb/voice'
 import { gateAudioMsg, parseAudioMsg } from './audio-in'
 import { installStt } from './stt/install'
 import { createProbeHub } from './stt/probe'
@@ -190,7 +190,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
       speaker: interviewSpeaker,
       ended: endInterviewVoice,
       recordStats: (jobId, itemId, stats) => { getKbStore().updateItem(jobId, itemId, i => ({ ...i, stats })); broadcast('careerloom:kbChanged', { jobId }) },
-      onState: s => broadcast('careerloom:interviewerState', s),
+      onState: s => broadcast('careerloom:interviewerState', { ...s, micPaused: s.state === 'speaking' && micPausesWhileSpeaking() }),
     },
     overlay: cmd => getOverlayHost().overlayCommand(cmd),
     ackNotice: version => getOverlayHost().ackPrivacyNotice(version),

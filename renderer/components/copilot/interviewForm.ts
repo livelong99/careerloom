@@ -9,6 +9,8 @@ export type InterviewForm = {
   mode: InterviewMode; minutes: number | null; focusSkills: string[]; difficulty: InterviewPlan['difficulty']; includeGenerated: boolean
   style: string; seniority: string; strictness: 1 | 2 | 3 | 4 | 5; name: string
   voiceId: string | null; speed: number; echo: InterviewPlan['echo']
+  /** Set by 'Practise this question' in the knowledge base: pins the session to these items. */
+  itemIds: string[] | null
 }
 
 export const MODES: ReadonlyArray<{ value: InterviewMode; label: string; blurb: string }> = [
@@ -25,7 +27,7 @@ export const MINUTES: ReadonlyArray<{ value: string; label: string }> = [{ value
 
 const INITIAL: InterviewForm = {
   enabledFor: null, mode: 'mixed', minutes: 30, focusSkills: [], difficulty: 'adaptive', includeGenerated: true,
-  style: STYLES[0], seniority: SENIORITIES[1], strictness: 3, name: 'Priya', voiceId: null, speed: 1, echo: 'speakers',
+  style: STYLES[0], seniority: SENIORITIES[1], strictness: 3, name: 'Priya', voiceId: null, speed: 1, echo: 'speakers', itemIds: null,
 }
 let form: InterviewForm = INITIAL
 const listeners = new Set<() => void>()
@@ -44,4 +46,5 @@ export const toPlan = (f: InterviewForm, voices: VoiceInfo[]): InterviewPlan => 
   mode: f.mode, minutes: f.minutes, focusSkills: f.focusSkills, difficulty: f.difficulty, includeGenerated: f.includeGenerated,
   persona: { style: f.style, seniority: f.seniority, strictness: f.strictness, name: f.name },
   voice: { ...pickVoice(f, voices), speed: f.speed }, echo: f.echo,
+  ...(f.itemIds?.length ? { itemIds: f.itemIds } : {}),
 })

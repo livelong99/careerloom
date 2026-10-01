@@ -50,7 +50,7 @@ export function Job({ id }: { id: string }) {
               <TabsContent value="overview"><OverviewTab job={job} view={v} goTab={setTab} /></TabsContent>
               <TabsContent value="job"><PostingTab view={v} pending={v.pending} /></TabsContent>
               <TabsContent value="match"><MatchTab view={v} ats={ats} /></TabsContent>
-              <TabsContent value="skillup"><SkillUpTab ats={ats} /></TabsContent>
+              <TabsContent value="skillup"><SkillUpTab ats={ats} jobId={id} /></TabsContent>
               <TabsContent value="documents"><DocumentsTab jobId={id} view={v} /></TabsContent>
               <TabsContent value="report"><ReportTab view={v} /></TabsContent>
               <TabsContent value="kb"><KnowledgeTab jobId={id} /></TabsContent>

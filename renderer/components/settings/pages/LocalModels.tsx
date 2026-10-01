@@ -25,6 +25,7 @@ export function LocalModelsPage(_props: PageProps) {
   const diag = usePolled(() => careerloom.diagnostics(), [], { intervalMs: null })
   const stt = usePolled(async () => orNull(await careerloom.copilotListSttModels()) as SttModelInfo[] | null, [], { intervalMs: null })
   const config = usePolled(() => careerloom.copilotGetConfig(), [], { intervalMs: null })
+  const kokoro = usePolled(async () => orNull(await careerloom.interviewKokoroStatus()), [], { intervalMs: null })
   const [installing, setInstalling] = useState<string | null>(null)
   const modelsDir = locations.data?.find(l => l.id === 'models')?.path ?? null
   const model = status.data?.model
@@ -38,6 +39,15 @@ export function LocalModelsPage(_props: PageProps) {
       if (r) { showToast('Installing the speech model. Progress shows in Runs.'); openRuns(r.runId) } else showToast('The installer is not available in this build yet.', 'error')
     } catch (err) { showToast(normalizeCliError(err).message, 'error', 6000) } finally { setInstalling(null); stt.refresh() }
   }
+
+  const installKokoro = async () => {
+    setInstalling('kokoro')
+    try {
+      const r = orNull(await careerloom.interviewInstallVoice('kokoro'))
+      if (r) { showToast('Installing the Kokoro voice. Progress shows in Runs.'); openRuns(r.runId) }
+    } catch (err) { showToast(normalizeCliError(err).message, 'error', 6000) } finally { setInstalling(null); kokoro.refresh() }
+  }
+  const k = kokoro.data
 
   return (
     <>
@@ -60,6 +70,14 @@ export function LocalModelsPage(_props: PageProps) {
         )}
         {status.data && !status.data.available && <p className="m-0 mb-3 text-xs text-muted-foreground">Not installed: pre-screening uses rules only. {status.data.reason ?? ''}</p>}
         <LocalModelSetup onStatus={setPre} />
+      </Group>
+
+      <Group title="Interviewer voice" focus="kokoro-voice">
+        <Row label="Kokoro · natural voice" hint={k && !k.supported ? 'Available on Apple Silicon Macs only. The system voice is used instead.' : `about ${k?.downloadMb ?? 80} MB of Python packages and model files in your home folder. Nothing is bundled with the app.`}>
+          <ReadinessBadge state={k?.installed ? 'ready' : 'off'} label={k?.installed ? 'Installed' : k?.installing ? 'Installing…' : 'Not installed'} />
+          {k?.supported && !k.installed && <Button size="sm" disabled={installing !== null || k.installing} onClick={() => void installKokoro()}>{installing === 'kokoro' ? 'Starting…' : 'Install'}</Button>}
+        </Row>
+        <Note>The system voice (Indian English first) works without any install.</Note>
       </Group>
 
       <Group title="Transcription engines" focus="stt-models" action={<Button size="sm" variant="outline" onClick={() => goToSettings('copilot')}>Engine settings →</Button>}>
