@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ToastHost } from './ToastHost'
@@ -36,5 +37,14 @@ describe('ToastHost', () => {
     expect(toasts).toHaveLength(1)
     expect(toasts[0]).toHaveTextContent('Second')
     expect(toasts[0]).toHaveClass('toast-error')
+  })
+
+  it('renders an action (Undo), runs it on click and dismisses the toast', async () => {
+    render(<ToastHost />)
+    const undo = vi.fn()
+    act(() => { showToast('Refresh set to 5 min', 'ok', 5000, { label: 'Undo', onClick: undo }) })
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(undo).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
