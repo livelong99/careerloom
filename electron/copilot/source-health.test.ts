@@ -30,8 +30,20 @@ describe('silent-source detector', () => {
     const h = createSourceHealth('system', e => seen.push(e.status))
     h.start()
     vi.advanceTimersByTime(3000)             // nothing arrives at all
-    expect(seen).toEqual(['silent'])
-    h.feed(chunk(1200)); expect(seen).toEqual(['silent', 'ok']); expect(h.level).toBeCloseTo(1200 / 32768)
+    expect(seen).toEqual(['missing'])
+    h.feed(chunk(1200)); expect(seen).toEqual(['missing', 'ok']); expect(h.level).toBeCloseTo(1200 / 32768)
+    h.stop()
+  })
+
+  it('no frames at all is "missing" (device never opened), zeros are "silent"', () => {
+    vi.useFakeTimers(); vi.setSystemTime(0)
+    const seen: string[] = []
+    const h = createSourceHealth('mic', e => seen.push(e.status))
+    h.start()
+    vi.advanceTimersByTime(SILENT_MS + TICK_MS)
+    expect(seen).toEqual(['missing'])
+    h.feed(chunk(500)) // the device finally delivers: recovers
+    expect(seen).toEqual(['missing', 'ok'])
     h.stop()
   })
 })

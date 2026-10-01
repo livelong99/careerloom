@@ -6,15 +6,40 @@ import workletUrl from './worklet.js?worker&url'
 
 export type MicHandle = { stop(): void }
 
-export async function startMic(o: { deviceId?: string | null; onFrame: (pcm16: ArrayBuffer) => void; onEnded?: () => void }): Promise<MicHandle> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { deviceId: o.deviceId ? { exact: o.deviceId } : undefined, channelCount: 1, echoCancellation: true, noiseSuppression: true },
-  })
+/** One sentence per failure a person can act on (getUserMedia rejects with a bare DOMException name). */
+export function describeMicError(e: unknown): string {
+  const name = (e as { name?: string } | null)?.name
+  switch (name) {
+    case 'NotAllowedError': case 'SecurityError': return 'Microphone access is blocked: allow Careerloom in System Settings → Privacy & Security → Microphone.'
+    case 'NotFoundError': return 'No microphone found. Plug one in or pick another input in Settings → Copilot → Audio.'
+    case 'NotReadableError': return 'The microphone is in use by another app or could not be opened. Close the other app and try again.'
+    case 'OverconstrainedError': return 'The selected microphone is not available. Pick another input in Settings → Copilot → Audio.'
+    case 'AbortError': return 'The microphone could not start. Try again.'
+    default: return e instanceof Error && e.message ? `Microphone failed: ${e.message}` : 'Microphone failed to start.'
+  }
+}
+
+const GONE = new Set(['OverconstrainedError', 'NotFoundError'])
+const audio = (deviceId?: string | null): MediaTrackConstraints => ({ deviceId: deviceId ? { exact: deviceId } : undefined, channelCount: 1, echoCancellation: true, noiseSuppression: true })
+
+/** `onFallback` fires when the saved device is gone and the system default was used instead; `onEnded` when the device disappears mid-run (unplugged, default changed). */
+export async function startMic(o: { deviceId?: string | null; onFrame: (pcm16: ArrayBuffer) => void; onEnded?: () => void; onFallback?: () => void }): Promise<MicHandle> {
+  let stream: MediaStream
+  try {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: audio(o.deviceId) })
+    } catch (err) {
+      if (!o.deviceId || !GONE.has((err as { name?: string }).name ?? '')) throw err
+      stream = await navigator.mediaDevices.getUserMedia({ audio: audio() }) // the saved device was unplugged or its id changed
+      o.onFallback?.()
+    }
+  } catch (err) { throw new Error(describeMicError(err), { cause: err }) } // cause keeps the DOMException name for callers that branch on it
   const ctx = new AudioContext({ sampleRate: 16000 })
   try {
     await ctx.audioWorklet.addModule(workletUrl)
+    if (ctx.state !== 'running') await ctx.resume() // a suspended context never runs the worklet: no frames, no error
   } catch (err) {
-    stream.getTracks().forEach(t => t.stop()); void ctx.close(); throw err
+    stream.getTracks().forEach(t => t.stop()); void ctx.close(); throw new Error(`Audio capture could not start (${err instanceof Error ? err.message : String(err)})`)
   }
   const pipeline = createPipeline({ inRate: ctx.sampleRate, onFrame: o.onFrame })
   const src = ctx.createMediaStreamSource(stream)

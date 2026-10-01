@@ -5,11 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const api = vi.hoisted(() => {
   const m = {
     copilotGetConfig: vi.fn(), copilotSetConfig: vi.fn(), copilotListSttModels: vi.fn(), copilotBenchmarkStt: vi.fn(),
-    copilotReadiness: vi.fn(), copilotProbeAudio: vi.fn(), copilotOpenSystemSettings: vi.fn(), copilotCheckHotkey: vi.fn(),
+    copilotReadiness: vi.fn(), copilotProbeAudio: vi.fn(), copilotAudio: vi.fn(), copilotOpenSystemSettings: vi.fn(), copilotCheckHotkey: vi.fn(),
   }
   return m
 })
 vi.mock('@/lib/ipc', async orig => ({ ...(await orig<typeof import('@/lib/ipc')>()), careerloom: api }))
+const mic = vi.hoisted(() => ({ startMic: vi.fn() }))
+vi.mock('../../overlay/capture/mic', () => mic)
 
 import { AppearancePage } from './Appearance'
 import { AudioPage } from './Audio'
@@ -30,6 +32,7 @@ beforeEach(() => {
   api.copilotReadiness.mockResolvedValue(NI('copilotReadiness'))
   api.copilotProbeAudio.mockResolvedValue(NI('copilotProbeAudio'))
   api.copilotCheckHotkey.mockResolvedValue(NI('copilotCheckHotkey'))
+  mic.startMic.mockReset(); mic.startMic.mockResolvedValue({ stop: vi.fn() })
   setSelection({ jobId: null })
 })
 afterEach(() => { cleanup(); Object.values(api).forEach(f => f.mockReset()) })
@@ -115,16 +118,83 @@ describe('AudioPage', () => {
     await screen.findByText(/Silent: no sound reached Careerloom/)
     expect(api.copilotProbeAudio).toHaveBeenCalledWith('mic', 3000)
   })
-  it('system audio is off by default, toggles through config, and Open System Settings calls main', async () => {
-    api.copilotOpenSystemSettings.mockResolvedValue(true)
+  it('system audio is shown as coming soon: off, disabled, nothing to configure or test', async () => {
     render(<AudioPage />)
     const sw = await screen.findByRole('switch', { name: 'Use system audio' })
     expect(sw.getAttribute('aria-checked')).toBe('false')
-    fireEvent.click(sw)
-    await waitFor(() => expect(api.copilotSetConfig).toHaveBeenCalledWith({ audio: { useSystem: true } }))
-    fireEvent.click(await screen.findByRole('button', { name: /Open System Settings/ }))
-    expect(api.copilotOpenSystemSettings).toHaveBeenCalledWith('system-audio')
-    expect(screen.getByText(/records the other person/i)).toBeTruthy()
+    expect((sw as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(/coming soon/i)).toBeTruthy()
+    expect(screen.queryByLabelText('Source')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Open System Settings/ })).toBeNull()
+    expect(api.copilotSetConfig).not.toHaveBeenCalled()
+  })
+  it('a saved system-audio setting from an older build still renders as off', async () => {
+    api.copilotGetConfig.mockResolvedValue({ ...CONFIG, audio: { ...CONFIG.audio, useSystem: true } })
+    render(<AudioPage />)
+    expect((await screen.findByRole('switch', { name: 'Use system audio' })).getAttribute('aria-checked')).toBe('false')
+  })
+  describe('microphone test', () => {
+    const frame = (v: number) => new Int16Array(1600).fill(v).buffer
+    it('drives the meter from the frames it sends, on one stream, and releases the mic', async () => {
+      const stop = vi.fn()
+      let onFrame: (b: ArrayBuffer) => void = () => undefined
+      mic.startMic.mockImplementation(async (o: { onFrame: (b: ArrayBuffer) => void }) => { onFrame = o.onFrame; return { stop } })
+      api.copilotProbeAudio.mockImplementation(() => new Promise(r => setTimeout(() => r({ source: 'mic', status: 'ok', level: 0.4 }), 400)))
+      const gum = vi.fn(); Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: gum, enumerateDevices: async () => [] } })
+      render(<AudioPage />)
+      fireEvent.click(await screen.findByRole('button', { name: /Test for 3 seconds/ }))
+      await waitFor(() => expect(mic.startMic).toHaveBeenCalled())
+      onFrame(frame(16000))
+      await waitFor(() => expect(Number(screen.getByRole('meter').getAttribute('aria-valuenow'))).toBeGreaterThan(40))
+      await screen.findByText(/Working: Careerloom heard sound/)
+      expect(gum).not.toHaveBeenCalled() // the level meter no longer opens a second stream
+      expect(stop).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(Number(screen.getByRole('meter').getAttribute('aria-valuenow'))).toBe(0))
+    })
+    it('shows why the mic could not open instead of "no input device", and the fix steps when it is blocked', async () => {
+      mic.startMic.mockRejectedValue(Object.assign(new Error('Microphone access is blocked: allow Careerloom in System Settings → Privacy & Security → Microphone.'), { cause: { name: 'NotAllowedError' } }))
+      render(<AudioPage />)
+      fireEvent.click(await screen.findByRole('button', { name: /Test for 3 seconds/ }))
+      await screen.findByText(/Microphone access is blocked/)
+      expect(screen.getByRole('button', { name: /Open System Settings/ })).toBeTruthy()
+      expect(api.copilotProbeAudio).not.toHaveBeenCalled()
+    })
+    it('a denied probe shows the fix steps even when no job is selected', async () => {
+      mic.startMic.mockResolvedValue({ stop: vi.fn() })
+      api.copilotProbeAudio.mockResolvedValue({ source: 'mic', status: 'denied', level: 0 })
+      render(<AudioPage />)
+      fireEvent.click(await screen.findByRole('button', { name: /Test for 3 seconds/ }))
+      await screen.findByText(/Blocked: macOS did not let Careerloom/)
+      expect(screen.getByRole('button', { name: /Open System Settings/ })).toBeTruthy()
+    })
+  })
+  describe('input devices', () => {
+    const dev = (deviceId: string, label: string) => ({ kind: 'audioinput', deviceId, label })
+    function stubDevices(initial: unknown[]) {
+      let list = initial
+      const listeners: Array<() => void> = []
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
+        enumerateDevices: async () => list,
+        addEventListener: (_: string, cb: () => void) => listeners.push(cb), removeEventListener: () => undefined,
+      } })
+      return { plug: (next: unknown[]) => { list = next; listeners.forEach(cb => cb()) } }
+    }
+    it('lists real inputs only (no duplicate "default" entry) and picks up a plugged-in device without a reload', async () => {
+      const d = stubDevices([dev('default', 'Default - Built-in'), dev('a', 'Built-in Microphone')])
+      render(<AudioPage />)
+      await screen.findByRole('option', { name: 'Built-in Microphone' })
+      expect(screen.queryByRole('option', { name: /Default - Built-in/ })).toBeNull()
+      d.plug([dev('default', 'Default - USB'), dev('a', 'Built-in Microphone'), dev('b', 'USB Headset')])
+      await screen.findByRole('option', { name: 'USB Headset' })
+    })
+    it('flags a saved microphone that is no longer connected, so the dropdown is not blank', async () => {
+      stubDevices([dev('a', 'Built-in Microphone')])
+      api.copilotGetConfig.mockResolvedValue({ ...CONFIG, audio: { ...CONFIG.audio, micDeviceId: 'gone' } })
+      render(<AudioPage />)
+      await screen.findByRole('option', { name: 'Built-in Microphone' })
+      const sel = screen.getByLabelText('Input device') as HTMLSelectElement
+      expect(sel.selectedOptions[0]!.textContent).toMatch(/not connected.*system default/i)
+    })
   })
 })
 
