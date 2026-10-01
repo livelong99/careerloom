@@ -1,4 +1,6 @@
 import type { Section } from '../components/Sidebar'
+import { careerloom, normalizeCliError } from './ipc'
+import { showToast } from './toast'
 import type { PageId } from '../components/settings/pages'
 
 export const NAVIGATE_EVENT = 'careerloom:navigate'
@@ -17,3 +19,19 @@ export function navigate(section: Section | 'integrations', opts: { id?: string;
 /** Open a Settings page, optionally scrolling to and pulsing one control (`data-setting-id` id, e.g. `key:openrouter`). */
 export const goToSettings = (page: PageId, focus?: string) => navigate('settings', { page, focus })
 export const goToIntegrations = () => goToSettings('integrations')
+
+/** Agent screen opens this thread on mount (set by "Continue in chat"). */
+export const OPEN_THREAD_KEY = 'careerloom.openThread'
+/** Open the Runs page; `id` selects that run (e.g. "View log" on a past scan). Non-string ids are ignored. */
+export const openRuns = (id?: unknown) => navigate('runs', typeof id === 'string' ? { id } : {})
+
+/** Open the run as an Agent chat so the user can answer what it asked. */
+export async function continueInChat(runId: string): Promise<void> {
+  try {
+    const thread = await careerloom.continueRun(runId)
+    try { sessionStorage.setItem(OPEN_THREAD_KEY, thread.id) } catch { /* storage can be unavailable */ }
+    navigate('agent')
+  } catch (err) {
+    showToast(normalizeCliError(err).message, 'error', 6000)
+  }
+}

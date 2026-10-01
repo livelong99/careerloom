@@ -14,3 +14,14 @@ describe('parseAudioMsg (renderer → main audio chunks)', () => {
     expect(parseAudioMsg(bad)).toBeNull()
   })
 })
+
+describe('gateAudioMsg', () => {
+  const pcm = new ArrayBuffer(4)
+  it('drops mic frames only while the gate drops', async () => {
+    const { gateAudioMsg } = await import('./audio-in')
+    expect(gateAudioMsg({ source: 'mic', pcm16: pcm, t: 1 }, { drops: () => true })).toBeNull()
+    expect(gateAudioMsg({ source: 'mic', pcm16: pcm, t: 1 }, { drops: () => false })).not.toBeNull()
+    expect(gateAudioMsg({ source: 'system', pcm16: pcm, t: 1 }, { drops: () => true })).not.toBeNull()
+    expect(gateAudioMsg(null, { drops: () => true })).toBeNull()
+  })
+})

@@ -1,13 +1,15 @@
 // Per-turn latency trace (PERF-1): absolute stage timestamps in a small ring buffer, reduced to numbers-only deltas.
 // Never holds transcript or answer text, so it is safe to log and to persist with a session.
-export type TraceMarks = { speechEndAt?: number; sttFinalAt?: number; detectedAt?: number; requestSentAt?: number; firstByteAt?: number; firstTokenAt?: number; firstSayAt?: number; doneAt?: number
+export type TraceMarks = { speechEndAt?: number; sttFinalAt?: number; detectedAt?: number; requestSentAt?: number; firstByteAt?: number; firstTokenAt?: number; firstSayAt?: number; doneAt?: number; kbStartAt?: number; kbDoneAt?: number
   /** A held (speculative) answer was handed to the overlay: the answer is visible no earlier than this. */
   releasedAt?: number }
 /** Closed-set labels and numbers only (PERF-2): how the turn was routed and started. */
 export type TurnInfo = { kind: 'coding' | 'system-design' | 'behavioural' | 'factual' | 'small-talk'; tier: 'fast' | 'balanced' | 'deep'; auto: boolean; spec: 'hit' | 'miss' | null; gate: 'heuristic' | 'jev' | null; gateMs: number | null
   /** Screenshot attached to this turn: capture and encode times, size on the wire (upload shows in `connect`). */
   shot?: { captureMs: number; encodeMs: number; bytes: number } }
-export type StageMs = { stt: number | null; detect: number | null; connect: number | null; ttft: number | null; firstSay: number | null; endToSay: number | null; total: number | null; promptTokens: number | null; cachedTokens: number | null; turn?: TurnInfo }
+export type StageMs = { stt: number | null; detect: number | null; connect: number | null; ttft: number | null; firstSay: number | null; endToSay: number | null; total: number | null; promptTokens: number | null; cachedTokens: number | null; turn?: TurnInfo
+  /** Question-base retrieval for this turn (ms); absent when the base was not consulted. */
+  kb?: number }
 export type TraceRecord = { questionId: string; startedAt: number; marks: TraceMarks; ms: StageMs }
 export type Stat = { p50: number; p95: number } | null
 export type TraceSummary = { turns: number; ttft: Stat; firstSay: Stat; endToSay: Stat; total: Stat; cacheHitRate: number | null; speculation: { hits: number; misses: number } | null }
@@ -22,6 +24,7 @@ export function stageMs(m: TraceMarks, tokens: { promptTokens?: number | null; c
     endToSay: diff(m.speechEndAt, visibleAt), total: diff(m.requestSentAt, m.doneAt),
     promptTokens: tokens.promptTokens ?? null, cachedTokens: tokens.cachedTokens ?? null,
     ...(turn ? { turn } : {}),
+    ...(m.kbStartAt !== undefined && m.kbDoneAt !== undefined ? { kb: Math.max(0, m.kbDoneAt - m.kbStartAt) } : {}),
   }
 }
 

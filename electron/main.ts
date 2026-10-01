@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { checkRoot, listReports, readPipeline, readReport, readTracker } from './careerops'
-import { broadcast, dataRoot, launch, setSkillContext, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSettings, type Handler } from './context'
+import { broadcast, dataRoot, deleteRunRecords, launch, setSkillContext, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSettings, type Handler } from './context'
 import { chatHandlers } from './chat'
 import { onboardingHandlers } from './onboarding'
 import { bootstrapHandlers, onBootstrapIdle, runBootstrap } from './runtime/bootstrap'
@@ -17,6 +17,9 @@ import { atsHandlers } from './ats/handlers'
 import { jobViewHandlers } from './job-view/handlers'
 import { docsHandlers } from './docs-gen/handlers'
 import { copilotHandlers } from './copilot/handlers'
+import { kbHandlers } from './kb/handlers'
+import { onTtsPlayback } from './kb/voice'
+import { redactLog } from './log-redact'
 import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
 import { setKey } from './settings/keys'
 import { isAllowedPermission } from './copilot/audio-perms'
@@ -115,7 +118,7 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
 } // stays under promptFor's 20k input ceiling
 
 // Feature modules own their handlers; names must not collide (checked at registration).
-const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, settingsHandlers]
+const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, kbHandlers, settingsHandlers]
 
 /** Folders returned by the native picker this session; setRoot accepts only these. */
 const pickedDirs = new Set<string>()
@@ -195,7 +198,13 @@ const handlers: Record<string, Handler> = {
     const ids = new Set(live.map(r => r.id))
     return [...readRunHistory().filter(r => !ids.has(r.id)), ...live].reverse()
   },
-  getRunLog: (id: unknown) => runLog(str(id, 'id')),
+  /** Credential-looking lines are hidden here, so the log viewer never receives them. */
+  getRunLog: (id: unknown) => redactLog(runLog(str(id, 'id'))),
+  /** Forget finished runs (history, saved log, memory); running ones are skipped. Returns how many went. */
+  deleteRuns: (ids: unknown) => {
+    if (!Array.isArray(ids) || ids.length > 5000 || ids.some(i => typeof i !== 'string')) throw new Error('ids must be a list of run ids')
+    return deleteRunRecords(ids as string[])
+  },
   cancelRun: (id: unknown) => {
     const run = runs.get(str(id, 'id'))
     if (!run || run.status !== 'running') return false
@@ -273,6 +282,10 @@ function registerHandlers(): void {
   }
   if (copilotSupported()) sweepCopilotShots() // frames a crashed run left behind
   if (copilotSupported()) ipcMain.on('careerloom:copilotAudio', (_event, msg: unknown) => copilotAudioIn(msg)) // high-rate mic frames: send, not invoke
+  ipcMain.on('careerloom:ttsPlayback', (_event, msg: unknown) => { // overlay → echo gate: send, not invoke
+    const m = msg as { phase?: unknown; utteranceId?: unknown } | null
+    if (m && typeof m.utteranceId === 'string' && (m.phase === 'started' || m.phase === 'ended' || m.phase === 'cancelled')) onTtsPlayback({ phase: m.phase, utteranceId: m.utteranceId })
+  })
   ipcMain.handle('open-external', async (_event, url: unknown) => {
     const target = typeof url === 'string' ? externalUrlToOpen(url) : null
     if (target) await shell.openExternal(target)

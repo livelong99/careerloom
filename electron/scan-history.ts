@@ -2,6 +2,7 @@
 // scan.mjs run, with counts) merged with Careerloom's tracked scan runs (runs.jsonl),
 // plus the latest data/portal-health.tsv status per portal. Pure — tested directly.
 import type { ScanHistoryRow } from './contract'
+import { SECRETISH } from './log-redact'
 
 export type ScanRunRow = { at: number; status: string; companies: number; boards: number; found: number; dupes: number; added: number; errors: number }
 type RunLike = { id: string; mode: string; label: string; input: string | null; startedAt: number; endedAt: number | null; status: string }
@@ -62,7 +63,6 @@ export function mergeScanHistory(tsv: ScanRunRow[], runs: RunLike[], now = Date.
 }
 
 const LOG_TAIL_LINES = 200
-const SECRETISH = /cookie|authorization|bearer|api[_-]?key|token|password|secret/i
 
 /** What a finished scan run keeps on disk: its last LOG_TAIL_LINES lines, minus anything credential-like. */
 export function logTail(log: string): string {

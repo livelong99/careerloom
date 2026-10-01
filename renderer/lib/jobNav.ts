@@ -9,7 +9,12 @@ const KEY = 'careerloom.jobs.ui'
 let ids: string[] = []
 type Ui = { selected: string[]; scroll: number }
 
-export const openJob = (id: string) => navigate('job', { id })
+/** The Job page reads this once when it opens, to land on a tab other than Overview. */
+export const JOB_TAB_KEY = 'careerloom.job.tab'
+export const openJob = (id: string, tab?: string) => {
+  try { if (tab) sessionStorage.setItem(JOB_TAB_KEY, tab) } catch { /* storage can be unavailable */ }
+  navigate('job', { id })
+}
 /** A tracker row opens its job page (jobs and tracker rows join on the report number). */
 export const openApplication = (app: Application): void => void careerloom.listJobs().then(js => {
   const j = js.find(x => x.reportNum === app.num)

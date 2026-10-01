@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 
 import { AnswerReview } from '@/components/copilot/AnswerReview'
 import { Group } from '@/components/copilot/Group'
+import { InterviewDebrief } from '@/components/copilot/InterviewDebrief'
 import { RetentionControl } from '@/components/copilot/RetentionControl'
 import { ScoreCard } from '@/components/copilot/ScoreCard'
 import { dateLabel, groupByJob, minutesLabel, scoreLabel, type JobGroup } from '@/components/copilot/sessionsFormat'
@@ -65,6 +66,7 @@ export function SessionsPage() {
           <AnswerReview session={detail.data} onTranscript={() => setReader(true)} />
         </div>
       )}
+      {detail.data?.interview && <InterviewDebrief session={detail.data} />}
       <div className="flex flex-wrap gap-2">
         {detail.data && <Button size="sm" variant="outline" onClick={() => setReader(true)}>Reader view</Button>}
         {detail.data && <Button size="sm" variant="outline" onClick={() => setConfirm('one')}><Trash2 className="size-3.5" aria-hidden />Delete this session</Button>}

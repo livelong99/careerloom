@@ -32,7 +32,7 @@ beforeEach(() => {
 describe('registry points at real controls', () => {
   const cases: Array<[string, () => React.ReactNode]> = [['runners', () => <RunnersPage {...props()} />], ['keys', () => <KeysPage {...props()} />], ['local-models', () => <LocalModelsPage {...props()} />]]
   it.each(cases)('%s', async (page, ui) => {
-    bridge.current = fakeBridge({ keysList: [keyInfo('openrouter'), keyInfo('opencode'), keyInfo('firecrawl')], listIntegrations: [], getReadiness: { root: '/r', checkedAt: 0, deps: true, clis: [] }, localModelStatus: { installed: false, model: 'm', dir: '/d', platform: 'darwin', arch: 'arm64', python: null, oldPython: null, downloadGb: { packages: 1, weights: 1 }, installRun: null } })
+    bridge.current = fakeBridge({ keysList: ['openrouter', 'opencode', 'firecrawl', 'brave', 'exa', 'serper'].map(id => keyInfo(id)), listIntegrations: [], getReadiness: { root: '/r', checkedAt: 0, deps: true, clis: [] }, localModelStatus: { installed: false, model: 'm', dir: '/d', platform: 'darwin', arch: 'arm64', python: null, oldPython: null, downloadGb: { packages: 1, weights: 1 }, installRun: null } })
     const { container } = mount(ui())
     await waitFor(() => expect(container.querySelector('[data-setting-id]')).toBeTruthy())
     const have = new Set([...container.querySelectorAll('[data-setting-id]')].map(n => (n as HTMLElement).dataset.settingId))

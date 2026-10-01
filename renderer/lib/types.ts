@@ -42,6 +42,8 @@ export type Run = {
   status: RunStatus
   usage?: RunUsage | null
   sessionId?: string | null
+  /** The job this run was about, when it was started for one (evaluate, tailored CV, cover letter, ATS, posting structuring). */
+  jobId?: string | null
 }
 export type RunEvent = { id: string; kind: 'chunk'; text: string } | { id: string; kind: 'exit'; status: RunStatus }
 
@@ -62,7 +64,10 @@ export type CareerloomBridge = {
   listReports(): Promise<ReportMeta[]>
   readReport(rel: string): Promise<string>
   listRuns(): Promise<Run[]>
+  /** Run log with credential-looking lines hidden. */
   getRunLog(id: string): Promise<string>
+  /** Forget finished runs (history + saved log); running ones are skipped. Resolves with how many were removed. */
+  deleteRuns(ids: string[]): Promise<number>
   startRun(req: { mode: string; input?: string }): Promise<Run>
   /** Evaluate a link/JD; prefetches the page through Firecrawl when it is running. */
   evaluateJob(input: string): Promise<Run>
@@ -216,7 +221,7 @@ export type CareerloomBridge = {
   openExternal(url: string): Promise<void>
   platform: string
   arch: string
-} & CopilotBridge
+} & CopilotBridge & KbBridge
 
 export type UpdateStatus = { currentVersion: string; latestVersion: string | null; updateAvailable: boolean; tag: string | null; storeManaged?: boolean }
 
@@ -255,6 +260,6 @@ export type SpendFlow = {
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
 import type { BootstrapStatus, BootstrapStepId } from '../../electron/contract'
-import type { CopilotBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
+import type { CopilotBridge, KbBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
 import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
 import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'

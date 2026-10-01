@@ -6,7 +6,7 @@ import { EmptyNote } from '../components/EmptyState'
 import { Icon, type IconName } from '../components/icons'
 import { ListRow } from '../components/ListRow'
 import { Panel } from '../components/Panel'
-import { openRuns } from '../components/RunsDrawer'
+import { openRuns } from '../lib/nav'
 import { openApplication } from '../lib/jobNav'
 import { Sankey } from '../components/Sankey'
 import { SectionSkeleton } from '../components/Skeleton'
@@ -57,7 +57,7 @@ export function Overview({ onNavigate }: { onNavigate: (s: Section) => void }) {
   return (
     <>
       {missing.length > 0 && (
-        <Panel title="Finish setting up career-ops" right={<button type="button" className="btnp btnp-primary" onClick={() => void start('interview').then(openRuns)}>Build my profile with the agent</button>}>
+        <Panel title="Finish setting up career-ops" right={<button type="button" className="btnp btnp-primary" onClick={() => void start('interview').then(r => openRuns(r?.id))}>Build my profile with the agent</button>}>
           {(['cv', 'profile', 'portals'] as const).map(k => (
             <div key={k} className={profile.data?.[k] ? 'check ok' : 'check miss'}>
               <Icon name={profile.data?.[k] ? 'circle-check' : 'circle'} />

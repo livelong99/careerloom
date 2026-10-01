@@ -7,6 +7,7 @@ import { EmptyNote } from '../components/EmptyState'
 import { TabSkeleton } from '../components/job/bits'
 import { DocumentsTab } from '../components/job/DocumentsTab'
 import { JobHeader } from '../components/job/JobHeader'
+import { KnowledgeTab } from '../components/job/KnowledgeTab'
 import { MatchTab } from '../components/job/MatchTab'
 import { OverviewTab } from '../components/job/OverviewTab'
 import { PostingTab } from '../components/job/PostingTab'
@@ -15,16 +16,21 @@ import { SkillUpTab } from '../components/job/SkillUpTab'
 import { useJob } from '../components/job/useJob'
 import { useJobAts } from '../components/job/useJobAts'
 import { SectionSkeleton } from '../components/Skeleton'
+import { JOB_TAB_KEY } from '../lib/jobNav'
 import { navigate } from '../lib/nav'
 
-const TABS = [['overview', 'Overview'], ['job', 'Job'], ['match', 'Match'], ['skillup', 'Skill-up'], ['documents', 'Documents'], ['report', 'Report']] as const
+const TABS = [['overview', 'Overview'], ['job', 'Job'], ['match', 'Match'], ['skillup', 'Skill-up'], ['documents', 'Documents'], ['report', 'Report'], ['kb', 'Knowledge base']] as const
 
-/** One job as a page: header + six tabs. Replaces the old side drawer. */
+/** One job as a page: header + seven tabs. Replaces the old side drawer. */
 export function Job({ id }: { id: string }) {
   const { job, view, jobs, prescreen } = useJob(id)
   const ats = useJobAts(id)
   const [tab, setTab] = useState('overview')
-  useEffect(() => setTab('overview'), [id])
+  useEffect(() => {
+    let want: string | null = null
+    try { want = sessionStorage.getItem(JOB_TAB_KEY); sessionStorage.removeItem(JOB_TAB_KEY) } catch { /* storage can be unavailable */ }
+    setTab(TABS.some(([t]) => t === want) ? want! : 'overview')
+  }, [id])
 
   if (jobs.error && !job) return <EmptyNote>{jobs.error.message}</EmptyNote>
   if (!job) return jobs.data ? <EmptyNote>This job is no longer in your list.</EmptyNote> : <SectionSkeleton label="Loading job" rows={5} />
@@ -44,9 +50,10 @@ export function Job({ id }: { id: string }) {
               <TabsContent value="overview"><OverviewTab job={job} view={v} goTab={setTab} /></TabsContent>
               <TabsContent value="job"><PostingTab view={v} pending={v.pending} /></TabsContent>
               <TabsContent value="match"><MatchTab view={v} ats={ats} /></TabsContent>
-              <TabsContent value="skillup"><SkillUpTab ats={ats} /></TabsContent>
+              <TabsContent value="skillup"><SkillUpTab ats={ats} jobId={id} /></TabsContent>
               <TabsContent value="documents"><DocumentsTab jobId={id} view={v} /></TabsContent>
               <TabsContent value="report"><ReportTab view={v} /></TabsContent>
+              <TabsContent value="kb"><KnowledgeTab jobId={id} /></TabsContent>
             </>}
         </ScrollArea>
       </Tabs>
