@@ -37,7 +37,7 @@ export function IntegrationTable({ items, expandedId, onToggle, renderDetail }: 
           {rows.map(item => {
             const expanded = item.id === expandedId
             return (
-              <div key={item.id} className="rounded-md">
+              <div key={item.id} data-setting-id={`integration:${item.id.split(':')[1]}`} className="rounded-md">
                 <button
                   type="button"
                   aria-expanded={expanded}

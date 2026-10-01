@@ -1,0 +1,24 @@
+{"id":"shortcut-cmd-comma","area":"nav","pass":true,"note":"section=settings"}
+{"id":"search-retention","area":"search","pass":false,"note":"hits=[\"Copilot privacyCopilot\",\"Run-log retentionData & privacy\"] page=Copilot"}
+{"id":"search-theme","area":"search","pass":true,"note":"→ General"}
+{"id":"search-openrouter","area":"search","pass":false,"note":"→ Runners & models"}
+{"id":"search-firecrawl","area":"search","pass":false,"note":"→ API keys"}
+{"id":"search-panic","area":"search","pass":false,"note":"→ Monitoring"}
+{"id":"search-reset","area":"search","pass":false,"note":"→ Monitoring"}
+{"id":"deeplink-general-theme","area":"deep link","pass":true,"note":"pulsed=true"}
+{"id":"deeplink-general-refresh","area":"deep link","pass":true,"note":"pulsed=true"}
+{"id":"deeplink-jobs-prescreen","area":"deep link","pass":true,"note":"pulsed=true"}
+{"id":"deeplink-copilot-copilot:stt","area":"deep link","pass":true,"note":"pulsed=true"}
+{"id":"deeplink-copilot-copilot:privacy","area":"deep link","pass":true,"note":"pulsed=true"}
+{"id":"deeplink-keys-key:openrouter","area":"deep link","pass":true,"note":"pulsed=true"}
+{"id":"deeplink-runners-runner:claude","area":"deep link","pass":true,"note":"pulsed=true"}
+{"id":"deeplink-data-danger","area":"deep link","pass":true,"note":"pulsed=true"}
+{"id":"deeplink-local-models-stt-models","area":"deep link","pass":true,"note":"pulsed=true"}
+{"id":"legacy-integrations-remap","area":"deep link","pass":true,"note":"page=Integrations"}
+{"id":"palette-settings-entry","area":"nav","pass":false,"note":"items=[] page=null"}
+{"id":"chip-jobs","area":"deep link","pass":false,"note":"found=false page=Table"}
+{"id":"chip-agent","area":"deep link","pass":true,"note":"found=true page=Runners & models"}
+{"id":"chip-copilot","area":"deep link","pass":true,"note":"found=true page=Copilot"}
+{"id":"chip-monitoring","area":"deep link","pass":false,"note":"found=false page=30 days"}
+{"id":"registry-ids-exist","area":"search","pass":false,"note":"missing integrations:integration:firecrawl, integrations:integration:browser, integrations:integration:skills, integrations:integration:plugins, jobs:pipeline-limits, resume:doc-defaults, resume:page-format, agent:agent-permissions, copilot:copilot-stt, copilot:copilot-engine, copilot:copilot-privacy, monitoring:monitoring-findings"}
+{"id":"registry-ids-exist","area":"search","pass":true,"note":"45 entries"}

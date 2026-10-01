@@ -27,6 +27,7 @@ export function CategoryNav({ counts, value, onChange, onOpenSources }: Props) {
         return (
           <button
             key={cat}
+            data-setting-id={cat === 'skill' ? 'integration:skills' : cat === 'plugin' ? 'integration:plugins' : undefined}
             type="button"
             aria-pressed={link ? undefined : value === cat}
             onClick={() => (link ? onOpenSources() : onChange(cat))}
