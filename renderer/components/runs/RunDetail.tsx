@@ -7,9 +7,9 @@ import { useRuns } from '../../hooks/useRuns'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
 import { formatCompact, formatDuration, formatUsd } from '../../lib/format'
 import { continueInChat, navigate } from '../../lib/nav'
-import { openJob } from '../../lib/jobNav'
 import { elapsedMs, logSteps, runLinks } from '../../lib/runsView'
 import type { JobListing, Run } from '../../lib/types'
+import { JobCard } from './JobCard'
 import { LogViewer } from './LogViewer'
 
 const LOG_THROTTLE_MS = 500
@@ -46,7 +46,10 @@ export function useNow(active: boolean): number {
 
 type Props = {
   run: Run
-  jobs: Pick<JobListing, 'id' | 'url' | 'reportNum'>[]
+  /** The job this run was about (null when it had none, or it is gone), with that job's runs oldest-first. */
+  job: JobListing | null
+  jobRuns: Run[]
+  onSelectRun: (id: string) => void
   /** Career-ops modes the agent can start again (null while unknown). */
   modes: string[] | null
   onStop: (id: string) => void
@@ -54,7 +57,7 @@ type Props = {
   onDelete: (run: Run) => Promise<void>
 }
 
-export function RunDetail({ run, jobs, modes, onStop, onRerun, onDelete }: Props) {
+export function RunDetail({ run, job, jobRuns, onSelectRun, modes, onStop, onRerun, onDelete }: Props) {
   const running = run.status === 'running'
   const now = useNow(running)
   const log = useRunLog(run)
@@ -62,7 +65,7 @@ export function RunDetail({ run, jobs, modes, onStop, onRerun, onDelete }: Props
   const steps = useMemo(() => logSteps(text), [text])
   const [jump, setJump] = useState<{ line: number; n: number } | null>(null)
   const [confirm, setConfirm] = useState(false)
-  const links = runLinks(run, jobs)
+  const links = runLinks(run, job)
   const tokens = run.usage ? run.usage.inputTokens + run.usage.outputTokens : 0
   const canRerun = !running && RERUN_RUNNERS.has(run.runner) && !!modes?.includes(run.mode)
 
@@ -85,6 +88,8 @@ export function RunDetail({ run, jobs, modes, onStop, onRerun, onDelete }: Props
         <Fact label="Cost" value={run.usage?.costUsd != null ? formatUsd(run.usage.costUsd) : '—'} />
       </dl>
 
+      {job && <JobCard job={job} runs={jobRuns} current={run.id} onSelectRun={onSelectRun} />}
+
       {run.input && (
         <details className="rounded-lg border border-border bg-[var(--card-inner)] px-3 py-2 text-sm">
           <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Prompt / input</summary>
@@ -96,7 +101,6 @@ export function RunDetail({ run, jobs, modes, onStop, onRerun, onDelete }: Props
         {running && <Button size="sm" variant="destructive" onClick={() => onStop(run.id)}>Stop</Button>}
         {canRerun && <Button size="sm" variant="outline" onClick={() => onRerun(run)}>Re-run</Button>}
         {!running && canContinue(run) && <Button size="sm" variant="outline" onClick={() => void continueInChat(run.id)}>Continue in chat</Button>}
-        {links.jobId && <Button size="sm" variant="outline" onClick={() => openJob(links.jobId!)}>Open job</Button>}
         {links.resume && <Button size="sm" variant="outline" onClick={() => navigate('resume')}>Open resume</Button>}
         {links.boards && <Button size="sm" variant="outline" onClick={() => navigate('boards')}>Open boards</Button>}
         <span className="flex-1" />

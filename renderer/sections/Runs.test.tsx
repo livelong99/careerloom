@@ -26,6 +26,13 @@ const setup = (impl: Record<string, unknown> = {}, runs: Partial<RunsCtx> = {}, 
   render(<WithRuns value={value}><Runs {...props} /></WithRuns>)
   return value
 }
+const JOB = { id: 'job-9', url: 'https://x.test/9', title: 'Staff Engineer', company: 'Acme', reportNum: 7, score: 4.2, state: 'evaluated', status: 'Evaluated', location: 'Remote', ats: 'greenhouse', postedAt: null, evaluatedAt: null, trustScore: 80, stale: false }
+const JOB_RUNS: Run[] = [
+  run({ id: 'jr-1', label: 'Evaluate Acme — Staff Engineer', mode: 'evaluate', input: 'https://x.test/9', startedAt: NOW - 50 * 60_000 }),
+  run({ id: 'jr-2', label: 'Tailor résumé', mode: 'job-view', jobId: 'job-9', startedAt: NOW - 40 * 60_000 }),
+  run({ id: 'jr-3', label: 'Write cover letter', mode: 'job-view', jobId: 'job-9', status: 'failed', startedAt: NOW - 30 * 60_000 }),
+  run({ id: 'jr-gone', label: 'Structure job posting', mode: 'job-view', jobId: 'deleted-job', startedAt: NOW - 20 * 60_000 }),
+]
 const options = () => screen.getAllByRole('option').map(o => o.textContent ?? '')
 
 describe('Runs page', () => {
@@ -114,10 +121,81 @@ describe('Runs page', () => {
     await waitFor(() => expect(v.forget).toHaveBeenCalledWith(['run-2']))
   })
 
-  it('links a report-mode run to its job', async () => {
-    setup({ listJobs: [{ id: 'job-9', url: 'https://x.test', reportNum: 7 }] }, {}, { focusId: 'run-3' })
-    expect(await screen.findByRole('button', { name: 'Open job' })).toBeTruthy()
+  it('links a report-mode run to its job and the resume workspace', async () => {
+    setup({ listJobs: [JOB] }, {}, { focusId: 'run-3' })
+    expect(await screen.findByRole('region', { name: 'Job Staff Engineer — Acme' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open resume' })).toBeTruthy()
+  })
+
+  describe('job awareness', () => {
+    const withJob = (props: { focusId?: string } = {}) => setup({ listJobs: [JOB] }, { runs: [...JOB_RUNS, ...RUNS] }, props)
+
+    it('names the job on each of its runs, with a link to it', async () => {
+      withJob()
+      const row = await screen.findByRole('option', { name: /Tailor résumé/ })
+      expect(row).toHaveTextContent('Staff Engineer — Acme')
+      expect(within(row).getByRole('button', { name: 'Open job Staff Engineer — Acme' })).toBeTruthy()
+    })
+
+    it('shows a job card (score, status, facts) and the job\'s runs as a timeline in the detail', async () => {
+      withJob({ focusId: 'jr-2' })
+      const card = await screen.findByRole('region', { name: 'Job Staff Engineer — Acme' })
+      expect(card).toHaveTextContent('4.2')
+      expect(card).toHaveTextContent('Evaluated')
+      expect(card).toHaveTextContent('Remote')
+      expect(within(card).getByRole('button', { name: 'Open job' })).toBeTruthy()
+      expect(within(card).getByRole('button', { name: 'Open match' })).toBeEnabled()
+      const timeline = within(card).getByRole('list', { name: "This job's runs" })
+      // the 3 job runs + 'Tailored CV' (pdf, report #7 → the same job)
+      expect(within(timeline).getAllByRole('listitem')).toHaveLength(4)
+      fireEvent.click(within(timeline).getByRole('button', { name: /Write cover letter · failed/ }))
+      expect(screen.getByRole('region', { name: 'Run Write cover letter' })).toBeTruthy()
+    })
+
+    it('opens the job page (and its Match tab) from the card', async () => {
+      const seen: unknown[] = []
+      const on = (e: Event) => seen.push((e as CustomEvent).detail)
+      window.addEventListener('careerloom:navigate', on)
+      withJob({ focusId: 'jr-2' })
+      const card = await screen.findByRole('region', { name: 'Job Staff Engineer — Acme' })
+      fireEvent.click(within(card).getByRole('button', { name: 'Open match' }))
+      window.removeEventListener('careerloom:navigate', on)
+      expect(seen).toEqual([{ section: 'job', id: 'job-9' }])
+      expect(sessionStorage.getItem('careerloom.job.tab')).toBe('match')
+    })
+
+    it('groups by job: a timeline per job, runs without one under "No job"', async () => {
+      withJob()
+      await screen.findByRole('option', { name: /Tailor résumé/ })
+      fireEvent.click(screen.getByRole('tab', { name: 'Job' }))
+      const groups = screen.getAllByRole('group').filter(g => g.id === '' && g.getAttribute('aria-labelledby'))
+      expect(groups.map(g => g.firstElementChild?.textContent)).toEqual([expect.stringContaining('Staff Engineer — Acme'), expect.stringContaining('No job')])
+      const titles = within(groups[0]!).getAllByRole('option').map(o => o.querySelector('span')?.textContent)
+      expect(titles).toEqual(['Evaluate Acme — Staff Engineer', 'Tailor résumé', 'Write cover letter', 'Tailored CV'])
+    })
+
+    it('groups by status, and back to a flat list', async () => {
+      withJob()
+      await screen.findByRole('option', { name: /Tailor résumé/ })
+      fireEvent.click(screen.getByRole('tab', { name: 'Status' }))
+      expect(screen.getAllByRole('group').map(g => g.firstElementChild?.textContent).filter(t => /running|failed|cancelled|done/.test(t ?? '')).length).toBeGreaterThanOrEqual(3)
+      fireEvent.click(screen.getByRole('tab', { name: 'None' }))
+      expect(screen.queryAllByRole('group', { name: /running|failed/ })).toHaveLength(0)
+    })
+
+    it('searches by job title and company', async () => {
+      withJob()
+      await screen.findByRole('option', { name: /Tailor résumé/ })
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Search runs' }), { target: { value: 'acme' } })
+      expect(options()).toHaveLength(4) // 3 job runs + the report-#7 CV run
+      expect(screen.queryByRole('option', { name: /Live scan/ })).toBeNull()
+    })
+
+    it('copes with a run whose job is gone: no card, no crash', async () => {
+      withJob({ focusId: 'jr-gone' })
+      expect(await screen.findByRole('region', { name: 'Run Structure job posting' })).toBeTruthy()
+      expect(screen.queryByRole('region', { name: /^Job / })).toBeNull()
+    })
   })
 
   it('shows the empty state and a loading skeleton', () => {

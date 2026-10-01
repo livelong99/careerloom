@@ -175,6 +175,7 @@ async function launchWorker(job: JobListing, index: number, total: number, env: 
   const label = `Evaluate ${job.company} — ${job.title}${total > 1 ? ` (${index + 1}/${total})` : ''}`
   return startAgentPrompt(label, 'evaluate', prompt, job.url, {
     env,
+    jobId: job.id,
     onExit: run => {
       void (async () => {
         const result = parseWorkerResult(run.log)

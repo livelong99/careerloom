@@ -11,7 +11,7 @@ import { usePolled } from '../hooks/usePolled'
 import { useRuns } from '../hooks/useRuns'
 import { careerloom, normalizeCliError } from '../lib/ipc'
 import { formatCompact, formatCount, formatUsd } from '../lib/format'
-import { EMPTY_FILTER, filterRuns, runTotals, type RunFilter } from '../lib/runsView'
+import { EMPTY_FILTER, filterRuns, groupRuns, indexJobs, runTotals, type RunFilter, type RunGroupBy } from '../lib/runsView'
 import { showToast } from '../lib/toast'
 import type { Run } from '../lib/types'
 
@@ -20,8 +20,9 @@ type Clear = { label: string; ids: string[] }
 
 /** Every run, whichever screen started it: a filterable history on the left, the selected run's detail and log on the right. */
 export function Runs({ focusId, onFocusHandled }: { focusId?: string | null; onFocusHandled?: () => void }) {
-  const { runs, loaded, cancel, start, evaluate, forget } = useRuns()
+  const { runs, loaded, generation, cancel, start, evaluate, forget } = useRuns()
   const [filter, setFilter] = useState<RunFilter>(EMPTY_FILTER)
+  const [group, setGroup] = useState<RunGroupBy>('none')
   const [selected, setSelected] = useState<string | null>(null)
   const [clear, setClear] = useState<Clear | null>(null)
   const now = useNow(runs.some(r => r.status === 'running'))
@@ -34,13 +35,20 @@ export function Runs({ focusId, onFocusHandled }: { focusId?: string | null; onF
     onFocusHandled?.()
   }, [focusId, loaded, onFocusHandled])
 
-  const shown = useMemo(() => filterRuns(runs, filter), [runs, filter])
+  const settings = usePolled(() => careerloom.getSettings(), [], { intervalMs: null })
+  const jobs = usePolled(() => careerloom.listJobs(), [generation], { intervalMs: null })
+  const modes = usePolled(() => careerloom.modes(), [], { intervalMs: null })
+  const jobOf = useMemo(() => indexJobs(jobs.data ?? []), [jobs.data])
+  const shown = useMemo(() => filterRuns(runs, filter, Date.now(), jobOf), [runs, filter, jobOf])
+  const groups = useMemo(() => groupRuns(shown, group, jobOf), [shown, group, jobOf])
+  const flat = useMemo(() => groups.flatMap(g => g.runs), [groups])
   const totals = useMemo(() => runTotals(runs), [runs])
   const runners = useMemo(() => [...new Set(runs.map(r => r.runner))], [runs])
-  const active = shown.find(r => r.id === selected) ?? (focusId ? null : shown[0] ?? null)
-  const settings = usePolled(() => careerloom.getSettings(), [], { intervalMs: null })
-  const jobs = usePolled(() => careerloom.listJobs(), [active?.id], { intervalMs: null, enabled: !!active?.input })
-  const modes = usePolled(() => careerloom.modes(), [], { intervalMs: null })
+  // The Job filter offers the jobs that have runs, most recently active first.
+  const jobOptions = useMemo(() => groupRuns(runs, 'job', jobOf).filter(g => g.job).slice(0, 200).map(g => [g.key, g.title] as [string, string]), [runs, jobOf])
+  const active = flat.find(r => r.id === selected) ?? (focusId ? null : flat[0] ?? null)
+  const activeJob = active ? jobOf(active) : null
+  const jobRuns = useMemo(() => (activeJob ? groupRuns(runs, 'job', jobOf).find(g => g.key === activeJob.id)?.runs ?? [] : []), [runs, jobOf, activeJob])
   const days = settings.data?.prefs.retention.runLogDays ?? null
 
   const rerun = async (r: Run) => {
@@ -87,10 +95,10 @@ export function Runs({ focusId, onFocusHandled }: { focusId?: string | null; onF
         : (
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(300px,380px)_minmax(0,1fr)] overflow-hidden rounded-xl border border-border">
             <div className="flex min-h-0 flex-col border-r border-border">
-              <RunList runs={shown} total={runs.length} runners={runners} filter={filter} onFilter={setFilter} selected={active?.id ?? null} onSelect={setSelected} now={now} />
+              <RunList groups={groups} jobOf={jobOf} jobOptions={jobOptions} group={group} onGroup={setGroup} total={runs.length} runners={runners} filter={filter} onFilter={setFilter} selected={active?.id ?? null} onSelect={setSelected} now={now} />
             </div>
             {active
-              ? <RunDetail key={active.id} run={active} jobs={jobs.data ?? []} modes={modes.data ? Object.keys(modes.data) : null} onStop={cancel} onRerun={r => void rerun(r)} onDelete={async r => { await remove([r.id]); setSelected(null) }} />
+              ? <RunDetail key={active.id} run={active} job={activeJob} jobRuns={jobRuns} onSelectRun={setSelected} modes={modes.data ? Object.keys(modes.data) : null} onStop={cancel} onRerun={r => void rerun(r)} onDelete={async r => { await remove([r.id]); setSelected(null) }} />
               : <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Select a run to see its log.</div>}
           </div>
         )}

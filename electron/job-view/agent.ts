@@ -16,12 +16,12 @@ export function modelFor(s: Settings, tier: 'helper' | 'main'): string | undefin
   return tier === 'helper' ? s.helperModels[s.runner] ?? DEFAULT_HELPER[s.runner] : s.models[s.runner]
 }
 
-export function runText(prompt: string, o: { tier: 'helper' | 'main'; label: string }): ReturnType<ModelCall> {
+export function runText(prompt: string, o: { tier: 'helper' | 'main'; label: string; jobId?: string }): ReturnType<ModelCall> {
   const model = modelFor(readSettings(), o.tier)
   return new Promise((resolve, reject) => {
     try {
       startAgentPrompt(o.label, 'job-view', prompt, null, {
-        textOnly: true, neutral: true, model,
+        textOnly: true, neutral: true, model, jobId: o.jobId,
         onExit: r => r.status === 'done'
           ? resolve({ text: r.log, tokens: r.usage ? r.usage.inputTokens + r.usage.outputTokens : null, model: model ?? 'default' })
           : reject(new Error(`The agent run ${r.status}`)),
