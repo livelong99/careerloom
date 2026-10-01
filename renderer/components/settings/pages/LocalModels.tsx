@@ -10,7 +10,7 @@ import { orNull } from '../../copilot/api'
 import { STT_ENGINES } from '../../copilot/catalog'
 import { Group, Note, Row } from '../../kit/Group'
 import { LocalModelSetup } from '../../onboarding/ModelStep'
-import { openRuns } from '../../RunsDrawer'
+import { openRuns } from '@/lib/nav'
 import { ReadinessBadge } from '../kit'
 import type { PageProps } from '../pages'
 

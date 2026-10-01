@@ -1,0 +1,33 @@
+{"id":"sidebar-runs-item","area":"nav","pass":true,"note":"[\"Monitoring ⌘6\",\"Runs ⌘7\"]"}
+{"id":"shortcut-cmd-7","area":"nav","pass":true,"note":"Runs"}
+{"id":"running-run-first-and-selected","area":"live","pass":true,"note":"Scan QA Fake Corunningscan · scriptOct 1, 07:12 PM4s…"}
+{"id":"elapsed-ticks","area":"live","pass":true,"note":"4s -> 7s"}
+{"id":"live-log-streams","area":"live","pass":true,"note":"1QA fake scan starting2[001] fetched board page 1 · found 1 "}
+{"id":"live-log-redacted","area":"secrets","pass":true,"note":"credential line hidden + bare key masked; hidden=1 leak=false"}
+{"id":"deeplink-selects-run","area":"nav","pass":true,"note":"Scan all portals (big log)"}
+{"id":"big-log-1600-lines","area":"log","pass":true,"note":"domRows=60"}
+{"id":"big-log-windowed","area":"log","pass":true,"note":"domRows=60"}
+{"id":"big-log-redacted","area":"secrets","pass":true,"note":"credential line hidden + bare key masked; leak=false"}
+{"id":"step-jump","area":"log","pass":true,"note":"timeline step scrolled the viewer to line 501"}
+{"id":"follow-tail-bottom","area":"log","pass":true,"note":"0[1600] board page 1600 fetched · 7 jobs"}
+{"id":"deeplink-failed-run","area":"nav","pass":true,"note":"Scan 3 portals (failed)"}
+{"id":"filter-status-failed","area":"filter","pass":true,"note":"9 of 69"}
+{"id":"filter-search","area":"filter","pass":true,"note":"rows=1"}
+{"id":"keyboard-nav","area":"a11y","pass":true,"note":"Scan QA Fake Corunningscan · s -> Scan QA Fake Cocancelledscan ·"}
+{"id":"a11y-roles","area":"a11y","pass":true,"note":"{\"roles\":[true,true,true,true],\"active\":true}"}
+{"id":"palette-runs-entry","area":"nav","pass":true,"note":"Go to > Runs"}
+{"id":"stop-running-run","area":"actions","pass":true,"note":"status=cancelled"}
+{"id":"delete-confirm-cancel-keeps","area":"actions","pass":true,"note":"rows=70"}
+{"id":"delete-run","area":"actions","pass":true,"note":"70 -> 69"}
+{"id":"retention-chip","area":"nav","pass":true,"note":"Settings > Monitoring"}
+{"id":"job-card","area":"jobs","pass":true,"note":"Job Distinguished Engineer, Core DevOps — gitlab steps=6"}
+{"id":"job-timeline-chips","area":"jobs","pass":true,"note":"chips=6 (4 job-view/evaluate/ats runs + report #1 CV + cover letter)"}
+{"id":"row-shows-job","area":"jobs","pass":true,"note":"Tailor résumédoneDistinguished Engineer, Core DevOps — gitlabOpen jobagent · claudeOct 1, "}
+{"id":"group-by-job","area":"jobs","pass":true,"note":"[{\"head\":\"Engineering Manager — gitlab2Open job\",\"n\":2},{\"head\":\"Distinguished Engineer, Core DevOps — gitlab6Open job\",\"n\":6},{\"head\":\"No job61\",\"n\":61}]"}
+{"id":"job-timeline-oldest-first","area":"jobs","pass":true,"note":"Evaluate gitlab — Distinguished Engineer, Core DevOps > Structure job posting > Tailor résumé > Write cover letter > ATS analysis > Tailored CV (PDF)"}
+{"id":"group-by-status","area":"jobs","pass":true,"note":"[\"running\",\"failed\",\"cancelled\",\"done\"]"}
+{"id":"job-filter","area":"jobs","pass":true,"note":"run-opt-qa-job-8,run-opt-qa-job-7"}
+{"id":"job-filter-none","area":"jobs","pass":true,"note":"rows=61"}
+{"id":"missing-job-no-card","area":"jobs","pass":true,"note":"Structure job posting"}
+{"id":"open-match-lands-on-match-tab","area":"jobs","pass":true,"note":"tab=Match"}
+{"id":"no-secret-anywhere","area":"secrets","pass":true,"note":"DOM + web storage after all views"}

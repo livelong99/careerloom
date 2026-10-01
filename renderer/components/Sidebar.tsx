@@ -7,7 +7,7 @@ import { isMacPlatform, isModifierChord, shortcutLabel } from '../lib/platform'
 import loomi from '../assets/loomi.svg'
 import { Icon } from './icons'
 
-export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'settings' | 'job' | 'copilot'
+export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'runs' | 'settings' | 'job' | 'copilot'
 
 type NavItem = { id: Section; label: string; key: string; icon: ReactNode }
 
@@ -30,6 +30,7 @@ export function navGroups(): Array<{ label?: string; items: NavItem[] }> {
       items: [
         { id: 'agent', label: 'Agent', key: '5', icon: <Icon name="sparkles" /> },
         { id: 'monitoring', label: 'Monitoring', key: '6', icon: <Icon name="chart-column" /> },
+        { id: 'runs', label: 'Runs', key: '7', icon: <Icon name="history" /> },
       ],
     },
     // macOS only for now (plan §3.1): no half-working section elsewhere.

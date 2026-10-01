@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { checkRoot, listReports, readPipeline, readReport, readTracker } from './careerops'
-import { broadcast, dataRoot, launch, setSkillContext, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSettings, type Handler } from './context'
+import { broadcast, dataRoot, deleteRunRecords, launch, setSkillContext, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSettings, type Handler } from './context'
 import { chatHandlers } from './chat'
 import { onboardingHandlers } from './onboarding'
 import { prescreenHandlers, stopPrescreen } from './prescreen'
@@ -16,6 +16,7 @@ import { atsHandlers } from './ats/handlers'
 import { jobViewHandlers } from './job-view/handlers'
 import { docsHandlers } from './docs-gen/handlers'
 import { copilotHandlers } from './copilot/handlers'
+import { redactLog } from './log-redact'
 import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
 import { setKey } from './settings/keys'
 import { isAllowedPermission } from './copilot/audio-perms'
@@ -189,7 +190,13 @@ const handlers: Record<string, Handler> = {
     const ids = new Set(live.map(r => r.id))
     return [...readRunHistory().filter(r => !ids.has(r.id)), ...live].reverse()
   },
-  getRunLog: (id: unknown) => runLog(str(id, 'id')),
+  /** Credential-looking lines are hidden here, so the log viewer never receives them. */
+  getRunLog: (id: unknown) => redactLog(runLog(str(id, 'id'))),
+  /** Forget finished runs (history, saved log, memory); running ones are skipped. Returns how many went. */
+  deleteRuns: (ids: unknown) => {
+    if (!Array.isArray(ids) || ids.length > 5000 || ids.some(i => typeof i !== 'string')) throw new Error('ids must be a list of run ids')
+    return deleteRunRecords(ids as string[])
+  },
   cancelRun: (id: unknown) => {
     const run = runs.get(str(id, 'id'))
     if (!run || run.status !== 'running') return false

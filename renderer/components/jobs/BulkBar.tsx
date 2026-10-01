@@ -7,7 +7,7 @@ import { useRuns } from '../../hooks/useRuns'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
 import { showToast } from '../../lib/toast'
 import type { CanonicalStatus } from '../../lib/types'
-import { openRuns } from '../RunsDrawer'
+import { openRuns } from '../../lib/nav'
 import { CANONICAL_STATUSES, type ScreenedJob } from './filters'
 import { useUnlikelyGuard } from './prescreen'
 

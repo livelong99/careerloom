@@ -49,7 +49,7 @@ function ensure(job: JobListing): void {
   const run = (async () => {
     const jd = await resolveJd(job.id)
     if (jd) {
-      const r = await structurePosting(jd, metaOf(job), { run: p => runText(p, { tier: 'helper', label: 'Structure job posting' }), cacheDir: join(dir(), 'posting'), now: Date.now })
+      const r = await structurePosting(jd, metaOf(job), { run: p => runText(p, { tier: 'helper', label: 'Structure job posting', jobId: job.id }), cacheDir: join(dir(), 'posting'), now: Date.now })
       if (r.meta.filled === 'model-failed') failed.add(job.id)
     } else failed.add(job.id)
   })().catch(err => console.error('job view structuring failed:', err)).finally(() => { inflight.delete(job.id); broadcast('careerloom:jobView', { id: job.id }) })

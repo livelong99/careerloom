@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import type { ScanHistoryRow } from '../../lib/types'
 import { EmptyState } from '../kit/EmptyState'
-import { openRuns } from '../RunsDrawer'
+import { openRuns } from '../../lib/nav'
 
 const STATUS_TONE = { done: 'success', failed: 'danger', cancelled: 'neutral', running: 'info' } as const
 const SPARK = 30
