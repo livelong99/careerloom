@@ -42,4 +42,4 @@ export type ClearScope = 'run-logs' | 'chats'
 export type ResetScope = 'preferences' | 'everything'
 
 export type DiagnosticRow = { id: string; label: string; value: string | null; status: 'ok' | 'warn' | 'missing'; hint?: string }
-export type Diagnostics = { rows: DiagnosticRow[]; memory: { totalBytes: number; freeBytes: number } }
+export type Diagnostics = { rows: DiagnosticRow[]; memory: { totalBytes: number; freeBytes: number /** available, not just free pages (see memory.ts) */ } }
