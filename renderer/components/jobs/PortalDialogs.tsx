@@ -13,7 +13,7 @@ import { useRuns } from '../../hooks/useRuns'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
 import { showToast } from '../../lib/toast'
 import type { BrowserLoginStatus, Portal } from '../../lib/types'
-import { openRuns } from '../RunsDrawer'
+import { openRuns } from '../../lib/nav'
 
 const MAX_GUIDELINE = 4000
 

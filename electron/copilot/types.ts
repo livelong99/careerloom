@@ -1,5 +1,6 @@
 // Interview Copilot contract (plan.md §4–§7). FROZEN at gate G-A: changes go through the WP0 owner only.
 // Types only, so both the main process and the renderer can import it.
+import type { InterviewPlan, InterviewRecord } from '../interviewer/types'
 
 export type CopilotMode = 'practice' | 'live'
 export type Speaker = 'interviewer' | 'you'
@@ -19,6 +20,8 @@ export type TranscriptLine = { id: string; speaker: Speaker; text: string; final
 /** What the question gate learned about a turn (PERF-2); advisory, never authority. Additive, absent on older sessions. */
 export type QuestionHint = { kind: 'coding' | 'system-design' | 'behavioural' | 'factual' | 'small-talk'; complete: boolean; needsScreenshot: boolean; deep: boolean; source: 'heuristic' | 'jev'; /** model round trip, when a model answered */ gateMs?: number }
 export type DetectedQuestion = { id: string; text: string; type: QuestionType; confidence: number; at: number; auto: boolean; hint?: QuestionHint }
+/** A question-base item that informed a suggestion (interview-side context, never a claim about the candidate). `sourceId` resolves through `kbOpenSource`. */
+export type KbRef = { id: string; text: string; sourceId: string | null; source: string | null }
 export type Suggestion = {
   questionId: string; model: string; tier: 'fast' | 'balanced' | 'deep'
   say: string; bullets: string[]; star: { s: string; t: string; a: string; r: string } | null
@@ -26,6 +29,8 @@ export type Suggestion = {
   done: boolean; firstTokenMs: number | null; totalMs: number | null; costUsd: number | null
   /** Numbers-only stage timings of this turn (PERF-1); additive, absent on older sessions. */
   trace?: StageMs
+  /** Question-base items shown to the model for this turn (WP7); absent when none matched or the setting is off. */
+  kb?: KbRef[]
 }
 export type SourceHealth = { source: SourceId; status: 'ok' | 'silent' | 'denied' | 'missing'; level: number }
 
@@ -40,12 +45,14 @@ export type SessionSummary = { id: string; startedAt: number; endedAt: number | 
 export type Scorecard = { structure: number; specifics: number; evidence: number; concision: number; notes: Array<{ questionId: string; tip: string; suggestedLine: string | null }> }
 export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; questionsList: DetectedQuestion[]; suggestions: Suggestion[]; scorecard: Scorecard | null
   /** p50/p95 stage latencies over this session's answers, derived on read from `suggestions[].trace`. */
-  latency?: TraceSummary }
+  latency?: TraceSummary
+  /** Practice with the AI interviewer: per-question results. Additive. */
+  interview?: InterviewRecord }
 
 /** `questionIds`/`custom` (practice only): the chosen report questions and the user's own. Additive to the frozen contract. */
-export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[] }
+export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[]; /** practice only: AI-interviewer plan from the job knowledge base; absent = the report-question path. Additive. */ interview?: InterviewPlan }
 /** `start` restarts the last practice session, `retry` reopens speech recognition for the running one, `debrief` opens the last session in Careerloom (overlay buttons). Additive. */
-export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean; debrief?: boolean }
+export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean; debrief?: boolean; /** AI interviewer controls (practice with an interview plan). Additive. */ interviewer?: 'replay' | 'skip' | 'hint'; /** Typed answer when speech recognition is unavailable (practice with an interview plan). Additive. */ typed?: string }
 export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper'
 export type SttDevice = 'auto' | 'cpu' | 'coreml' | 'cuda'
 /** p95FinalMs: tail of end-of-speech → final text. faster-whisper adds the device that really ran and per-decode p50/p95 (GPU time without the endpoint wait). */

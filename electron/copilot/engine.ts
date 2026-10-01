@@ -7,7 +7,7 @@ import { parseClassification, CLASSIFY_MAX_TOKENS, CLASSIFY_SYSTEM, type Classif
 import { modelOrder, withFailover } from './failover'
 import { guardSuggestion } from './guard'
 import { estimateTokens, windowLines, type GroundingContext } from './context'
-import { buildPrompt, parseSuggestion, type PromptKind } from './prompts'
+import { buildPrompt, parseSuggestion, type KbMatch, type PromptKind } from './prompts'
 import { collectText, LlmError } from './providers/openrouter'
 import { createRedactor } from './redact'
 import { userContentWithImage, type ImagePart, type TextPart } from './vision'
@@ -89,6 +89,8 @@ export type EngineDeps = {
   sessionId?: () => string | undefined
   /** Does this model accept images? Defaults to the `vision` flag in recommended-models.json; the app adds OpenRouter's live list. */
   isVision?: (modelId: string) => boolean
+  /** Top question-base matches for the detected question (WP7); synchronous and fast (BM25 in memory). Absent/empty: no KB section. */
+  kbMatch?: (jobId: string, question: string) => KbMatch[]
 }
 
 // Headline-first answers are short: fast/balanced fit the longest format (script x 5-6 sentences + 5 bullets + STAR) in about 300/400 tokens.
@@ -97,6 +99,9 @@ const WINDOW_TOKENS = 800
 const WINDOW_LINES = 6
 /** The SAY section has started and its first line has content: the user can read the headline. */
 const SAY_VISIBLE = /\[SAY\][ \t]*\r?\n[ \t]*\S/
+
+/** A broken or unbound question base must never cost an answer. */
+const safeKb = (f: NonNullable<EngineDeps['kbMatch']>, jobId: string, q: string): KbMatch[] => { try { return f(jobId, q) } catch { return [] } }
 
 export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
   const now = deps.now ?? Date.now
@@ -124,7 +129,10 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       const mask = cfg.privacy.redact ? createRedactor(deps.redactNames?.() ?? []) : (t: string) => t
       const lines = windowLines(req.transcript, WINDOW_TOKENS, { maxLines: WINDOW_LINES }).map(l => ({ ...l, text: mask(l.text) }))
       const question = { ...req.question, text: mask(req.question.text) }
-      const prompt = buildPrompt({ grounding: g.prefix, coaching: cfg.coaching, question, transcript: lines, kind: req.kind, variant: req.route?.variant })
+      const kbStartAt = now()
+      const kb = deps.kbMatch && req.route?.variant !== 'brief' ? safeKb(deps.kbMatch, g.summary.jobId, question.text) : []
+      const kbDoneAt = now()
+      const prompt = buildPrompt({ grounding: g.prefix, coaching: cfg.coaching, question, transcript: lines, kind: req.kind, variant: req.route?.variant, kb })
       const promptChars = prompt.system.length + prompt.messages.reduce((n, m) => n + m.content.length, 0)
       const messages = req.image ? prompt.messages.map(m => ({ ...m, content: userContentWithImage(m.content, req.image!.jpeg) })) : prompt.messages
       const shot = req.image && { captureMs: req.image.captureMs ?? 0, encodeMs: req.image.encodeMs ?? 0, bytes: req.image.jpeg.length }
@@ -133,13 +141,15 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       const start = now()
       const turn = deps.trace?.start(req.question.id, req.marks ?? {}, start)
       const marks: TraceMarks = req.marks ?? {} // shared with the caller: a speculative request learns its speech end after it started
+      if (deps.kbMatch) { marks.kbStartAt = kbStartAt; marks.kbDoneAt = kbDoneAt; turn?.mark('kbStartAt', kbStartAt); turn?.mark('kbDoneAt', kbDoneAt) }
+      const kbRefs = kb.map(({ outline: _o, ...ref }) => ref)
       const mark = (k: keyof TraceMarks): void => { marks[k] ??= now(); turn?.mark(k, marks[k]!) }
       let text = ''
       let firstTokenMs: number | null = null
       let usage: StreamUsage | null = null
       let usedModel = model
       const base: Suggestion = { questionId: req.question.id, model, tier, say: '', bullets: [], star: null, proof: [], flags: [], done: false, firstTokenMs: null, totalMs: null, costUsd: null }
-      const snapshot = (done: boolean): Suggestion => ({ ...base, model: usedModel, ...parseSuggestion(text, done), done, firstTokenMs, totalMs: done ? now() - start : null, trace: stageMs(marks, { promptTokens: usage?.promptTokens, cachedTokens: usage?.cachedTokens }, turnInfo()) })
+      const snapshot = (done: boolean): Suggestion => ({ ...base, ...(kbRefs.length ? { kb: kbRefs } : {}), model: usedModel, ...parseSuggestion(text, done), done, firstTokenMs, totalMs: done ? now() - start : null, trace: stageMs(marks, { promptTokens: usage?.promptTokens, cachedTokens: usage?.cachedTokens }, turnInfo()) })
 
       const stream = withFailover(modelOrder(model, fallbacksFor(tier, model, req.image ? isVision : undefined)), m => {
         usedModel = m
