@@ -7,8 +7,8 @@ const api = vi.hoisted(() => ({
   browserAcks: vi.fn(), browserRevoke: vi.fn(),
 }))
 vi.mock('@/lib/ipc', async orig => ({ ...(await orig<typeof import('@/lib/ipc')>()), careerloom: new Proxy(api, { get: (t, k) => (k in t ? (t as never)[k] : () => new Promise(() => {})) }) }))
-vi.mock('../../lib/ipc', async orig => ({ ...(await orig<typeof import('../../lib/ipc')>()), careerloom: new Proxy(api, { get: (t, k) => (k in t ? (t as never)[k] : () => new Promise(() => {})) }) }))
-vi.mock('../../hooks/useRuns', () => ({ useRuns: () => ({ generation: 0, adopt: () => {} }) }))
+vi.mock('../../../lib/ipc', async orig => ({ ...(await orig<typeof import('../../../lib/ipc')>()), careerloom: new Proxy(api, { get: (t, k) => (k in t ? (t as never)[k] : () => new Promise(() => {})) }) }))
+vi.mock('../../../hooks/useRuns', () => ({ useRuns: () => ({ generation: 0, adopt: () => {} }) }))
 
 import { IntegrationsPage } from './Integrations'
 

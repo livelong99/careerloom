@@ -6,31 +6,32 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Group, Note } from '../../components/copilot/Group'
-import { AddIntegrationDialog } from '../../components/integrations/AddIntegrationDialog'
-import { BrowserAcks } from '../../components/integrations/BrowserAcks'
-import { CategoryNav, type Category } from '../../components/integrations/CategoryNav'
-import { IntegrationDetailPanel } from '../../components/integrations/IntegrationDetailPanel'
-import { IntegrationTable } from '../../components/integrations/IntegrationTable'
-import { SetupSummary } from '../../components/integrations/SetupSummary'
-import { EmptyState } from '../../components/kit/EmptyState'
-import { usePolled } from '../../hooks/usePolled'
-import { useRuns } from '../../hooks/useRuns'
-import { careerloom, normalizeCliError } from '../../lib/ipc'
-import { NAVIGATE_EVENT } from '../../lib/nav'
-import { showToast } from '../../lib/toast'
-import type { Integration, IntegrationAction, IntegrationDetail, Run } from '../../lib/types'
+import { Group, Note } from '../../copilot/Group'
+import { AddIntegrationDialog } from '../../integrations/AddIntegrationDialog'
+import { BrowserAcks } from '../../integrations/BrowserAcks'
+import { CategoryNav, type Category } from '../../integrations/CategoryNav'
+import { IntegrationDetailPanel } from '../../integrations/IntegrationDetailPanel'
+import { IntegrationTable } from '../../integrations/IntegrationTable'
+import { SetupSummary } from '../../integrations/SetupSummary'
+import { EmptyState } from '../../kit/EmptyState'
+import { usePolled } from '../../../hooks/usePolled'
+import { useRuns } from '../../../hooks/useRuns'
+import { careerloom, normalizeCliError } from '../../../lib/ipc'
+import { NAVIGATE_EVENT } from '../../../lib/nav'
+import { showToast } from '../../../lib/toast'
+import type { Integration, IntegrationAction, IntegrationDetail, Run } from '../../../lib/types'
 
 const CAREER_OPS = 'skill:career-ops'
 
 const isRun = (value: unknown): value is Run => Boolean(value) && typeof value === 'object' && 'startedAt' in (value as object)
 
-// Settings deep links ({section, page, focus}) are handled by the Settings shell; lib/nav's helper arrives with it.
+// TODO(merge): use lib/nav goToSettings(page, focus) once it lands; until then dispatch the nav event directly.
 const openPage = (section: 'boards' | 'settings', page?: string, focus?: string) =>
   window.dispatchEvent(new CustomEvent(NAVIGATE_EVENT, { detail: page ? { section, page, focus } : section }))
 
 /** Settings › Integrations: services, skills and plugins with health, config and actions; job sources live in Boards. */
-export function IntegrationsPage({ focus }: { focus?: string }) {
+// PageProps (settings, onChanged) come from the shell; the page loads its own data. `focus` is optional (the shell pulses the target itself).
+export function IntegrationsPage({ focus }: { settings?: unknown; onChanged?: () => void; focus?: string }) {
   const { generation, adopt } = useRuns()
   const list = usePolled(() => careerloom.listIntegrations(), [generation], { intervalMs: 20_000, memoKey: 'integrations' })
   // Job sources are managed in Boards; counted for the link, never listed here.
