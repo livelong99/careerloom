@@ -30,3 +30,4 @@
 - [20260927 Careerloom v3](session_20260927_careerloom-v3-resume-jobs-agent.md) — Resume workspace + Jobs + Agent chat, skills as engine, runs drawer
 - [20260927 Careerloom screens v2](session_20260927_careerloom-screens-v2.md) — Resume/Monitoring/Integrations/Pipeline+kanban/⌘K; Tailwind+shadcn from paperclip/VoiceStudio; Firecrawl per autoshorts
 - [20260927 Careerloom bootstrap](session_20260927_careerloom-bootstrap.md) — Electron UI over career-ops forked from codeburn app/; runners claude/codex/agy/OpenRouter
+- [20261001 Interview Copilot](session_20261001_interview-copilot.md) — Copilot built via Orca agents; feature branch feat/resume-job-copilot, open items
