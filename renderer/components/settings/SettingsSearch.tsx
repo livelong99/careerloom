@@ -26,7 +26,7 @@ export function SettingsSearch({ onPick }: { onPick: (page: PageId, focus?: stri
       <Command shouldFilter={false} label="Search settings" className="overflow-visible bg-transparent">
         <CommandInput aria-label="Search settings" placeholder="Search settings" value={q} onValueChange={setQ} onKeyDown={e => { if (e.key === 'Escape') setQ('') }} />
         {q.trim() && (
-          <CommandList className="absolute inset-x-0 top-full z-30 mt-1 rounded-lg border border-border bg-popover shadow-lg">
+          <CommandList className="absolute left-0 top-full z-30 mt-1 w-80 rounded-lg border border-border bg-popover shadow-lg">
             <CommandEmpty>No settings match.</CommandEmpty>
             {results.map(r => (
               <CommandItem key={`${r.page}:${r.focus ?? ''}`} value={`${r.page}:${r.focus ?? ''}`} onSelect={() => pick(r.page, r.focus)}>

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ComponentType } from 'react'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
 import { isPageId, PAGE_GROUPS, PAGES, type PageId, type PageProps } from './pages'
 import { SettingsSearch } from './SettingsSearch'
 import { useFocusPulse } from './useFocusPulse'
@@ -69,20 +68,16 @@ export function SettingsShell({ settings, onChanged, target, attention = {} }: {
           </ScrollArea>
         </div>
         <ScrollArea className="min-h-0 min-w-0 flex-1 rounded-xl border border-border">
-          {PAGES.map(({ id }) => {
-            const Body = BODIES[id]
-            return (
-              <TabsContent key={id} value={id} className={cn('mx-auto flex max-w-3xl flex-col gap-4 p-6')}>
-                <div ref={id === page ? body : undefined} className="flex flex-col gap-4">
-                  <header>
-                    <h2 className="m-0 text-lg font-semibold text-foreground">{current.label}</h2>
-                    <p className="m-0 mt-1 text-sm text-muted-foreground">{current.blurb}</p>
-                  </header>
-                  <Body settings={settings} onChanged={onChanged} />
-                </div>
-              </TabsContent>
-            )
-          })}
+          {/* Only the active page is rendered: `flex` would override the hidden attribute of inactive panels. */}
+          <TabsContent value={page} className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
+            <div ref={body} className="flex flex-col gap-4">
+              <header>
+                <h2 className="m-0 text-lg font-semibold text-foreground">{current.label}</h2>
+                <p className="m-0 mt-1 text-sm text-muted-foreground">{current.blurb}</p>
+              </header>
+              {(() => { const Body = BODIES[page]; return <Body settings={settings} onChanged={onChanged} /> })()}
+            </div>
+          </TabsContent>
         </ScrollArea>
       </Tabs>
     </div>
