@@ -1,6 +1,6 @@
 ---
 name: 20261001-settings-d-integrations
-description: Settings rebuild package D — Integrations page (renderer/sections/settings/Integrations.tsx), filter tabs, Firecrawl key link, browser acks revoke, career-ops check/update
+description: Settings rebuild package D — Integrations page (renderer/components/settings/pages/Integrations.tsx), filter tabs, Firecrawl key link, browser acks revoke, career-ops check/update
 type: project
 ---
 
@@ -9,7 +9,7 @@ type: project
 **Date:** 2026-10-01
 
 **Files changed:**
-- `renderer/sections/settings/Integrations.tsx`: `IntegrationsPage({focus?})`; services/skills/plugins rows, Job sources tab = link to Boards, header Check/Update career-ops, Add skill/plugin.
+- `renderer/components/settings/pages/Integrations.tsx`: `IntegrationsPage({focus?})`; services/skills/plugins rows, Job sources tab = link to Boards, header Check/Update career-ops, Add skill/plugin.
 - `renderer/components/integrations/CategoryNav.tsx`: left rail -> horizontal filter tabs (+ `onOpenSources`).
 - `renderer/components/integrations/BrowserAcks.tsx`: acknowledged sites list + revoke (`browserAcks`/`browserRevoke`, tolerates "not implemented yet").
 - `renderer/components/integrations/{IntegrationDetailPanel,ConfigForm}.tsx`: `extra`/`hideConfig` slots, Firecrawl "Test" label, Revert clears typed secrets.
