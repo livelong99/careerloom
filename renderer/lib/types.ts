@@ -62,7 +62,10 @@ export type CareerloomBridge = {
   listReports(): Promise<ReportMeta[]>
   readReport(rel: string): Promise<string>
   listRuns(): Promise<Run[]>
+  /** Run log with credential-looking lines hidden. */
   getRunLog(id: string): Promise<string>
+  /** Forget finished runs (history + saved log); running ones are skipped. Resolves with how many were removed. */
+  deleteRuns(ids: string[]): Promise<number>
   startRun(req: { mode: string; input?: string }): Promise<Run>
   /** Evaluate a link/JD; prefetches the page through Firecrawl when it is running. */
   evaluateJob(input: string): Promise<Run>
