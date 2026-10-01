@@ -20,7 +20,7 @@ const usd = (v: number): string => `$${v < 0.01 ? v.toFixed(3) : v.toFixed(2)}`
 
 export function TierCards({ tier, onTier, prices }: { tier: TierId; onTier: (t: TierId) => void; prices: Record<TierId, TierPrice> }) {
   return (
-    <div role="group" aria-label="Speed and cost" className="grid grid-cols-3 gap-3">
+    <div role="group" aria-label="Speed and cost" className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-3">
       {TIERS.map(t => {
         const p = prices[t.id]
         const est = p ? estimateInterviewUsd(p.prompt, p.completion) : null
@@ -31,7 +31,7 @@ export function TierCards({ tier, onTier, prices }: { tier: TierId; onTier: (t: 
           >
             <b className="text-sm text-foreground">{t.label}</b>
             <small className="text-xs text-muted-foreground">{t.hint}</small>
-            <Badge variant={tier === t.id ? 'brand' : 'neutral'} className="mt-2">
+            <Badge variant={tier === t.id ? 'brand' : 'neutral'} className="mt-2 h-auto max-w-full whitespace-normal py-0.5 text-left">
               {est === null ? 'price shown after you pick a model' : `about ${usd(est)} per interview`}
             </Badge>
           </button>
