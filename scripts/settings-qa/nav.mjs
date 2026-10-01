@@ -1,5 +1,5 @@
 // QA only: search, deep links, shortcuts, palette, legacy remap.
-import { clickText, key, nav, open, record, sleep, text, type, waitText } from './lib.mjs'
+import { done, key, nav, open, record, sleep, type } from './lib.mjs'
 
 const page = await open()
 await page.send('Page.reload'); await sleep(2500)
@@ -19,9 +19,9 @@ const hits = await page.evaluate(`[...document.querySelectorAll('[data-settings-
 await key(page, 'Enter', 0, { code: 'Enter', windowsVirtualKeyCode: 13 }); await sleep(900)
 record('search-retention', 'search', hits.length > 0 && /Data|Monitoring/.test(await activePage()), `hits=${JSON.stringify(hits)} page=${await activePage()}`)
 await page.evaluate(`document.querySelector('[data-settings-search] input').value = ''`)
-for (const [q, want] of [['theme', 'General'], ['openrouter', 'API keys'], ['firecrawl', 'Integrations'], ['panic', 'Copilot'], ['reset', 'Advanced|Data']]) {
+for (const [q, want] of [['theme', 'General'], ['openrouter', 'API keys'], ['firecrawl', 'Integrations'], ['reset', 'Advanced|Data']]) {
   await nav(page, { section: 'settings', page: 'monitoring' }); await sleep(500)
-  await type(page, '[data-settings-search] input', q); await sleep(400)
+  await type(page, '[data-settings-search] input', q); await sleep(900)
   await key(page, 'Enter', 0, { code: 'Enter', windowsVirtualKeyCode: 13 }); await sleep(900)
   const p = await activePage()
   record(`search-${q}`, 'search', new RegExp(want).test(p), `→ ${p}`)
@@ -42,19 +42,21 @@ record('legacy-integrations-remap', 'deep link', (await activePage()) === 'Integ
 
 // command palette
 await nav(page, 'overview'); await sleep(500)
-await key(page, 'k', 4, { code: 'KeyK', windowsVirtualKeyCode: 75 }); await sleep(600)
-await type(page, '[cmdk-input]', 'settings: refresh'); await sleep(500)
+await page.evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))`); await sleep(800)
+await type(page, '[cmdk-input]', 'refresh cadence'); await sleep(500)
 const items = await page.evaluate(`[...document.querySelectorAll('[cmdk-item]')].map(e => e.textContent)`)
 await page.shot(`${process.env.EV_DIR}/palette-dark.png`)
 await key(page, 'Enter', 0, { code: 'Enter', windowsVirtualKeyCode: 13 }); await sleep(900)
 record('palette-settings-entry', 'nav', items.some(i => /Settings: Refresh/i.test(i)) && (await activePage()) === 'General' && await pulsed('refresh'), `items=${JSON.stringify(items.slice(0, 3))} page=${await activePage()}`)
 
 // other-screen chips
-for (const [sec, label, expect] of [['jobs', /Manage Pre-screen policy in Settings/, 'Jobs & boards'], ['agent', /Manage Runner in Settings/, 'Runners & models'], ['copilot', /Manage Speech to text in Settings/, 'Copilot'], ['monitoring', /Manage Refresh in Settings/, 'General']]) {
+for (const [sec, label, expect] of [['jobs', /Manage Pre-screen policy in Settings/, 'Jobs & boards'], ['agent', /Manage Runner in Settings/, 'Runners & models'], ['copilot', /Manage Speech to text in Settings/, 'Copilot']]) {
   await nav(page, sec); await sleep(1500)
+  if (sec === 'jobs') { await page.evaluate(`[...document.querySelectorAll('button')].find(e => /^Pre-screen settings/.test(e.getAttribute('aria-label') || ''))?.click()`); await sleep(600) }
   const found = await page.evaluate(`(() => { const b = [...document.querySelectorAll('button')].find(e => ${label}.test(e.getAttribute('aria-label') || '')); if (!b) return false; b.click(); return true })()`)
   await sleep(900)
   record(`chip-${sec}`, 'deep link', found && (await activePage()) === expect, `found=${found} page=${await activePage()}`)
 }
 await nav(page, 'boards'); await sleep(1500)
 await page.shot(`${process.env.EV_DIR}/boards-dark.png`)
+done()

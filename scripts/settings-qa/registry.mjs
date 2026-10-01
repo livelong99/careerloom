@@ -1,6 +1,6 @@
 // QA only: every registry entry's focus id must exist in the DOM of its page (so search/palette can pulse it).
 import { REGISTRY } from '../../renderer/components/settings/settings-registry.ts'
-import { nav, open, record, sleep } from './lib.mjs'
+import { done, nav, open, record, sleep } from './lib.mjs'
 
 const page = await open()
 await page.send('Page.reload'); await sleep(2500)
@@ -13,3 +13,4 @@ for (const en of REGISTRY) {
   if (!ok) missing.push(`${en.page}:${en.focus}`)
 }
 record('registry-ids-exist', 'search', missing.length === 0, missing.length ? `missing ${missing.join(', ')}` : `${REGISTRY.length} entries`)
+done()

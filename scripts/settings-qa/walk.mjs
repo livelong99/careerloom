@@ -1,5 +1,6 @@
 // QA only: walks every Settings page dark+light on a cloned profile over CDP. Never point at real data.
 import { attach, sleep, waitTarget } from '../copilot-int-e2e/cdp.mjs'
+import { done } from './lib.mjs'
 
 const OUT = process.env.EV_DIR
 const PAGES = ['general', 'runners', 'keys', 'local-models', 'integrations', 'jobs', 'resume', 'agent', 'copilot', 'monitoring', 'data', 'advanced']
@@ -16,3 +17,4 @@ for (const t of ['dark', 'light']) {
     await page.shot(`${OUT}/${p}-${t}.png`)
   }
 }
+done()
