@@ -1,0 +1,23 @@
+{"id":"sidebar-runs-item","area":"nav","pass":true,"note":"[\"Monitoring ⌘6\",\"Runs ⌘7\"]"}
+{"id":"shortcut-cmd-7","area":"nav","pass":true,"note":"Runs"}
+{"id":"running-run-first-and-selected","area":"live","pass":true,"note":"Scan QA Fake Corunningscan · scriptOct 1, 07:00 PM4s…"}
+{"id":"elapsed-ticks","area":"live","pass":true,"note":"4s -> 7s"}
+{"id":"live-log-streams","area":"live","pass":true,"note":"1QA fake scan starting2[001] fetched board page 1 · found 1 "}
+{"id":"live-log-redacted","area":"secrets","pass":true,"note":"credential line hidden + bare key masked; hidden=1 leak=false"}
+{"id":"deeplink-selects-run","area":"nav","pass":true,"note":"Scan all portals (big log)"}
+{"id":"big-log-1600-lines","area":"log","pass":true,"note":"domRows=60"}
+{"id":"big-log-windowed","area":"log","pass":true,"note":"domRows=60"}
+{"id":"big-log-redacted","area":"secrets","pass":true,"note":"credential line hidden + bare key masked; leak=false"}
+{"id":"step-jump","area":"log","pass":true,"note":"timeline step scrolled the viewer to line 501"}
+{"id":"follow-tail-bottom","area":"log","pass":true,"note":"0[1600] board page 1600 fetched · 7 jobs"}
+{"id":"deeplink-failed-run","area":"nav","pass":true,"note":"Scan 3 portals (failed)"}
+{"id":"filter-status-failed","area":"filter","pass":true,"note":"7 of 58"}
+{"id":"filter-search","area":"filter","pass":true,"note":"rows=1"}
+{"id":"keyboard-nav","area":"a11y","pass":true,"note":"Scan QA Fake Corunningscan · s -> Scan QA Fake Cocancelledscan ·"}
+{"id":"a11y-roles","area":"a11y","pass":true,"note":"{\"roles\":[true,true,true,true],\"active\":true}"}
+{"id":"palette-runs-entry","area":"nav","pass":true,"note":"Go to > Runs"}
+{"id":"stop-running-run","area":"actions","pass":true,"note":"status=cancelled"}
+{"id":"delete-confirm-cancel-keeps","area":"actions","pass":true,"note":"rows=59"}
+{"id":"delete-run","area":"actions","pass":true,"note":"59 -> 58"}
+{"id":"retention-chip","area":"nav","pass":true,"note":"Settings > Monitoring"}
+{"id":"no-secret-anywhere","area":"secrets","pass":true,"note":"DOM + web storage after all views"}

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { canContinue } from '../RunLog'
-import { usePolled } from '../../hooks/usePolled'
+import { useRuns } from '../../hooks/useRuns'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
 import { formatCompact, formatDuration, formatUsd } from '../../lib/format'
 import { continueInChat, navigate } from '../../lib/nav'
@@ -12,8 +12,26 @@ import { elapsedMs, logSteps, runLinks } from '../../lib/runsView'
 import type { JobListing, Run } from '../../lib/types'
 import { LogViewer } from './LogViewer'
 
-const LOG_POLL_MS = 2000
+const LOG_THROTTLE_MS = 500
 const RERUN_RUNNERS = new Set(['claude', 'codex', 'antigravity', 'opencode', 'zen', 'api'])
+
+/** The run's redacted log from the main process. A running run re-reads it as chunks arrive (at most every
+ *  LOG_THROTTLE_MS), so it follows the live stream without a timer that a hidden window would pause. */
+function useRunLog(run: Run): { text: string; error: string | null } {
+  const live = useRuns().logs[run.id]?.length ?? 0
+  const [state, setState] = useState({ text: '', error: null as string | null })
+  const last = useRef(0)
+  useEffect(() => {
+    let alive = true
+    const load = () => {
+      last.current = Date.now()
+      careerloom.getRunLog(run.id).then(text => { if (alive) setState({ text, error: null }) }, err => { if (alive) setState(s => ({ ...s, error: normalizeCliError(err).message })) })
+    }
+    const timer = setTimeout(load, Math.max(0, last.current + LOG_THROTTLE_MS - Date.now()))
+    return () => { alive = false; clearTimeout(timer) }
+  }, [run.id, run.status, live])
+  return state
+}
 
 /** Ticks once a second while `active`, so a running run's elapsed time moves. */
 export function useNow(active: boolean): number {
@@ -39,8 +57,8 @@ type Props = {
 export function RunDetail({ run, jobs, modes, onStop, onRerun, onDelete }: Props) {
   const running = run.status === 'running'
   const now = useNow(running)
-  const log = usePolled(() => careerloom.getRunLog(run.id), [run.id, run.status], { intervalMs: running ? LOG_POLL_MS : null })
-  const text = log.data ?? ''
+  const log = useRunLog(run)
+  const text = log.text
   const steps = useMemo(() => logSteps(text), [text])
   const [jump, setJump] = useState<{ line: number; n: number } | null>(null)
   const [confirm, setConfirm] = useState(false)
@@ -100,7 +118,7 @@ export function RunDetail({ run, jobs, modes, onStop, onRerun, onDelete }: Props
       )}
 
       {log.error
-        ? <p role="alert" className="text-sm text-[var(--bad)]">Could not load the log: {normalizeCliError(log.error).message}</p>
+        ? <p role="alert" className="text-sm text-[var(--bad)]">Could not load the log: {log.error}</p>
         : <LogViewer text={text} name={`${run.mode}-${run.id.slice(0, 8)}`} jumpTo={jump} placeholder={running ? 'Starting…' : 'No log was kept for this run — only scan logs survive a restart.'} />}
 
       <AlertDialog open={confirm} onOpenChange={setConfirm}>

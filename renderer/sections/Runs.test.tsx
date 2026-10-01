@@ -88,6 +88,16 @@ describe('Runs page', () => {
     expect(screen.getAllByText(/line hidden/).length).toBe(2)
   })
 
+  it('re-reads a running run\'s log when new output streams in', async () => {
+    const getRunLog = vi.fn().mockResolvedValueOnce('first line').mockResolvedValue('first line\nsecond line')
+    bridge.current = fakeBridge({ getSettings: { prefs: { retention: { runLogDays: null } } }, listJobs: [], modes: {}, getRunLog })
+    const view = (logs: Record<string, string>) => <WithRuns value={ctx({ logs })}><Runs /></WithRuns>
+    const { rerender } = render(view({}))
+    await waitFor(() => expect(screen.getByRole('log')).toHaveTextContent('first line'))
+    rerender(view({ 'run-1': 'second line\n' }))
+    await waitFor(() => expect(screen.getByRole('log')).toHaveTextContent('second line'), { timeout: 2000 })
+  })
+
   it('windows a 1500-line log instead of rendering every row', async () => {
     setup({ getRunLog: Array.from({ length: 1500 }, (_, i) => `line ${i}`).join('\n') })
     await waitFor(() => expect(screen.getByText('1,500 lines')).toBeTruthy())
