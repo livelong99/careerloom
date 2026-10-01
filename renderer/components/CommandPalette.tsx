@@ -9,6 +9,9 @@ import { stageLabel, stageOf } from '../lib/stages'
 import { applyTheme, type Theme } from '../lib/theme'
 import type { Application } from '../lib/types'
 import { openRuns } from './RunsDrawer'
+import { goToSettings } from '../lib/nav'
+import { pageLabel } from './settings/pages'
+import { REGISTRY } from './settings/settings-registry'
 import { navGroups, type Section } from './Sidebar'
 
 type Props = {
@@ -76,6 +79,14 @@ export function CommandPalette({ onNavigate, onOpenApplication }: Props) {
             ))}
           </CommandGroup>
         )}
+        <CommandGroup heading="Settings">
+          {REGISTRY.map(r => (
+            <CommandItem key={`${r.page}:${r.focus ?? ''}`} value={`settings ${r.label} ${r.keywords.join(' ')}`} onSelect={() => run(() => goToSettings(r.page, r.focus))}>
+              Settings: {r.label}
+              <CommandShortcut>{pageLabel(r.page)}</CommandShortcut>
+            </CommandItem>
+          ))}
+        </CommandGroup>
         <CommandGroup heading="Appearance">
           {(['system', 'light', 'dark'] as Theme[]).map(theme => (
             <CommandItem key={theme} value={`theme ${theme}`} onSelect={() => run(() => applyTheme(theme))}>
