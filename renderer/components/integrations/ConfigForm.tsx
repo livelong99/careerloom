@@ -54,8 +54,9 @@ export function ConfigForm({ fields, saving, onSave }: Props) {
           {fields.filter(f => f.help).map(f => <li key={f.key}>{f.label}: {f.help}</li>)}
         </ul>
       )}
-      <div>
+      <div className="flex gap-2">
         <Button size="sm" disabled={saving || Object.keys(draft).length === 0} onClick={save}>Save</Button>
+        {Object.keys(draft).length > 0 && <Button size="sm" variant="ghost" onClick={() => setDraft({})}>Revert</Button>}
       </div>
     </div>
   )
