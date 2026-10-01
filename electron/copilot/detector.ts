@@ -1,6 +1,7 @@
 // Interviewer-channel finals only: rules first (cheap, deterministic), then at most one tiny classify call for the
 // ambiguous remainder (plan §3.3). Never throws: a failed classify means "not a question", the hotkey is always there.
 import { isSentenceFinal } from './stt/endpoint'
+import { needsScreenshot } from './vision'
 import type { DetectedQuestion, QuestionHint, QuestionType, TranscriptLine } from './types'
 
 export interface QuestionDetector {
@@ -64,8 +65,10 @@ const SCREEN = /\b(?:on (?:my|the|your) screen|(?:look|looking) at (?:this|the|m
 const KIND: Record<QuestionType, QuestionHint['kind']> = { coding: 'coding', 'system-design': 'system-design', behavioural: 'behavioural', technical: 'factual', other: 'factual' }
 
 export function heuristicHint(text: string): QuestionHint {
-  const kind = SMALL_TALK.test(text) ? 'small-talk' : KIND[questionType(text)]
-  return { kind, complete: isSentenceFinal(text) || words(text).length >= 7, needsScreenshot: SCREEN.test(text), deep: kind === 'coding' || kind === 'system-design', source: 'heuristic' }
+  const type = questionType(text)
+  const kind = SMALL_TALK.test(text) ? 'small-talk' : KIND[type]
+  // One screenshot rule for routing and the capture pipeline (PERF-3's vision.ts), widened by the phrase list above.
+  return { kind, complete: isSentenceFinal(text) || words(text).length >= 7, needsScreenshot: needsScreenshot({ text, type }) || SCREEN.test(text), deep: kind === 'coding' || kind === 'system-design', source: 'heuristic' }
 }
 
 export type DetectorOptions = { classify?: Classify | null; now?: () => number; dedupeMs?: number }
