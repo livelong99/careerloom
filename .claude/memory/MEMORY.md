@@ -43,3 +43,4 @@
 - [20261001 Settings D](session_20261001_settings-d-integrations.md) — Integrations settings page: filter tabs, Firecrawl key link, browser acks revoke, career-ops check/update
 - [20261001 Settings rebuild](session_20261001_settings-rebuild.md) — Settings rebuilt (12 pages, key manager, integrations); branch livelong99/settings-qa, QA 73/74
 - [20261001 Copilot fix-audio](session_20261001_copilot-fix-audio.md) — audio fixes: dev mic permission, stale faster-whisper, missing-mic health, device fallback/reopen, system audio coming soon
+- [20261001 Copilot PERF-3 screenshots](session_20261001_copilot-perf3-screenshots.md) — screenshot→vision pipeline + table; wiring to handler/engine pending
