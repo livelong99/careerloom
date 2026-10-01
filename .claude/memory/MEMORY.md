@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261002 Windows Copilot](session_20261002_win-copilot.md) — Copilot enabled on Windows (gate, SAPI voice, ms-settings, tray, labels); worktree cleanup 33→55 GB; committed 6af1741 to PR #3 (feat/resume-job-copilot), untested on Windows
 - [20261001 Bundle bootstrap](session_20261001_bundle-bootstrap.md) — first-launch auto-install, Windows embedded runtimes, faster-whisper CUDA STT; feat/bundle-app, untested on Windows/GPU
 - [20261002 KB WP7 live](session_20261002_kb-wp7-live.md) — question base in live sessions: QUESTION BASE prefix block, top-3 matches in user turn, guard rule, KbChip, Settings toggle, kb trace stage
 - [20261002 KB INT](session_20261002_kb-int.md) — merged KB WP1-6, wired store/research/interviewer/voice seams, one hash + job-folder name, contract v2; cloned-profile e2e on fakes + real `say`
