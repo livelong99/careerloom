@@ -35,11 +35,10 @@ export const REGISTRY: readonly RegistryEntry[] = [
   e('jobs', 'prescreen', 'Pre-screen policy', 'countries', 'remote', 'years', 'seniority', 'location'),
   e('jobs', 'pipeline-limits', 'Pipeline limits', 'sequential', 'scan caps', 'evaluate'),
   e('resume', 'doc-defaults', 'Document defaults', 'tone', 'length', 'humanize', 'cover letter'),
-  e('resume', 'page-format', 'Page format', 'a4', 'letter', 'pdf'),
   e('agent', 'agent-permissions', 'What the runner may do', 'permissions', 'sandbox', 'tools'),
-  e('copilot', 'copilot-stt', 'Copilot transcription', 'stt', 'whisper', 'vocabulary', 'silence'),
-  e('copilot', 'copilot-engine', 'Copilot answer engine', 'tier', 'model', 'fact check', 'vision'),
-  e('copilot', 'copilot-privacy', 'Copilot privacy', 'retention', 'redact', 'privacy mode', 'hide from capture'),
+  e('copilot', 'copilot:stt', 'Copilot transcription', 'stt', 'whisper', 'vocabulary', 'silence'),
+  e('copilot', 'copilot:engine', 'Copilot answer engine', 'tier', 'model', 'fact check', 'vision'),
+  e('copilot', 'copilot:privacy', 'Copilot privacy', 'retention', 'redact', 'privacy mode', 'hide from capture'),
   e('monitoring', 'monitoring-findings', 'What raises findings', 'insights', 'thresholds'),
   e('data', 'locations', 'Data locations', 'app data', 'folder', 'path', 'finder'),
   e('data', 'stats', 'Stored data', 'size', 'runs', 'logs', 'threads', 'sessions'),
@@ -59,8 +58,10 @@ export const REGISTRY: readonly RegistryEntry[] = [
 export function searchRegistry(query: string, entries: readonly RegistryEntry[] = REGISTRY): RegistryEntry[] {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
   if (!terms.length) return []
-  return entries.filter(en => {
-    const hay = `${en.label} ${en.keywords.join(' ')}`.toLowerCase()
-    return terms.every(t => hay.includes(t))
-  })
+  const rank = (en: RegistryEntry) => { const l = en.label.toLowerCase(); return terms.every(t => l.includes(t)) ? 0 : 1 }
+  return entries
+    .filter(en => { const hay = `${en.label} ${en.keywords.join(' ')}`.toLowerCase(); return terms.every(t => hay.includes(t)) })
+    .map((en, i) => ({ en, i }))
+    .sort((a, b) => rank(a.en) - rank(b.en) || a.i - b.i) // label hits first, registry order otherwise
+    .map(x => x.en)
 }

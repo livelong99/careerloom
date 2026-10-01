@@ -51,7 +51,7 @@ export function MonitoringPage() {
           <Button size="sm" variant="outline" disabled={pruning || days === null} onClick={() => void prune()}>{pruning ? 'Cleaning…' : 'Delete older logs now'}</Button>
         </Row>
       </Group>
-      <Group title="What raises a finding">
+      <Group title="What raises a finding" focus="monitoring-findings">
         <ul className="m-0 grid list-none gap-1 p-0 text-sm text-muted-foreground sm:grid-cols-2">{FINDINGS.map(f => <li key={f}>{f}</li>)}</ul>
         <p className="m-0 mt-2 text-xs text-muted-foreground">These checks are built in and read-only.</p>
       </Group>

@@ -28,7 +28,7 @@ export function JobsPage() {
         {s && <PrescreenPolicyEditor key={JSON.stringify(s.policy)} status={s} busy={false} reload={async () => status.reload()} rescreen={rescreen} />}
         {s && <PrescreenModelPanel status={s} busy={false} reload={async () => status.reload()} rescreen={rescreen} />}
       </div>
-      <Group title="Scans and limits">
+      <Group title="Scans and limits" focus="pipeline-limits">
         {LIMITS.map(([label, hint]) => <Row key={label} label={label} hint={hint} />)}
         <Row label="Boards" hint="Which boards are scanned, and how, is set per board.">
           <Button size="sm" variant="outline" onClick={() => navigate('boards')}>Open Boards</Button>

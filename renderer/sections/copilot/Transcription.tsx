@@ -58,7 +58,7 @@ export function TranscriptionPage() {
 
   return (
     <Page title="Transcription" blurb="Turns speech into text as it happens. It runs on this computer, so your audio is never uploaded.">
-      <Group title="Speech model" action={<div className="flex gap-2">{selected?.installed === false && <SettingChip label="Speech model" value="Not installed" page="local-models" focus="stt-models" />}<Button variant="outline" disabled={running || !model} onClick={() => void benchmark()}>{running ? 'Benchmarking…' : 'Benchmark on this computer'}</Button></div>}>
+      <Group title="Speech model" action={<Button variant="outline" disabled={running || !model} onClick={() => void benchmark()}>{running ? 'Benchmarking…' : 'Benchmark on this computer'}</Button>}>
         <Row label="Engine" hint={engine.hint} htmlFor="stt-engine">
           <select id="stt-engine" className={selectClass} value={engine.id} onChange={e => void save({ stt: { engine: e.target.value as SttEngineId, model: null, device: 'auto' } })}>
             {STT_ENGINES.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
@@ -67,6 +67,7 @@ export function TranscriptionPage() {
         <Row label="Model" hint="Pick the smallest model that is accurate enough for you. Latency is measured on this computer." stack>
           <SttModelPicker rows={rows} value={model} onChange={m => void save({ stt: { model: m } })} />
         </Row>
+        {selected?.installed === false && <Row label="Install" hint="Speech models are installed in one place: Settings → Local models."><SettingChip label="Speech model" value="Not installed" page="local-models" focus="stt-models" /></Row>}
         <Row label="Compute" hint={engine.id === 'whisper-mlx' ? 'Whisper runs on the Apple silicon GPU, so Auto is the only choice.' : 'Auto picks the fastest option this computer supports. NVIDIA GPU (CUDA) appears only when the engine can use it.'} htmlFor="stt-device">
           <select id="stt-device" className={selectClass} value={stt.device} onChange={e => void save({ stt: { device: e.target.value as SttDevice } })}>
             {DEVICES.map(d => <option key={d} value={d} disabled={!devices.has(d)}>{DEVICE_LABEL[d]}{d === 'cuda' && engine.id === 'moonshine' ? ' · experimental' : ''}</option>)}

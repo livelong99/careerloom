@@ -28,7 +28,7 @@ export function ResumePage() {
   return (
     <Page title="Resume & documents" blurb="Defaults for the tailored résumés and cover letters Careerloom writes, and what the ATS check relies on.">
       {error && <Note tone="warn">{error}</Note>}
-      <Group title="Document defaults">
+      <Group title="Document defaults" focus="doc-defaults">
         <Row label="Tone" hint="How cover letters and summaries read. Each document can still be regenerated with another tone.">
           <SegTabs options={TONES} value={prefs?.docs.tone ?? 'warm'} onChange={v => docs('tone', 'Tone', v as DocsDefaults['tone'])} />
         </Row>
