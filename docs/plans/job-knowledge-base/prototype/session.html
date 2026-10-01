@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Practice session overlay — prototype</title>
+<link rel="stylesheet" href="css/tokens.css"><link rel="stylesheet" href="css/app.css"><link rel="stylesheet" href="css/overlay.css"><link rel="stylesheet" href="css/kb.css">
+<script src="js/shell.js"></script><script src="js/icons.js"></script>
+<style>.stage{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;justify-content:center}.cap-l{color:var(--ink);font-weight:600;margin:0 0 8px;font-size:13px;text-shadow:none}.ov{--ovw:440px}.tag{font-size:12px;color:var(--mut)}</style></head>
+<body><div class="stage" id="stage"></div>
+<script>
+const cues = `<div class="cue"><h6>Say first</h6><div class="say">Lead with idempotency keys stored before the call.</div><ul><li>Ask what “timeout” means: unknown outcome, not failure</li><li>Retry with backoff, then reconcile with the network</li><li>Name the trade-off: latency against certainty</li></ul><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="badge">Proof · Ledger migration, 2023</span><a class="kbchip" href="#"><span data-i="book" data-s="12"></span>From your question base</a></div></div>`;
+function panel(o){
+ const speaking=o.s==='speaking', thinking=o.s==='thinking';
+ const label=speaking?'Speaking':thinking?'Thinking':'Listening to you';
+ const words='How would you design an idempotent payment-capture flow when the card network times out?'.split(' ');
+ const cap = speaking ? words.map((w,i)=>`<span class="w ${i<9?'sp':''}">${w} </span>`).join('') : o.s==='thinking' ? '<span class="w">…</span>' : words.join(' ');
+ return `<div><p class="cap-l">${o.title}</p><div class="ov ${o.s}" data-mode="panel" data-state="${o.live?'question':'answering'}" style="--ovw:440px"><span class="thread"></span>
+ <div class="ov-h"><span class="chipL practice"><span class="d"></span>${o.live?'Live':'Practice'}<span class="t">12:40</span></span>${o.live?'<span class="badge">Listening to interviewer</span>':'<span class="badge brand">Question 3 of 8</span>'}<span class="sp"></span><button class="ib" aria-label="Collapse" data-i="expand"></button><button class="ib stop" aria-label="Stop" data-i="stop"></button></div>
+ ${o.live?'':`<div class="${o.s}" style="display:flex;align-items:center;gap:12px;padding:10px 14px 8px 16px"><span class="avatar">P</span><div style="flex:1"><b style="font-weight:650">Priya · Engineering manager</b><div class="tag">${label}${speaking?' · Aman, English (India)':''}</div></div>${speaking?'<span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>':'<span class="wave" aria-hidden="true" style="opacity:.6"><i></i><i></i><i></i><i></i><i></i></span>'}</div>`}
+ <div class="cap" aria-live="polite">${cap}</div>
+ ${o.live?'':`<div class="ysay"><b>You</b> ${o.s==='listening'?'“…so the key is written first, and if the network call times out we don’t assume it failed…”':o.s==='thinking'?'“…and then we reconcile against the network’s record.”':'<span style="opacity:.6">Your answer appears here. Mic is paused while Priya speaks.</span>'}</div>`}
+ ${cues}
+ <div class="ctl">${o.live?'<button class="ab pri">Answer <span class="kbd">⌃⌥A</span></button>':`<button class="ab"><span data-i="refresh" data-s="13"></span>Replay <span class="kbd">R</span></button><button class="ab">Skip <span class="kbd">S</span></button><button class="ab"><span data-i="spark" data-s="13"></span>Hint</button><button class="ab pri">Answer <span class="kbd">⌃⌥A</span></button><span style="flex:1"></span><span class="badge ${speaking?'warn':'ok'}"><span data-i="mic" data-s="12"></span>${speaking?'Mic paused':'Mic on'}</span>`}</div></div></div>`;
+}
+const v=Q.get('view')||'gallery';
+const defs = {
+ gallery:[{s:'speaking',title:'Practice · interviewer speaking (speakers: mic paused)'},{s:'listening',title:'Practice · listening to your answer'},{s:'live',live:1,title:'Live · KB chip on a suggestion (nothing else changes)'}],
+ speaking:[{s:'speaking',title:'Practice · interviewer speaking'}], listening:[{s:'listening',title:'Practice · listening'}]};
+document.getElementById('stage').innerHTML=(defs[v]||defs.gallery).map(panel).join('');icons();
+</script></body></html>
