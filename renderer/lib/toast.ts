@@ -1,5 +1,6 @@
 export type ToastKind = 'ok' | 'error'
-export type Toast = { id: number; text: string; kind: ToastKind }
+export type ToastAction = { label: string; onClick: () => void }
+export type Toast = { id: number; text: string; kind: ToastKind; action?: ToastAction }
 
 let current: Toast | null = null
 let seq = 0
@@ -20,10 +21,10 @@ function clearTimer(): void {
 }
 
 /** Show a toast, replacing any current one (only ever one at a time), and start
- * its auto-dismiss timer. */
-export function showToast(text: string, kind: ToastKind = 'ok', durationMs = 3000): void {
+ * its auto-dismiss timer. An optional `action` (e.g. Undo) renders as a button. */
+export function showToast(text: string, kind: ToastKind = 'ok', durationMs = 3000, action?: ToastAction): void {
   seq += 1
-  current = { id: seq, text, kind }
+  current = action ? { id: seq, text, kind, action } : { id: seq, text, kind }
   clearTimer()
   timer = setTimeout(() => {
     current = null
