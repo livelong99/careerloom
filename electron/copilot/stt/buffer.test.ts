@@ -115,3 +115,60 @@ describe('chunked adapter (non-streaming engine behind SttAdapter)', () => {
     expect(names().at(-1)).toBe('closed')
   })
 })
+
+describe('adaptive endpoint (fastEndpoint)', () => {
+  const FAST = { ...OPTS, endSilenceMs: 650, fastEndpoint: true }
+  const finalAt = (seen: Array<[string, SttEvent]>) => seen.find(s => s[0] === 'final')![1]
+  const SPEECH_END = 300 + 1500
+
+  it('finalises a finished sentence right after the early window instead of the full wait', async () => {
+    const { a, seen, calls } = setup({ decode: async (pcm, kind) => { calls2.push(kind); return 'Tell me about yourself.' } })
+    const calls2: string[] = []
+    await a.start(FAST)
+    await feed(a, concat(silence(300), tone(1500), silence(1000)))
+    await settle()
+    expect(finalAt(seen).t1).toBeLessThan(SPEECH_END + 450) // early window (one 100 ms frame granularity), not 650
+    expect(finalAt(seen).t1).toBeGreaterThanOrEqual(SPEECH_END + 200)
+    expect(seen.filter(s => s[0] === 'final')).toHaveLength(1)
+    expect(seen.filter(s => s[0] === 'endOfTurn')).toHaveLength(1)
+    void calls
+    await a.stop()
+  })
+
+  it('keeps the full wait for unfinished text and reuses the early decode (one final decode)', async () => {
+    const finals: number[] = []
+    const { a, seen } = setup({ decode: async (pcm, kind) => { if (kind === 'final') finals.push(pcm.length); return 'so tell me about' } })
+    await a.start(FAST)
+    await feed(a, concat(silence(300), tone(1500), silence(1000)))
+    await settle()
+    expect(finalAt(seen).t1).toBeGreaterThanOrEqual(SPEECH_END + 650)
+    expect(finals).toHaveLength(1)
+    expect(finalAt(seen).text).toBe('so tell me about')
+    await a.stop()
+  })
+
+  it('discards the early result when speech resumes before it lands, so a pause inside a turn never ends it', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>(r => { release = r })
+    const { a, seen } = setup({ decode: async (pcm, kind) => { if (kind !== 'final') return 'x'; if (pcm.length < 16 * 2000) { await gate; return 'First half.' } return 'First half. Second half.' } })
+    await a.start(FAST)
+    await feed(a, concat(silence(300), tone(1000), silence(300))) // pause > early window, < full wait: the early decode starts and stays pending
+    await feed(a, tone(1000)) // speech resumes
+    release(); await settle()
+    expect(seen.filter(s => s[0] === 'final')).toHaveLength(0)
+    await feed(a, silence(1000)); await settle()
+    const finals = seen.filter(s => s[0] === 'final')
+    expect(finals).toHaveLength(1)
+    expect(finals[0]![1].text).toBe('First half. Second half.')
+    await a.stop()
+  })
+
+  it('does nothing different without the flag', async () => {
+    const { a, seen } = setup({ decode: async () => 'Tell me about yourself.' })
+    await a.start({ ...OPTS, endSilenceMs: 650 })
+    await feed(a, concat(silence(300), tone(1500), silence(1000)))
+    await settle()
+    expect(finalAt(seen).t1).toBeGreaterThanOrEqual(SPEECH_END + 650)
+    await a.stop()
+  })
+})

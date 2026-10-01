@@ -11,7 +11,7 @@ const models = [
 ]
 let config: Record<string, any> = {
   version: 1, coaching: {}, hotkeys: { answer: 'Control+Alt+A' }, privacy: {}, overlay: {}, audio: {}, stt: {},
-  engine: { tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter', openrouter: { dataCollection: dc, zdr: false, sort: 'latency', policyMigrated: true }, models: { fast: 'qwen/qwen3.8-27b:free', balanced: 'nvidia/nemotron-3.5-lightning:free', deep: 'cohere/north-mini-code:free' }, factCheck: true, vision: 'vision', autoAnswer: false },
+  engine: { tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter', openrouter: { dataCollection: dc, zdr: false, sort: 'latency', policyMigrated: true }, models: { fast: 'qwen/qwen3.8-27b:free', balanced: 'nvidia/nemotron-3.5-lightning:free', deep: 'cohere/north-mini-code:free' }, factCheck: true, vision: 'vision', autoAnswer: false, speculativeStart: false, gate: { engine: 'heuristic', baseUrl: 'https://openrouter.ai/api', endpoint: 'systemone' } },
 }
 const merge = (a: any, b: any): any => (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(b) ? Object.fromEntries([...new Set([...Object.keys(a), ...Object.keys(b)])].map(k => [k, k in b ? merge(a[k], b[k]) : a[k]])) : b)
 const impl: Record<string, (...a: any[]) => unknown> = {

@@ -10,9 +10,11 @@ import { estimateTokens, windowLines, type GroundingContext } from './context'
 import { buildPrompt, parseSuggestion, type PromptKind } from './prompts'
 import { collectText, LlmError } from './providers/openrouter'
 import { createRedactor } from './redact'
+import type { Route } from './routing'
 import type { CopilotConfig, DetectedQuestion, Suggestion, TranscriptLine } from './types'
 
-export type AnswerRequest = { question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind; signal: AbortSignal }
+/** `route` (PERF-2) overrides the tier pick, scales the token cap and may ask for a briefer prompt. */
+export type AnswerRequest = { question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind; signal: AbortSignal; route?: Route }
 export type ProviderPrompt = { system: string; messages: Array<{ role: 'user' | 'assistant'; content: string }>; model: string; signal: AbortSignal; maxTokens?: number }
 export type StreamItem = { delta: string } | { usage: { promptTokens: number; completionTokens: number; costUsd?: number | null } }
 /** Streaming provider (OpenRouter in M1); the interface keeps other providers possible. */
@@ -75,13 +77,13 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
     const onAbort = () => ac.abort()
     req.signal.addEventListener('abort', onAbort, { once: true })
     try {
-      const tier = pickTier(cfg.engine, req.question.type, req.kind)
+      const tier = req.route?.tier ?? pickTier(cfg.engine, req.question.type, req.kind)
       const model = cfg.engine.models[tier] ?? defaultModelFor(tier)
       const g = await deps.grounding()
       const mask = cfg.privacy.redact ? createRedactor(deps.redactNames?.() ?? []) : (t: string) => t
       const lines = windowLines(req.transcript, WINDOW_TOKENS, { maxLines: WINDOW_LINES }).map(l => ({ ...l, text: mask(l.text) }))
       const question = { ...req.question, text: mask(req.question.text) }
-      const prompt = buildPrompt({ grounding: g.prefix, coaching: cfg.coaching, question, transcript: lines, kind: req.kind })
+      const prompt = buildPrompt({ grounding: g.prefix, coaching: cfg.coaching, question, transcript: lines, kind: req.kind, variant: req.route?.variant })
       const promptChars = prompt.system.length + prompt.messages.reduce((n, m) => n + m.content.length, 0)
 
       const start = now()
@@ -94,7 +96,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
 
       const stream = withFailover(modelOrder(model, fallbacksFor(tier, model)), m => {
         usedModel = m
-        return deps.provider.stream({ system: prompt.system, messages: prompt.messages, model: m, signal: ac.signal, maxTokens: MAX_TOKENS[tier] })
+        return deps.provider.stream({ system: prompt.system, messages: prompt.messages, model: m, signal: ac.signal, maxTokens: Math.round(MAX_TOKENS[tier] * (req.route?.maxTokensScale ?? 1)) })
       }, { signal: ac.signal, sleep: deps.sleep, onRetry: deps.onRetry })
 
       let lastYield = -Infinity
