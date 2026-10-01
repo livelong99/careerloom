@@ -78,7 +78,8 @@ describe('TranscriptionPage', () => {
     expect(screen.getByText(/computer-generated speech/)).toBeTruthy()
     const compute = screen.getByLabelText('Compute') as HTMLSelectElement
     expect([...compute.options].filter(o => !o.disabled).map(o => o.value)).toEqual(['auto'])
-    expect(screen.getByRole('button', { name: /Install speech model/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Install speech model/ })).toBeNull()
+    expect(screen.getByRole('button', { name: /Manage Speech model in Settings/ })).toBeTruthy()
   })
   it('shows benchmark result chips', async () => {
     api.copilotBenchmarkStt.mockResolvedValue({ at: 1, p50FinalMs: 82, realTimeFactor: 0.08, ramMb: 610, wer: null })

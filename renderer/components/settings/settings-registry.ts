@@ -1,5 +1,5 @@
 // Search index for Settings: one entry per control that can be deep-linked (`navigate('settings', { page, focus })`).
-// `focus` must equal the `data-focus` attribute on the control; settings-registry.test.ts checks pages B owns.
+// `focus` must equal the `data-setting-id` attribute on the control; settings-registry.test.ts checks pages B owns.
 import type { PageId } from './pages'
 
 export type RegistryEntry = { page: PageId; focus?: string; label: string; keywords: string[] }

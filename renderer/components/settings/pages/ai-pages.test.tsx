@@ -34,8 +34,8 @@ describe('registry points at real controls', () => {
   it.each(cases)('%s', async (page, ui) => {
     bridge.current = fakeBridge({ keysList: [keyInfo('openrouter'), keyInfo('opencode'), keyInfo('firecrawl')], listIntegrations: [], getReadiness: { root: '/r', checkedAt: 0, deps: true, clis: [] }, localModelStatus: { installed: false, model: 'm', dir: '/d', platform: 'darwin', arch: 'arm64', python: null, oldPython: null, downloadGb: { packages: 1, weights: 1 }, installRun: null } })
     const { container } = mount(ui())
-    await waitFor(() => expect(container.querySelector('[data-focus]')).toBeTruthy())
-    const have = new Set([...container.querySelectorAll('[data-focus]')].map(n => (n as HTMLElement).dataset.focus))
+    await waitFor(() => expect(container.querySelector('[data-setting-id]')).toBeTruthy())
+    const have = new Set([...container.querySelectorAll('[data-setting-id]')].map(n => (n as HTMLElement).dataset.settingId))
     expect(REGISTRY.filter(e => e.page === page && e.focus && !have.has(e.focus)).map(e => e.focus)).toEqual([])
   })
 })
@@ -102,7 +102,7 @@ describe('Keys page', () => {
     bridge.current = fakeBridge({ keysList: list, listIntegrations: [], keysTest: { ok: false, latencyMs: 90, detail: 'Invalid key — OpenRouter rejected it', at: Date.now() } })
     mount(<KeysPage {...props()} />)
     await screen.findByText('OpenRouter')
-    await userEvent.click(within(document.querySelector('[data-focus="key:openrouter"]') as HTMLElement).getByRole('button', { name: 'Test' }))
+    await userEvent.click(within(document.querySelector('[data-setting-id="key:openrouter"]') as HTMLElement).getByRole('button', { name: 'Test' }))
     expect(await screen.findByText(/Invalid key — OpenRouter rejected it · 90 ms/)).toBeTruthy()
   })
   it('lists plugin keys read-only with a link to Integrations', async () => {

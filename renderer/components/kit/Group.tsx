@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 export function Group({ title, action, children, className, focus }: { title?: string; action?: ReactNode; children: ReactNode; className?: string; /** Deep-link id (Settings `navigate('settings', { focus })`). */ focus?: string }) {
   return (
-    <section aria-label={title} data-focus={focus} className={cn('rounded-xl border border-border bg-card/40 p-4', className)}>
+    <section aria-label={title} data-setting-id={focus} className={cn('rounded-xl border border-border bg-card/40 p-4', className)}>
       {(title || action) && (
         <div className="mb-3 flex items-center justify-between gap-3">
           {title && <h3 className="m-0 text-sm font-semibold text-foreground">{title}</h3>}
@@ -20,7 +20,7 @@ export function Group({ title, action, children, className, focus }: { title?: s
 /** label + hint on the left, control on the right; rows inside a Group are separated by a hairline. */
 export function Row({ label, hint, htmlFor, children, stack, focus }: { label: ReactNode; hint?: ReactNode; htmlFor?: string; children?: ReactNode; stack?: boolean; focus?: string }) {
   return (
-    <div data-focus={focus} className={cn('flex gap-4 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0', stack ? 'flex-col' : 'items-center justify-between')}>
+    <div data-setting-id={focus} className={cn('flex gap-4 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0', stack ? 'flex-col' : 'items-center justify-between')}>
       <div className="min-w-0">
         <label htmlFor={htmlFor} className="block text-sm font-medium text-foreground">{label}</label>
         {hint && <p className="m-0 mt-0.5 text-xs text-muted-foreground">{hint}</p>}

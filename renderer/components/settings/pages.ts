@@ -37,5 +37,5 @@ export const PAGES = PAGE_GROUPS.flatMap(g => g.pages)
 export const isPageId = (v: unknown): v is PageId => PAGES.some(p => p.id === v)
 export const pageLabel = (id: PageId): string => PAGES.find(p => p.id === id)!.label
 
-/** Props every page body receives. `onChanged` re-reads settings after a write. Deep-link focus is handled by the shell via `data-focus="<id>"` on a control. */
+/** Props every page body receives. `onChanged` re-reads settings after a write. Deep-link focus is handled by the shell via `data-setting-id="<id>"` on a control. */
 export type PageProps = { settings: Settings; onChanged: () => void }

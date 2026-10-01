@@ -49,7 +49,7 @@ export function RunnersPage({ settings, onChanged }: PageProps) {
 
   const status = (r: RunnerDef) => r.id === 'zen' ? keyState(settings.hasOpencodeKey, settings.keyMeta.opencode) : r.id === 'api' ? keyState(settings.hasApiKey, settings.keyMeta.openrouter) : cliState(ready.data?.clis.find(c => c.id === r.id), checking && !ready.data)
   const use = async (id: RunnerId) => {
-    try { await careerloom.setRunner(id); showToast(`${RUNNERS.find(r => r.id === id)!.label} is now your runner`); onChanged() } catch (err) { showToast(normalizeCliError(err).message, 'error', 6000) }
+    try { const prev = settings.runner; await careerloom.setRunner(id); showToast(`${RUNNERS.find(r => r.id === id)!.label} is now your runner`, 'ok', 5000, { label: 'Undo', onClick: () => { void careerloom.setRunner(prev).then(onChanged) } }); onChanged() } catch (err) { showToast(normalizeCliError(err).message, 'error', 6000) }
   }
   /** CLI: re-probe install + sign-in. API runners: the key's connection test (no tokens). */
   const test = async (r: RunnerDef) => {
@@ -78,7 +78,7 @@ export function RunnersPage({ settings, onChanged }: PageProps) {
         const check = ready.data?.clis.find(c => c.id === r.id)
         const engine = ENGINES.find(e => e.id === r.id)
         return (
-          <section key={r.id} data-focus={`runner:${r.id}`} aria-label={r.label} className="flex flex-col gap-3 rounded-xl border bg-card/40 p-4" style={{ borderColor: isActive ? 'var(--accent)' : 'var(--border)' }}>
+          <section key={r.id} data-setting-id={`runner:${r.id}`} aria-label={r.label} className="flex flex-col gap-3 rounded-xl border bg-card/40 p-4" style={{ borderColor: isActive ? 'var(--accent)' : 'var(--border)' }}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 flex-1 basis-80">
                 <div className="flex flex-wrap items-center gap-2">

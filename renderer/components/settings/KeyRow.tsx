@@ -33,7 +33,7 @@ export function KeyRow({ info, activeRunner, onChanged }: { info: KeyInfo; activ
   }
 
   return (
-    <div data-focus={`key:${info.id}`} className="flex flex-col gap-2 rounded-xl border border-border bg-card/40 p-4">
+    <div data-setting-id={`key:${info.id}`} className="flex flex-col gap-2 rounded-xl border border-border bg-card/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
