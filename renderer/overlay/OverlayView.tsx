@@ -73,7 +73,7 @@ function Footer({ d }: { d: OverlayViewData }) {
 }
 
 function Body({ d, on }: { d: OverlayViewData; on: OverlayActions }) {
-  const acts = <ActionRow keys={d.keys} on={{ answer: on.answer, screenshot: on.screenshot }} />
+  const acts = <ActionRow keys={d.keys} screen={d.screen} on={{ answer: on.answer, screenshot: on.screenshot, fixScreen: on.fixScreen }} />
   const tr = <Transcript lines={d.lines} />
   const q = d.question
   switch (d.state) {

@@ -117,4 +117,12 @@ describe('formatting helpers', () => {
     expect(acceleratorFromKeyEvent(ev({}))).toBeNull()
     expect(acceleratorFromKeyEvent(ev({ ctrlKey: true, code: 'ControlLeft', key: 'Control' }))).toBeNull()
   })
+
+  it('copilotScreen drives the Screenshot button and is cleared by a new session', () => {
+    const m = run([state('listening'), { type: 'copilotScreen', payload: { state: 'blocked', reason: 'permission', message: 'x' } }])
+    expect(m.screen).toEqual({ state: 'blocked', reason: 'permission', message: 'x' })
+    expect(deriveView(m)).toBe('listening') // a blocked screenshot is not an error panel: capture and answers keep running
+    expect(run([state('idle', { sessionId: 's2' })], m).screen).toEqual({ state: 'idle' })
+    expect(run([{ type: 'copilotScreen', payload: { state: 'idle' } }], m).screen).toEqual({ state: 'idle' })
+  })
 })

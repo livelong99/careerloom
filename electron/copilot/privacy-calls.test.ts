@@ -9,7 +9,7 @@ import type { CopilotConfig } from './types'
 const cfg = (privacy: Partial<CopilotConfig['privacy']> = {}): CopilotConfig => ({ ...DEFAULT_CONFIG, privacy: { ...DEFAULT_CONFIG.privacy, ...privacy } })
 const fake = () => {
   const seen: Array<{ system: string; content: string; model: string }> = []
-  const provider: AnswerProvider = { id: 'openrouter', async *stream(p) { seen.push({ system: p.system, content: p.messages[0]!.content, model: p.model }); yield { delta: '{"ok":1}' } } }
+  const provider: AnswerProvider = { id: 'openrouter', async *stream(p) { seen.push({ system: p.system, content: String(p.messages[0]!.content), model: p.model }); yield { delta: '{"ok":1}' } } }
   return { provider, seen }
 }
 

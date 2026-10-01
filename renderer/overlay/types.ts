@@ -27,6 +27,8 @@ export type OverlayViewData = {
   problem: OverlayProblem | null
   /** Accelerator labels shown on buttons (⌃⌥A). */
   keys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'expand' | 'listen' | 'panic', string>
+  /** The Screenshot action: progress and why it can't run (never an error panel). */
+  screen: { state: 'idle' | 'capturing' | 'sent' | 'ready' | 'blocked'; reason?: 'permission' | 'off' | 'ocr' | 'no-vision' | 'budget' | 'failed'; message?: string }
   /** Quick hide: the text is gone from the screen while the session keeps running. */
   wiped: boolean
 }
@@ -35,6 +37,8 @@ export type OverlayViewData = {
 export type OverlayActions = Partial<{
   answer(kind: 'answer' | 'followup' | 'clarify' | 'summarise'): void
   screenshot(): void
+  /** Open System Settings → Screen Recording. */
+  fixScreen(): void
   collapse(): void
   expand(): void
   stop(): void

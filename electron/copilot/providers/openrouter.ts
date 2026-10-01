@@ -3,7 +3,7 @@ import type { AnswerProvider, ProviderPrompt, StreamItem, StreamUsage } from '..
 import type { CopilotConfig, LlmModelInfo } from '../types'
 import { initialReasoning, isReasoningRejection, nextReasoning, type ReasoningShape } from './reasoning'
 
-export type LlmErrorCode = 'no_key' | 'auth' | 'credits' | 'rate_limit' | 'timeout' | 'aborted' | 'server' | 'bad_request' | 'stream' | 'budget' | 'policy' | 'model_unavailable'
+export type LlmErrorCode = 'no_vision' | 'no_key' | 'auth' | 'credits' | 'rate_limit' | 'timeout' | 'aborted' | 'server' | 'bad_request' | 'stream' | 'budget' | 'policy' | 'model_unavailable'
 const RETRYABLE: ReadonlySet<LlmErrorCode> = new Set(['rate_limit', 'timeout', 'server'])
 
 /** Typed so failover never matches on message substrings. `message` is safe to show (keys scrubbed). */
@@ -180,7 +180,7 @@ export async function collectText(provider: AnswerProvider, prompt: ProviderProm
   return { text, usage }
 }
 
-type RawModel = { id: string; name?: string; context_length?: number | null; pricing?: { prompt?: string | number; completion?: string | number } }
+type RawModel = { id: string; name?: string; architecture?: { input_modalities?: string[] }; context_length?: number | null; pricing?: { prompt?: string | number; completion?: string | number } }
 const perM = (v: unknown): number | null => { const n = typeof v === 'string' || typeof v === 'number' ? Number(v) : NaN; return Number.isFinite(n) ? Math.round(n * 1e6 * 1e6) / 1e6 : null }
 
 /** Neither /models nor /models/:id/endpoints exposes a data-policy field, so the only static signal is "free": OpenRouter's privacy settings treat free endpoints separately because they may train on prompts. Paid models stay 'unknown' until a probe says otherwise. */
@@ -189,7 +189,7 @@ export const isFreeModel = (id: string, prompt: number | null, completion: numbe
 export function toModelInfo(m: RawModel): LlmModelInfo {
   const promptUsdPerM = perM(m.pricing?.prompt)
   const completionUsdPerM = perM(m.pricing?.completion)
-  return { id: m.id, name: m.name ?? m.id, contextTokens: m.context_length ?? null, promptUsdPerM, completionUsdPerM, dataPolicy: isFreeModel(m.id, promptUsdPerM, completionUsdPerM) ? 'may-collect' : 'unknown', supportsStreaming: true }
+  return { id: m.id, name: m.name ?? m.id, contextTokens: m.context_length ?? null, promptUsdPerM, completionUsdPerM, dataPolicy: isFreeModel(m.id, promptUsdPerM, completionUsdPerM) ? 'may-collect' : 'unknown', supportsStreaming: true, vision: m.architecture?.input_modalities?.includes('image') ?? false }
 }
 
 /** The public model list needs no key. */

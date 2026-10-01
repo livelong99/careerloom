@@ -7,6 +7,7 @@ import { LlmModelPicker } from '@/components/copilot/LlmModelPicker'
 import { accelLabel } from '@/components/copilot/PrivacyModeGroup'
 import { TierCards, type TierPrice } from '@/components/copilot/TierCards'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { careerloom } from '@/lib/ipc'
@@ -62,8 +63,14 @@ export function EnginePage() {
         <Row label="Check answers against your résumé" hint="Flags numbers, tools and names that aren't in your résumé or stories.">
           <ToggleSwitch aria-label="Fact check" checked={e.factCheck} onCheckedChange={v => patch({ factCheck: v })} />
         </Row>
-        <Row label="Read screenshots with" hint="For coding questions shown on screen.">
-          <SegTabs options={[{ value: 'vision', label: 'Vision model' }, { value: 'ocr', label: 'Text only (OCR)' }]} value={e.vision} onChange={v => patch({ vision: v as 'vision' | 'ocr' })} />
+        <Row label="Read the screen" hint={<>Off by default. On: <Kbd>{accelLabel(config.hotkeys.screenshot)}</Kbd> and the Screenshot button send a downscaled picture of your screen, taken with the overlay hidden, to your answer model's provider (OpenRouter) along with the question; coding questions that point at something on screen can do it for you. Needs a vision model and macOS Screen Recording permission. Up to 20 pictures per session, deleted when the session ends.</>}>
+          <ToggleSwitch aria-label="Read the screen" checked={e.screenshots} onCheckedChange={v => patch({ screenshots: v })} />
+        </Row>
+        <Row label="Screen Recording permission" hint="macOS asks once; after allowing it, reopen Careerloom.">
+          <Button variant="outline" onClick={() => { void careerloom.copilotOpenSystemSettings('screen') }}>Open Screen Recording settings</Button>
+        </Row>
+        <Row label="Read screenshots with" hint="Vision models read the picture directly. Reading it as text is not built yet.">
+          <SegTabs options={[{ value: 'vision', label: 'Vision model' }, { value: 'ocr', label: 'Text only (OCR): not available yet' }]} value={e.vision} onChange={v => patch({ vision: v as 'vision' | 'ocr' })} />
         </Row>
       </Group>
     </Page>

@@ -3,7 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { BrowserWindow, shell, systemPreferences } from 'electron'
+import { app, BrowserWindow, desktopCapturer, screen, shell, systemPreferences } from 'electron'
 
 import { broadcast, readApiKey, userFile } from '../context'
 import { readCv } from '../resume-agent'
@@ -15,7 +15,7 @@ import { createCostMeter } from './cost'
 import { createTraceLog } from './trace'
 import { createDetector } from './detector'
 import { e2eHooks } from './e2e-hooks'
-import { createAnswerEngine, createLlmClassifier, defaultModelFor, type AnswerEngine } from './engine'
+import { createAnswerEngine, createLlmClassifier, defaultModelFor, recVision, type AnswerEngine } from './engine'
 import type { CopilotDeps, createCopilot } from './handlers'
 import { createConfiguredClassify } from './gate/configured'
 import { createLiveWiring } from './live-wiring'
@@ -25,6 +25,8 @@ import { getOverlayHost } from './overlay-runtime'
 import { createScoreCall, nameFromCv, redactIfOn } from './privacy-calls'
 import { PRIVACY_NOTICE_VERSION } from './privacy-mode'
 import { collectText } from './providers/openrouter'
+import { createScreenshotPipeline, sweepShotDir, type ScreenshotPipeline } from './screenshots'
+import { fitLongEdge } from './vision'
 import { createSessionController } from './session'
 import { createFakeAdapter, parseFixture } from './stt/fake'
 import { benchmarkStt } from './stt/benchmark'
@@ -42,6 +44,35 @@ const SESSION_CEILING_USD = 1 // plan §10: stops answering with a visible messa
 
 const mediaStatus = (kind: 'microphone' | 'screen'): PermStatus => { try { return asPermStatus(systemPreferences.getMediaAccessStatus(kind)) } catch { return 'unknown' } }
 const lazy = <T>(make: () => T): (() => T) => { let v: { value: T } | null = null; return () => (v ??= { value: make() }).value }
+
+const SHOT_DIR = (): string => path.join(app.getPath('temp'), 'careerloom-copilot-shots')
+/** Crash recovery: frames a killed run left in the temp dir. Call once at startup (main.ts). */
+export const sweepCopilotShots = (): number => sweepShotDir(SHOT_DIR())
+let shots: ScreenshotPipeline | null = null
+/** Deletes every held frame: session stop, panic, delete, quit. Also sweeps the directory, so nothing outlives the app. */
+export const clearCopilotShots = (): void => { shots?.clear(); sweepShotDir(SHOT_DIR()) }
+const overlayWindow = (): BrowserWindow | undefined => BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().includes('overlay.html'))
+/** One pipeline per session (the image budget is per session). Frames are captured with the overlay hidden, never faded. */
+function shotPipeline(): ScreenshotPipeline {
+  let overlayWasVisible = false
+  return (shots ??= createScreenshotPipeline({
+    dir: SHOT_DIR(),
+    screenStatus: () => mediaStatus('screen'),
+    hideOverlay: () => { const w = overlayWindow(); overlayWasVisible = w?.isVisible() ?? false; if (overlayWasVisible) w!.hide() },
+    showOverlay: () => { if (overlayWasVisible) overlayWindow()?.showInactive() }, // never takes focus
+    displaySize: () => fitLongEdge(displayUnderOverlay().size, 1280),
+    grab: async size => {
+      const d = displayUnderOverlay()
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size })
+      const src = sources.find(s => s.display_id === String(d.id)) ?? sources[0]
+      return src && !src.thumbnail.isEmpty() ? src.thumbnail : null
+    },
+  }))
+}
+const displayUnderOverlay = (): Electron.Display => {
+  const id = readCopilotConfig().overlay.displayId
+  return screen.getAllDisplays().find(d => d.id === id) ?? screen.getPrimaryDisplay()
+}
 
 let audioSink: ((m: AudioChunkMsg) => void) | null = null
 const probeHub = createProbeHub()
@@ -66,6 +97,8 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
   let grounding: Promise<GroundingContext> | null = null
   let engine: AnswerEngine | null = null
   let nextId = ''
+  const liveVision = new Set<string>() // vision models from OpenRouter's public list (models outside recommended-models.json)
+  const isVision = (id: string): boolean => recVision(id) || liveVision.has(id)
   let starting = false
   // Metrics log: one JSON line of stage numbers per answer (no text), next to the session files.
   const traceLog = () => createTraceLog(200, line => { try { fs.appendFileSync(path.join(userFile('copilot'), 'latency.jsonl'), `${line}\n`) } catch { /* metrics are best effort */ } })
@@ -84,7 +117,9 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     const detector = createDetector({ classify: text => (readCopilotConfig().engine.gate.engine === 'jev' ? jev(mask(text)) : createLlmClassifier(provider(), fastModel())(mask(text))) })
     const wiring = createLiveWiring({
       host, recorder: getInstance().recorder, feed: (l, eot) => getInstance().feed(l, eot), engine: engineProxy, detector,
-      config: readCopilotConfig, onStopped: () => { if (!starting && getInstance().recorder.active()) void getInstance().stop('user') },
+      config: readCopilotConfig,
+      screen: { capture: () => shotPipeline().capture(), latest: ms => shotPipeline().latest(ms), clear: clearCopilotShots, isVision },
+      onStopped: () => { if (!starting && getInstance().recorder.active()) void getInstance().stop('user') },
     })
     const ctl: SessionController & { audio(m: AudioChunkMsg): void; retry(): Promise<void> } = createSessionController({
       createAdapter: () => {
@@ -124,7 +159,9 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
         starting = true
         try {
           jobId = req.jobId; grounding = null; nextId = sessionId
-          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD, trace: traceLog(), sessionId: () => nextId })
+          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD, trace: traceLog(), sessionId: () => nextId, isVision })
+          shots = null // fresh image budget
+          if (readCopilotConfig().engine.screenshots) void listLiveModels().then(ms => ms.forEach(m => { if (m.vision) liveVision.add(m.id) })).catch(() => undefined)
           await ctl.start(req)
         } finally { starting = false }
       },
@@ -137,6 +174,8 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
       broadcast('careerloom:copilotOpenDebrief', { sessionId })
     },
     answer: (kind, questionId) => { void live().wiring.answer(kind, questionId) },
+    screenshot: () => live().wiring.screenshot(),
+    clearScreenshots: clearCopilotShots,
     context: { preview: id => context().preview(id) },
     complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: mask(user) }], model: fastModel(), maxTokens: 120, signal: AbortSignal.timeout(8000) })).text,
 

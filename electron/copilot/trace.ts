@@ -4,7 +4,9 @@ export type TraceMarks = { speechEndAt?: number; sttFinalAt?: number; detectedAt
   /** A held (speculative) answer was handed to the overlay: the answer is visible no earlier than this. */
   releasedAt?: number }
 /** Closed-set labels and numbers only (PERF-2): how the turn was routed and started. */
-export type TurnInfo = { kind: 'coding' | 'system-design' | 'behavioural' | 'factual' | 'small-talk'; tier: 'fast' | 'balanced' | 'deep'; auto: boolean; spec: 'hit' | 'miss' | null; gate: 'heuristic' | 'jev' | null; gateMs: number | null }
+export type TurnInfo = { kind: 'coding' | 'system-design' | 'behavioural' | 'factual' | 'small-talk'; tier: 'fast' | 'balanced' | 'deep'; auto: boolean; spec: 'hit' | 'miss' | null; gate: 'heuristic' | 'jev' | null; gateMs: number | null
+  /** Screenshot attached to this turn: capture and encode times, size on the wire (upload shows in `connect`). */
+  shot?: { captureMs: number; encodeMs: number; bytes: number } }
 export type StageMs = { stt: number | null; detect: number | null; connect: number | null; ttft: number | null; firstSay: number | null; endToSay: number | null; total: number | null; promptTokens: number | null; cachedTokens: number | null; turn?: TurnInfo }
 export type TraceRecord = { questionId: string; startedAt: number; marks: TraceMarks; ms: StageMs }
 export type Stat = { p50: number; p95: number } | null
