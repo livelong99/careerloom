@@ -10,6 +10,7 @@ import { readCv } from '../resume-agent'
 import { jobContext } from '../job-view/handlers'
 import { asPermStatus, ensureMic } from './audio-perms'
 import { readCopilotConfig, writeCopilotConfig } from './config'
+import { kbLive } from './kb-live'
 import { createContextBuilder, defaultContextDeps, type GroundingContext } from './context'
 import { createCostMeter } from './cost'
 import { createTraceLog } from './trace'
@@ -93,7 +94,7 @@ export function copilotAudioIn(raw: unknown): void {
 export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
   const e2e = lazy(e2eHooks)
   const provider = lazy(liveProvider)
-  const context = lazy(() => createContextBuilder(defaultContextDeps()))
+  const context = lazy(() => createContextBuilder({ ...defaultContextDeps(), kbBlock: id => { try { return kbLive().block(id) } catch { return '' } } }))
   const fastModel = (): string => readCopilotConfig().engine.models.fast ?? defaultModelFor('fast')
   const cv = (): string => readCv()?.markdown ?? ''
   const names = (): string[] => nameFromCv(cv())
@@ -165,7 +166,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
         starting = true
         try {
           jobId = req.jobId; grounding = null; nextId = sessionId
-          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD, trace: traceLog(), sessionId: () => nextId, isVision })
+          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), kbMatch: (id, q) => kbLive().match(id, q), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD, trace: traceLog(), sessionId: () => nextId, isVision })
           shots = null // fresh image budget
           if (readCopilotConfig().engine.screenshots) void listLiveModels().then(ms => ms.forEach(m => { if (m.vision) liveVision.add(m.id) })).catch(() => undefined)
           await ctl.start(req)

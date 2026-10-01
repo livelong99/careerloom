@@ -57,7 +57,7 @@ export function normalizeInterviewConfig(raw: unknown): InterviewConfig {
       echo: pick(vo.echo, ['speakers', 'headphones'], d.voice.echo), tailMs: num(vo.tailMs, d.voice.tailMs, 150, 800),
       pushToInterrupt: strOrNull(vo.pushToInterrupt, d.voice.pushToInterrupt, 60) ?? d.voice.pushToInterrupt,
     },
-    kb: { retentionDays: intOrNull(kb.retentionDays, d.kb.retentionDays, 1, 3650), maxItems: num(kb.maxItems, d.kb.maxItems, 50, 400) },
+    kb: { retentionDays: intOrNull(kb.retentionDays, d.kb.retentionDays, 1, 3650), maxItems: num(kb.maxItems, d.kb.maxItems, 50, 400), useInLive: bool(kb.useInLive, d.kb.useInLive) },
   }
 }
 

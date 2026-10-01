@@ -59,7 +59,7 @@ const CONFIG: InterviewConfig = {
   research: { model: null, depth: 'standard', budgetUsd: 0.3, minutes: 5, allowAgent: false, search: { backend: 'brave', fallbackOrder: ['brave', 'exa', 'serper', 'searxng'], searxngUrl: null },
     sources: { stackexchange: true, github: true, taxonomy: true, hn: true, companyPages: true, articles: true }, consentVersion: null, refreshAfterDays: 30 },
   voice: { engine: 'system', voiceId: null, speed: 1, echo: 'speakers', tailMs: 400, pushToInterrupt: 'Alt+Space' },
-  kb: { retentionDays: null, maxItems: 400 },
+  kb: { retentionDays: null, maxItems: 400, useInLive: true },
 }
 
 /** `consentVersion` set = the first-run web-research acknowledgement is already given (`?fakeConsent=0` starts without it). */

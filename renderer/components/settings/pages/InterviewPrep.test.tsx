@@ -159,6 +159,14 @@ describe('Interview prep settings', () => {
     await waitFor(() => expect(saved()).toEqual([{ research: { refreshAfterDays: 60 } }, { kb: { retentionDays: 90 } }]))
   })
 
+  it('question bases: live-session toggle is on by default and saves', async () => {
+    mount()
+    const sw = await screen.findByRole('switch', { name: 'Use my question base in live sessions' })
+    expect(sw).toBeChecked()
+    await userEvent.click(sw)
+    await waitFor(() => expect(saved()).toEqual([{ kb: { useInLive: false } }]))
+  })
+
   it('Reset restores every default after confirming', async () => {
     stored = merge(stored, { research: { depth: 'deep', budgetUsd: 1 }, voice: { echo: 'headphones' } })
     mount()

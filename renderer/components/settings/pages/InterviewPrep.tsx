@@ -188,6 +188,9 @@ function VoiceGroup({ c, save }: { c: InterviewConfig; save: (p: Patch) => void 
 function BasesGroup({ c, save }: { c: InterviewConfig; save: (p: Patch) => void }) {
   return (
     <Group title="Question bases" focus="interview:bases">
+      <Row label="Use my question base in live sessions" hint="Gives the live coach the questions your job’s base expects, as context only. Nothing in it is ever claimed as your experience. Does nothing for jobs without a base.">
+        <ToggleSwitch aria-label="Use my question base in live sessions" checked={c.kb.useInLive} onCheckedChange={v => save({ kb: { useInLive: v } })} />
+      </Row>
       <Row label="Suggest a refresh after" htmlFor="interview-refresh" hint="Never runs by itself. You’ll see a banner and decide.">
         {daysSelect('Suggest a refresh after', String(c.research.refreshAfterDays), v => save({ research: { refreshAfterDays: Number(v) } }), (REFRESH_DAYS.includes(c.research.refreshAfterDays) ? REFRESH_DAYS : [...REFRESH_DAYS, c.research.refreshAfterDays].sort((a, b) => a - b)).map(d => <SelectItem key={d} value={String(d)}>{d} days</SelectItem>))}
       </Row>
