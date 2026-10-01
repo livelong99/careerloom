@@ -13,7 +13,7 @@ import { BASE_HEAD_B64 } from './fit-base-head'
 // Commands (targets = [[profile text, weight]]): embed {texts} → {dim, n}; targets {targets} → {groups};
 // prior {texts, kw, targets} → {p, groups} (the zero-label default); personal_fit {examples [{text, label,
 // weight, kw}], targets} → {layer | null, ship, reason, gain, dLogloss, groups, n, pos, neg};
-// predict {texts, kw, targets, layer | null} → {p, groups}.
+// predict {texts, kw, targets, layer | null} → {p, groups}; sim {queries, docs} → {best} (best cosine per query, for résumé/JD matching).
 // `python careerloom_fit.py selftest <weights>` is the installer's last step. Importable (tests) without running.
 // Script and base head ship as strings (compiled into dist/electron) and are written next to the embedding cache.
 
@@ -164,6 +164,10 @@ def main():
     req = json.load(sys.stdin)
     if req['cmd'] == 'embed':
         X = embed(req, req['texts']); res = {'n': int(X.shape[0]), 'dim': int(X.shape[1])}
+    elif req['cmd'] == 'sim':
+        Q, D = embed(req, req['queries']), embed(req, req['docs'])
+        Q, D = Q / np.linalg.norm(Q, axis=1, keepdims=True), D / np.linalg.norm(D, axis=1, keepdims=True)
+        res = {'best': (Q @ D.T).max(1).tolist()}
     elif req['cmd'] == 'targets': res = {'groups': groups_for(req, load_base())}
     elif req['cmd'] in ('prior', 'predict'): res = predict(req)
     elif req['cmd'] == 'personal_fit': res = personal_fit(req)

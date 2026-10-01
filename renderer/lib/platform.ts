@@ -24,6 +24,9 @@ export function isMacPlatform(): boolean {
   return userAgentPlatform() === 'darwin'
 }
 
+/** Interview Copilot runs on macOS and Windows. */
+export const copilotSupportedHere = (): boolean => isMacPlatform() || isWindowsPlatform()
+
 /** True when the Electron preload reports win32 (or the UA names Windows). */
 export function isWindowsPlatform(): boolean {
   const platform = bridgePlatform()

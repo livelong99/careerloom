@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Check, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -15,15 +16,19 @@ type Props = {
   busy: IntegrationAction | null
   onAction: (action: IntegrationAction) => void
   onSaveConfig: (patch: Record<string, string | boolean | null>) => void
+  /** Extra section under the checks (e.g. acknowledged sites, key link). */
+  extra?: ReactNode
+  /** Config keys not editable here (their editor lives elsewhere). */
+  hideConfig?: readonly string[]
 }
 
 /** The expanded row: health checks, actions, an optional config form, and a log tail. */
-export function IntegrationDetailPanel({ detail, loading, busy, onAction, onSaveConfig }: Props) {
+export function IntegrationDetailPanel({ detail, loading, busy, onAction, onSaveConfig, extra, hideConfig }: Props) {
   if (loading || !detail) return <p className="p-3 text-sm text-muted-foreground" role="status">Loading details…</p>
 
   // career-ops' 'install' action means "npm install its dependencies", not
   // "install the skill" — the generic label would be misleading there.
-  const labelFor = (action: IntegrationAction) => (detail.id === 'skill:career-ops' && action === 'install' ? 'Repair' : ACTION_LABEL[action])
+  const labelFor = (action: IntegrationAction) => (detail.id === 'skill:career-ops' && action === 'install' ? 'Repair' : detail.id === 'service:firecrawl' && action === 'check' ? 'Test' : ACTION_LABEL[action])
 
   return (
     <div className="flex flex-col gap-3 p-3">
@@ -39,7 +44,8 @@ export function IntegrationDetailPanel({ detail, loading, busy, onAction, onSave
           ))}
         </ul>
       )}
-      <ConfigForm fields={detail.config} saving={busy === 'configure'} onSave={onSaveConfig} />
+      <ConfigForm fields={hideConfig ? detail.config.filter(f => !hideConfig.includes(f.key)) : detail.config} saving={busy === 'configure'} onSave={onSaveConfig} />
+      {extra}
       {detail.logTail.length > 0 && (
         <pre className="max-h-40 overflow-auto rounded-md bg-muted/40 p-2 font-mono text-xs">{detail.logTail.join('\n')}</pre>
       )}

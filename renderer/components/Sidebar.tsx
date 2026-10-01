@@ -3,11 +3,11 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { version } from '../../package.json'
 import { t } from '../i18n'
 import { careerloom } from '../lib/ipc'
-import { isModifierChord, shortcutLabel } from '../lib/platform'
+import { copilotSupportedHere, isModifierChord, shortcutLabel } from '../lib/platform'
 import loomi from '../assets/loomi.svg'
 import { Icon } from './icons'
 
-export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'integrations' | 'settings'
+export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'runs' | 'settings' | 'job' | 'copilot'
 
 type NavItem = { id: Section; label: string; key: string; icon: ReactNode }
 
@@ -30,9 +30,11 @@ export function navGroups(): Array<{ label?: string; items: NavItem[] }> {
       items: [
         { id: 'agent', label: 'Agent', key: '5', icon: <Icon name="sparkles" /> },
         { id: 'monitoring', label: 'Monitoring', key: '6', icon: <Icon name="chart-column" /> },
-        { id: 'integrations', label: 'Integrations', key: '7', icon: <Icon name="puzzle" /> },
+        { id: 'runs', label: 'Runs', key: '7', icon: <Icon name="history" /> },
       ],
     },
+    // macOS only for now (plan §3.1): no half-working section elsewhere.
+    ...(copilotSupportedHere() ? [{ label: 'Interview', items: [{ id: 'copilot' as const, label: 'Copilot', key: '8', icon: <Icon name="mic" /> }] }] : []),
     { items: [{ id: 'settings', label: t('shell.nav.settings'), key: ',', icon: <Icon name="settings" /> }] },
   ]
 }
@@ -40,9 +42,12 @@ export function navGroups(): Array<{ label?: string; items: NavItem[] }> {
 export function Sidebar({
   active,
   onNavigate,
+  attention = false,
 }: {
   active: Section
   onNavigate: (section: Section) => void
+  /** Something in Settings needs the user: a dot on the Settings item. */
+  attention?: boolean
   status?: ReactNode
 }) {
   const [collapsed, setCollapsed] = useState(readCollapsed)
@@ -98,6 +103,7 @@ export function Sidebar({
               >
                 {item.icon}
                 <span className="ni-label">{item.label}</span>
+                {item.id === 'settings' && attention && <span role="img" aria-label="Needs attention" className="ml-auto size-2 rounded-full" style={{ background: 'var(--warn)' }} />}
               </div>
             ))}
           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { getToast, isPrimaryHost, registerToastHost, subscribeToasts, type Toast } from '../lib/toast'
+import { dismissToast, getToast, isPrimaryHost, registerToastHost, subscribeToasts, type Toast } from '../lib/toast'
 import { DUR, motionClass, motionEnabled } from '../lib/motion'
 
 /** Bottom-right toast surface for action feedback. One at a time, role=status,
@@ -51,6 +51,15 @@ export function ToastHost() {
         role="status"
       >
         {painted.text}
+        {painted.action && (
+          <button
+            type="button"
+            className="set-text-button ml-3 font-semibold underline underline-offset-2"
+            onClick={() => { painted.action?.onClick(); dismissToast() }}
+          >
+            {painted.action.label}
+          </button>
+        )}
       </div>
     </div>,
     document.body,

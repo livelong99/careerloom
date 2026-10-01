@@ -5,7 +5,8 @@ import { spawn } from 'node:child_process'
 import { lookup as dnsLookup } from 'node:dns/promises'
 
 import type { ConfigField, HealthCheck, IntegrationDetail } from '../contract'
-import { readSecret, writeSecret } from '../context'
+import { readSecret } from '../context'
+import { setKey } from '../settings/keys'
 import { resolveBin, spawnSpec } from '../runner'
 import { composeArgs, isPrivateHost, parseBaseUrl, parseScrapeResponse, scrapeBody, validateComposeDir, validateScrapeTarget, type ScrapedPage, type ScrapeOptions } from './firecrawl-client'
 import { FIRECRAWL_COMPOSE } from './firecrawl-compose'
@@ -189,7 +190,7 @@ export function setFirecrawlConfig(patch: Record<string, string | boolean | null
   if (typeof patch.url === 'string' && patch.url) { parseBaseUrl(patch.url); next.url = patch.url }
   if (typeof patch.composeDir === 'string') { validateComposeDir(patch.composeDir); next.composeDir = patch.composeDir }
   writeRegistry({ firecrawl: next })
-  if ('apiKey' in patch) writeSecret('firecrawl', typeof patch.apiKey === 'string' && patch.apiKey ? patch.apiKey : null)
+  if ('apiKey' in patch) setKey('firecrawl', typeof patch.apiKey === 'string' && patch.apiKey ? patch.apiKey : null)
 }
 
 export async function firecrawlReady(): Promise<boolean> {

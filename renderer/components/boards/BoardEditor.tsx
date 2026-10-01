@@ -17,7 +17,7 @@ import { navigate } from '../../lib/nav'
 import { showToast } from '../../lib/toast'
 import type { BrowserLoginStatus, Portal, PortalDetail, PortalPatch } from '../../lib/types'
 import { DeletePortalsDialog } from '../jobs/PortalDialogs'
-import { openRuns } from '../RunsDrawer'
+import { openRuns } from '../../lib/nav'
 
 const MAX_URLS = 5
 const MAX_GUIDELINE = 4000

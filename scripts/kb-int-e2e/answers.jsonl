@@ -1,0 +1,3 @@
+{"atMs":9000,"ev":"partial","text":"I led the","t0":8000,"t1":9000}
+{"atMs":12000,"ev":"final","text":"I led the migration of forty services to Kubernetes and kept releases weekly by staging the cut-over per team.","t0":8000,"t1":12000}
+{"atMs":12200,"ev":"endOfTurn","text":"","t0":12000,"t1":12200}

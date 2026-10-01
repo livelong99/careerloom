@@ -1,0 +1,17 @@
+<!doctype html><meta charset=utf-8><script>
+(async () => {
+  try {
+    const s = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+    const tracks = s.getAudioTracks()
+    h.log(`got stream: audioTracks=${tracks.length} videoTracks=${s.getVideoTracks().length} ${tracks[0] ? 'label=' + tracks[0].label + ' state=' + tracks[0].readyState + ' muted=' + tracks[0].muted : ''}`)
+    if (!tracks.length) return
+    s.getVideoTracks().forEach(t => t.stop())
+    const ctx = new AudioContext(); const a = ctx.createAnalyser(); ctx.createMediaStreamSource(new MediaStream(tracks)).connect(a)
+    const d = new Float32Array(a.fftSize); let peak = 0, sec = 0
+    setTimeout(() => h.play(), 2000)
+    setInterval(() => { a.getFloatTimeDomainData(d); for (const v of d) peak = Math.max(peak, Math.abs(v)) }, 20)
+    setInterval(() => { h.log(`t=${++sec}s peak=${peak.toFixed(4)}`); peak = 0 }, 1000)
+    tracks[0].onended = () => h.log('track ended')
+  } catch (e) { h.log(`getDisplayMedia failed: ${e.name}: ${e.message}`) }
+})()
+</script>

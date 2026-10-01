@@ -64,6 +64,13 @@ export function detectEntrypoints(dir: string): SkillEntrypoint[] {
       found.push({ rel, name: front.name ?? null, description: front.description ?? null })
     }
   }
+  // A repo that IS one skill keeps its SKILL.md at the root (e.g. blader/humanizer).
+  const root = path.join(dir, 'SKILL.md')
+  if (fs.existsSync(root)) {
+    let front: { name?: string; description?: string } = {}
+    try { front = parseSkillFrontmatter(fs.readFileSync(root, 'utf8')) } catch { /* unreadable, still list it */ }
+    found.push({ rel: 'SKILL.md', name: front.name ?? null, description: front.description ?? null })
+  }
   for (const rel of ['AGENTS.md', 'CLAUDE.md']) {
     if (fs.existsSync(path.join(dir, rel))) found.push({ rel, name: null, description: null })
   }

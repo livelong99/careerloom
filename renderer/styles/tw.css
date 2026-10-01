@@ -79,7 +79,22 @@
     font: inherit; color: inherit; background: transparent; margin: 0; padding: 0;
   }
   [data-slot] :where(h1, h2, h3, h4, p) { margin: 0; }
+  /* Item/Field/Accordion/Kbd/Empty reach for more of preflight: lists, fieldset, kbd, media. */
+  [data-slot] :where(ul, ol) { list-style: none; margin: 0; padding: 0; }
+  fieldset[data-slot], [data-slot] fieldset { margin: 0; padding: 0; min-width: 0; }
+  [data-slot] legend { padding: 0; }
+  kbd[data-slot] { font-family: var(--font-mono); }
+  [data-slot] :where(img, svg, video, canvas) { display: block; vertical-align: middle; }
+  [data-slot] :where(img, video) { max-width: 100%; height: auto; }
+  [data-slot] :where(a) { color: inherit; text-decoration: inherit; }
   /* Tailwind-styled buttons without data-slot (pulled components) must not keep
      the UA's grey face; codeburn's class-styled buttons are unlayered and still win. */
   button { background-color: transparent; border-width: 0; border-style: solid; color: inherit; font: inherit; }
 }
+
+/* The codeburn th/td rules (mono, right-aligned, nowrap, tabular) are unlayered and beat utilities.
+   Tables that want ordinary prose cells opt in with .prose-table (Resume → Skill-up). */
+.prose-table th, .prose-table td { font-family: var(--font-sans); font-size: 13px; text-align: left; white-space: normal; font-variant-numeric: normal; border-bottom: 0; color: var(--color-foreground); }
+.prose-table th { color: var(--color-muted-foreground); font-weight: 500; }
+.prose-table td { vertical-align: top; padding-block: 10px; }
+.prose-table td.muted { color: var(--color-muted-foreground); }

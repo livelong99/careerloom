@@ -12,11 +12,15 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
     "package:linux": "npm run build && electron-builder --linux",
-    "package:win": "npm run build && electron-builder --win",
+    "fetch-runtime:win": "node scripts/fetch-runtime.mjs win32-x64 win32-arm64",
+    "package:win": "npm run build && npm run fetch-runtime:win && electron-builder --win",
     "package:mac": "npm run build && electron-builder --mac",
     "package": "npm run build && electron-builder"
   },
   "dependencies": {
+    "pdfjs-dist": "^6.3.289",
+    "react-resizable-panels": "^4.14.1",
+    "sonner": "^2.0.8",
     "tldts": "^7.4.16",
     "yaml": "^2.9.1"
   },
@@ -80,6 +84,9 @@
       "dist/electron/**/*",
       "!dist/electron/**/*.map",
       "dist/renderer/**/*",
+      "!node_modules/pdfjs-dist/{build,web,types,image_decoders,cmaps,standard_fonts,wasm}/**",
+      "!node_modules/pdfjs-dist/legacy/{web,image_decoders}/**",
+      "!node_modules/pdfjs-dist/**/*.map",
       "package.json"
     ],
     "mac": {
@@ -105,7 +112,13 @@
       "identity": "-",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Careerloom listens through your microphone during an interview practice or live session you start. Audio is transcribed on this computer and is not stored.",
+        "NSAudioCaptureUsageDescription": "Careerloom can capture the interviewer's audio from your call app during a live session you start. Audio is transcribed on this computer and is not stored."
+      }
     },
     "dmg": {
       "backgroundColor": "#0b0e13",
@@ -139,7 +152,17 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "extraResources": [
+        {
+          "from": "build/runtime/win32-${arch}",
+          "to": "runtime",
+          "filter": [
+            "**/*",
+            "!**/.fetched"
+          ]
+        }
+      ]
     },
     "linux": {
       "target": [
@@ -170,12 +193,19 @@
       "uninstallDisplayName": "Careerloom",
       "artifactName": "${productName}-Setup-${version}.${ext}",
       "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico"
+      "uninstallerIcon": "build/icon.ico",
+      "differentialPackage": false
     },
     "copyright": "Copyright © 2026 Vaibhav Chaudhary",
     "toolsets": {
       "nsis": "1.2.1"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "build/runtime-manifest.json",
+        "to": "runtime-manifest.json"
+      }
+    ]
   },
   "author": "Vaibhav Chaudhary",
   "license": "MIT",

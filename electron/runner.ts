@@ -3,6 +3,8 @@ import { accessSync, constants, readdirSync, statSync } from 'node:fs'
 import { homedir, platform } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 
+import { runtimeBinDirs } from './runtime/paths'
+
 /** Who does the work. CLI runners use the user's own subscription; `api` runs
  *  career-ops' OpenRouter runner with an API key; `zen` is Careerloom's own agent loop
  *  on the OpenCode Zen API (zen-agent.ts) — free models need no key. */
@@ -89,6 +91,8 @@ export type PromptOptions = {
   model?: string
   /** agy project holding Careerloom's permission grants (see agy-project.ts). */
   agyProject?: string
+  /** No file or shell tools: the task is answered from the prompt alone (web search/fetch stay). */
+  textOnly?: boolean
 }
 
 /** Model ids are passed as argv values; keep them to a safe charset so they can't read as flags. */
@@ -97,6 +101,10 @@ export const isModelId = (v: unknown): v is string => typeof v === 'string' && /
 export function argsForPrompt(runner: CliRunner, prompt: string, opts: PromptOptions = {}): { bin: string; args: string[] } {
   switch (runner) {
     case 'claude': {
+      if (opts.textOnly) {
+        // `--tools` narrows the built-in set; `--allowedTools` lets those two run without a prompt. Both variadic, so last.
+        return { bin: BINS.claude, args: ['-p', prompt, '--output-format', 'stream-json', '--verbose', ...(opts.resume && /^[\w-]{8,64}$/.test(opts.resume) ? ['--resume', opts.resume] : []), ...(isModelId(opts.model) ? ['--model', opts.model] : []), '--tools', 'WebSearch,WebFetch', '--allowedTools', 'WebSearch', 'WebFetch'] }
+      }
       const extra = [
         ...(opts.resume && /^[\w-]{8,64}$/.test(opts.resume) ? ['--resume', opts.resume] : []),
         ...(opts.addDirs?.length ? ['--add-dir', ...opts.addDirs] : []),
@@ -108,7 +116,7 @@ export function argsForPrompt(runner: CliRunner, prompt: string, opts: PromptOpt
     }
     case 'codex':
       // Codex has no slash-skill routing in exec mode; career-ops documents plain text.
-      return { bin: BINS.codex, args: ['exec', '--sandbox', 'workspace-write', ...(isModelId(opts.model) ? ['--model', opts.model] : []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.`] }
+      return { bin: BINS.codex, args: ['exec', '--sandbox', opts.textOnly ? 'read-only' : 'workspace-write', ...(isModelId(opts.model) ? ['--model', opts.model] : []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.`] }
     case 'antigravity':
       // agy's --add-dir is repeatable (one dir per flag); it has no system-prompt flag.
       return {
@@ -157,6 +165,7 @@ function isExecutable(p: string): boolean {
 function searchDirs(): string[] {
   const home = homedir()
   const dirs = [
+    ...runtimeBinDirs(), // Careerloom's own node/python/git/npm CLIs win over whatever the system has
     ...(process.env.PATH || '').split(delimiter),
     '/opt/homebrew/bin', '/usr/local/bin',
     join(home, '.local', 'bin'), join(home, '.claude', 'local'),

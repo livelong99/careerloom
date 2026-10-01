@@ -3,7 +3,8 @@ import { useState, type ReactNode } from 'react'
 import { useRuns } from '../../hooks/useRuns'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
 import type { CliRunner } from '../../lib/types'
-import { RunLog } from '../RunsDrawer'
+import { RunLog } from '../RunLog'
+import { KeyField } from '../settings/KeyField'
 
 // Shared pieces of the first-run flow (renderer/sections/Onboarding.tsx).
 
@@ -65,30 +66,15 @@ export function ErrorLine({ message }: { message: string | null }) {
   return message ? <p role="alert" className="m-0 text-destructive">{message}</p> : null
 }
 
-/** OpenRouter key: saved to the OS keychain; never read back. */
+/** OpenRouter / OpenCode Zen key: saved to the OS keychain through the shared Settings KeyField; never read back. */
 export function ApiKeyField({ hasKey, onSaved, provider = 'openrouter' }: { hasKey: boolean; onSaved: () => void; provider?: 'openrouter' | 'opencode' }) {
-  const [key, setKey] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const save = async () => {
-    setError(null)
-    try { await careerloom.setApiKey(key.trim(), provider); setKey(''); onSaved() } catch (err) { setError(errorText(err)) }
-  }
+  const label = provider === 'opencode' ? 'OpenCode Zen API key' : 'OpenRouter API key'
   return (
-    <form className="flex flex-col gap-2" onSubmit={e => { e.preventDefault(); void save() }}>
-      <div className="flex items-center gap-2">
-        <input
-          type="password"
-          className="set-input flex-1"
-          placeholder={hasKey ? 'Key saved. Paste a new one to replace it' : provider === 'opencode' ? 'OpenCode Zen API key' : 'OpenRouter API key (sk-or-…)'}
-          aria-label={provider === 'opencode' ? 'OpenCode Zen API key' : 'OpenRouter API key'}
-          value={key}
-          onChange={e => setKey(e.target.value)}
-          autoComplete="off"
-        />
-        <button type="submit" className={BTN} disabled={!key.trim()}>Save key</button>
-      </div>
-      <ErrorLine message={error} />
-    </form>
+    <KeyField
+      label={label}
+      placeholder={hasKey ? 'Key saved. Paste a new one to replace it' : provider === 'opencode' ? label : 'OpenRouter API key (sk-or-…)'}
+      onSubmit={async v => { await careerloom.setApiKey(v, provider); onSaved() }}
+    />
   )
 }
 

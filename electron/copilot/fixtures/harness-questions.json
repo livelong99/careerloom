@@ -1,0 +1,8 @@
+[
+  { "text": "Tell me about a time you led a migration and how you managed the risk.", "type": "behavioural" },
+  { "text": "What is the difference between a Kubernetes Deployment and a StatefulSet?", "type": "technical" },
+  { "text": "Tell me about a time you disagreed with a teammate about a technical decision.", "type": "behavioural" },
+  { "text": "How would you roll out a schema change on a busy PostgreSQL table without downtime?", "type": "technical" },
+  { "text": "Design a rate limiter for a public API that serves ten thousand requests per second.", "type": "system-design" },
+  { "text": "Why do you want to work on our platform team?", "type": "behavioural" }
+]

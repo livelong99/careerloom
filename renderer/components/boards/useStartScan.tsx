@@ -8,7 +8,7 @@ import { careerloom, normalizeCliError } from '../../lib/ipc'
 import { goToIntegrations } from '../../lib/nav'
 import { showToast } from '../../lib/toast'
 import { ConsentDialog } from '../jobs/PortalDialogs'
-import { openRuns } from '../RunsDrawer'
+import { openRuns } from '../../lib/nav'
 
 /** Starting a scan from Boards: browser-board consent first, Firecrawl-down shown inline with a fix. */
 export function useStartScan() {
