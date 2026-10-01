@@ -58,7 +58,8 @@ export type CopilotConfig = {
   stt: { engine: SttEngineId; model: string | null; device: SttDevice; language: 'en'; lastBenchmark: SttBenchmark | null; endSilenceMs: number; vocab: string[] }
   engine: {
     tier: 'fast' | 'balanced' | 'deep'; escalateForDesignCoding: boolean; provider: 'openrouter'
-    openrouter: { dataCollection: 'deny' | 'allow'; zdr: boolean; sort: 'latency' | 'price' }
+    /** `policyMigrated`: the one-time move of older saved 'deny' to the user-approved 'allow' default has run; after it, the user's choice is respected. */
+    openrouter: { dataCollection: 'deny' | 'allow'; zdr: boolean; sort: 'latency' | 'price'; policyMigrated: boolean }
     models: Record<'fast' | 'balanced' | 'deep', string | null>
     factCheck: boolean; vision: 'vision' | 'ocr'; autoAnswer: boolean
   }

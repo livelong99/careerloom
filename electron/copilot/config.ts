@@ -15,7 +15,7 @@ export const DEFAULT_CONFIG: CopilotConfig = {
   stt: { engine: defaultEngine(), model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 650, vocab: [] },
   engine: {
     tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter',
-    openrouter: { dataCollection: 'deny', zdr: false, sort: 'latency' },
+    openrouter: { dataCollection: 'allow', zdr: false, sort: 'latency', policyMigrated: true }, // user-approved: free models (which may train) work out of the box
     models: { fast: null, balanced: null, deep: null },
     factCheck: true, vision: 'vision', autoAnswer: false,
   },
@@ -74,7 +74,8 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
     },
     engine: {
       tier: pick(eng.tier, ['fast', 'balanced', 'deep'], d.engine.tier), escalateForDesignCoding: bool(eng.escalateForDesignCoding, d.engine.escalateForDesignCoding), provider: 'openrouter',
-      openrouter: { dataCollection: pick(or.dataCollection, ['deny', 'allow'], d.engine.openrouter.dataCollection), zdr: bool(or.zdr, d.engine.openrouter.zdr), sort: pick(or.sort, ['latency', 'price'], d.engine.openrouter.sort) },
+      // Files written before the default flipped (no marker) get 'allow' once; from then on the user's pick stands.
+      openrouter: { dataCollection: or.policyMigrated === true ? pick(or.dataCollection, ['deny', 'allow'], d.engine.openrouter.dataCollection) : 'allow', policyMigrated: true, zdr: bool(or.zdr, d.engine.openrouter.zdr), sort: pick(or.sort, ['latency', 'price'], d.engine.openrouter.sort) },
       models: { fast: strOrNull(models.fast, null), balanced: strOrNull(models.balanced, null), deep: strOrNull(models.deep, null) },
       factCheck: bool(eng.factCheck, d.engine.factCheck), vision: pick(eng.vision, ['vision', 'ocr'], d.engine.vision), autoAnswer: bool(eng.autoAnswer, d.engine.autoAnswer),
     },

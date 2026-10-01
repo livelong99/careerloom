@@ -21,6 +21,15 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 describe('ConsentGate', () => {
+  it('says plainly that providers may keep or train on the text when that setting is on, and not when it is off', async () => {
+    const { unmount } = gate()
+    await waitFor(() => expect(screen.getByText(/may be retained and used for training by the model provider/i)).toBeTruthy())
+    unmount()
+    api.copilotGetConfig.mockResolvedValue({ ...DEFAULT_CONFIG_FOR_TESTS, engine: { ...DEFAULT_CONFIG_FOR_TESTS.engine, openrouter: { ...DEFAULT_CONFIG_FOR_TESTS.engine.openrouter, dataCollection: 'deny' } } })
+    gate()
+    await waitFor(() => expect(screen.getByText(/send the conversation's text to OpenRouter/i)).toBeTruthy())
+    expect(screen.queryByText(/used for training/i)).toBeNull()
+  })
   it('keeps Start disabled until both statements are confirmed', async () => {
     gate()
     expect(start().disabled).toBe(true)

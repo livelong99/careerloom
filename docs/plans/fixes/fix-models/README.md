@@ -11,6 +11,8 @@
 
 **Fix:** free = "May use your prompts" badge; warning + one-click "Allow free models (they may train on your text)" under `deny` (default stays `deny`); 404 policy/unavailable and other errors mapped to friendly messages with actions (Change model, Open OpenRouter privacy settings, Manage key); engine attaches a *suggested* fallback model on policy errors and never switches silently.
 
-**Evidence:** `before-{dark,light}.png`, `after-{dark,light}.png` (static mock-bridge harness `scripts/fix-models-qa`, data shaped like the old/new backend; the backend itself is covered by fake-fetch tests for each error shape: policy 404, other 404, 401, 402, 429, 5xx, no key).
+**Coordinator/user decision (later):** default flipped to `data_collection: 'allow'` (user-approved) so free models work out of the box. Older saved configs migrate once (`engine.openrouter.policyMigrated` marker; a saved `deny` becomes `allow`, afterwards the user's pick stands). The Answer-engine switch is now "Providers may keep or train on your text" (on by default); the consent gate states plainly that provider-side retention/training may apply (`CONSENT_TEXT_VERSION` bumped to draft2; TODO-legal kept). Paid curated defaults kept: no key, so no free model could be probed.
+
+**Evidence:** `before-{dark,light}.png`, `after-deny-{dark,light}.png` (policy = deny: warning, opt-in button, error actions), `after-allow-{dark,light}.png` (new default) (static mock-bridge harness `scripts/fix-models-qa`, data shaped like the old/new backend; the backend itself is covered by fake-fetch tests for each error shape: policy 404, other 404, 401, 402, 429, 5xx, no key).
 
 **Not verified live:** no key, so the claim "paid curated models pass `deny`" rests on OpenRouter's docs/tags, not a call. Follow-up risk: balanced/deep curated models mostly have mandatory reasoning while the request sends `reasoning: { enabled: false }` (WP2 behaviour, untouched).
