@@ -70,8 +70,9 @@ export function createInterviewerRunner(o: InterviewerOptions): InterviewerRunne
     const mine = ++epoch
     current = { id, item, text }
     const at = now()
-    o.sink.question({ id, text, type, confidence: 1, at, auto: false })
+    // Line first, then the question: the order a heard question arrives in live, so the engine sees it in the transcript.
     o.sink.line({ id: `ask-${id}`, speaker: 'interviewer', text, final: true, t0: at, t1: at })
+    o.sink.question({ id, text, type, confidence: 1, at, auto: false })
     state('speaking')
     try { await speak.say(text, id) } catch { /* a failing voice never stops the interview: captions already went out */ }
     if (stopped || mine !== epoch) return

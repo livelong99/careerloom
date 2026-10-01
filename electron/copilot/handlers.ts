@@ -13,16 +13,24 @@ import { CONSENT_TEXT_VERSION, validateConsent } from './consent'
 import { readCopilotConfig, writeCopilotConfig } from './config'
 import { applyDebrief, scoreSession } from './debrief'
 import { buildDefaults } from './defaults'
+import { parsePlan } from '../interviewer/plan'
+import { createInterview, writeSkillSignal, type Interview, type InterviewDeps } from '../interviewer/session'
 import { createPracticeRunner, questionsFromReport, selectQuestions, type PracticeExtras, type PracticeRunner } from './practice'
 import { buildContext } from './setup'
 import { createRecorder, openSessionStore, type SessionStore } from './store'
 import type {
-  Anchor, ContextPreview, CopilotApi, CopilotConfig, DeepPartial, InterviewType, NotImplemented, OverlayCommand, PermStatus, SessionDetail, SourceHealth, SourceId, StartRequest, StopReason, TranscriptLine,
+  DetectedQuestion, Anchor, ContextPreview, CopilotApi, CopilotConfig, DeepPartial, InterviewType, NotImplemented, OverlayCommand, PermStatus, SessionDetail, SourceHealth, SourceId, StartRequest, StopReason, TranscriptLine,
 } from './types'
 
 const SESSION_ID = /^[\w-]{1,80}$/
 const MODES = ['practice', 'live'] as const
 const INTERVIEW_TYPES: readonly InterviewType[] = ['recruiter', 'behavioural', 'technical', 'system-design', 'mixed']
+const INTERVIEWER_CMDS = ['replay', 'skip', 'hint'] as const
+const TYPED_MAX = 2000
+const typedText = (v: unknown): string => {
+  if (typeof v !== 'string' || v.length > TYPED_MAX) throw new Error(`typed answer must be text up to ${TYPED_MAX} characters`)
+  return v
+}
 const ANSWER_KINDS = ['answer', 'followup', 'clarify', 'summarise'] as const
 const DEBRIEF_ACTIONS = ['resume-bullet', 'job-note'] as const
 const PANES = ['microphone', 'system-audio', 'screen'] as const
@@ -70,6 +78,8 @@ export type CopilotDeps = {
   screenshot?(): Promise<void> | void
   /** Deletes held screenshot frames (session deleted, quit, panic). */
   clearScreenshots?(): void
+  /** AI interviewer (KB-WP4): question base, voice, stats write-back. `events` routes the interviewer's lines/questions through the live wiring so cues and suggestions match live. */
+  interviewer?: InterviewDeps & { events?: { line(l: TranscriptLine): void; question(q: DetectedQuestion): void } }
 }
 
 const notImplemented = (method: string): NotImplemented => ({ status: 'not-implemented', method })
@@ -102,6 +112,8 @@ function overlayCmd(raw: unknown): OverlayCommand {
   return {
     collapse: flag(c.collapse, 'collapse'), hide: flag(c.hide, 'hide'), quickHide: flag(c.quickHide, 'quickHide'), passive: flag(c.passive, 'passive'),
     moveTo: c.moveTo as Anchor | undefined, start: flag(c.start, 'start'), retry: flag(c.retry, 'retry'), debrief: flag(c.debrief, 'debrief'),
+    interviewer: c.interviewer === undefined ? undefined : oneOf(c.interviewer, INTERVIEWER_CMDS, 'interviewer command'),
+    typed: c.typed === undefined ? undefined : typedText(c.typed),
   }
 }
 /** Only `copilotAckPrivacyNotice` may record that the Privacy mode notice was seen. */
@@ -119,6 +131,7 @@ export function createCopilot(deps: CopilotDeps) {
   const store: SessionStore = new Proxy({} as SessionStore, { get: (_t, k) => (opened ??= openSessionStore(deps.dir()))[k as keyof SessionStore] })
   const recorder = createRecorder(store, now)
   let practice: PracticeRunner | null = null
+  let interview: Interview | null = null
   let lastPractice: StartRequest | null = null
   let swept = false
   const scoring = new Set<string>()
@@ -140,7 +153,9 @@ export function createCopilot(deps: CopilotDeps) {
     // Capture off first, then everything else; a failing capture stop must not keep a session open.
     try { await deps.session?.stop(reason) } catch (err) { console.error('copilot capture stop failed:', err instanceof Error ? err.message : String(err)) }
     practice?.stop(); practice = null
-    const done = recorder.end()
+    const iv = interview; interview = null
+    const ended = recorder.end()
+    const done = ended && iv ? saveInterview(ended, iv) : ended
     if (!deps.session) broadcast('careerloom:copilotState', { state: 'stopped', mode: done?.mode ?? 'practice', sessionId: null, sources: [], startedAt: null })
     sweep()
     if (done) score(done.id)
@@ -161,7 +176,9 @@ export function createCopilot(deps: CopilotDeps) {
       return v as string[]
     }
     const extras: PracticeExtras = { questionIds: strings(r.questionIds, 'questionIds'), custom: strings(r.custom, 'custom') }
-    if (mode === 'practice') selectQuestions(job.report, extras) // fail before anything is saved
+    const plan = r.interview === undefined ? null : parsePlan(r.interview)
+    if (plan && mode !== 'practice') throw new Error('The AI interviewer is for practice sessions only')
+    if (mode === 'practice' && !plan) selectQuestions(job.report, extras) // fail before anything is saved
     const cfg = readCopilotConfig()
     let sessionId: string = randomUUID()
     if (mode === 'live') {
@@ -182,13 +199,38 @@ export function createCopilot(deps: CopilotDeps) {
         privacyMode, indicator: privacyMode ? pm.indicator : 'chip',
       })
     }
+    const iv = plan ? buildInterview(jobId, sessionId, plan, cfg) : null // throws (no question base) before anything is saved
     recorder.begin({ id: sessionId, mode, jobId, jobTitle: job.title, company: job.company })
     try {
       await deps.session?.start({ mode, jobId, interviewType, consent: mode === 'live' ? r.consent! : null }, sessionId)
     } catch (err) { recorder.end(); store.remove(sessionId); throw err }
-    if (mode === 'practice') { startPractice(jobId, job, cfg, extras); lastPractice = { mode, jobId, interviewType, consent: null, ...extras } }
+    if (mode === 'practice') { if (iv) { interview = iv; practice = iv.runner; practice.start() } else startPractice(jobId, job, cfg, extras); lastPractice = { mode, jobId, interviewType, consent: null, ...extras, ...(plan ? { interview: plan } : {}) } }
     if (!deps.session) broadcast('careerloom:copilotState', { state: 'listening', mode, sessionId, sources: ['mic'], startedAt: now() })
     return { sessionId }
+  }
+
+  /** The AI interviewer's runner for one session. Its lines and questions take the live path when the wiring is present. */
+  function buildInterview(jobId: string, sessionId: string, plan: ReturnType<typeof parsePlan>, cfg: CopilotConfig): Interview {
+    const ev = deps.interviewer?.events
+    return createInterview({
+      jobId, sessionId, plan, complete: deps.complete, answerMs: cfg.practice.answerMinutes * 60_000, now,
+      deps: deps.interviewer ?? { pool: () => null },
+      sink: {
+        line: l => {
+          if (l.speaker === 'you' && deps.session) return // already recorded and shown by the capture session
+          if (l.speaker === 'interviewer' && ev) return ev.line(l)
+          recorder.line(l); broadcast('careerloom:copilotTranscript', l)
+        },
+        question: q => { if (ev) ev.question(q); else { recorder.question(q); broadcast('careerloom:copilotQuestion', q) } },
+        done: () => { void stopAll('user') },
+      },
+    })
+  }
+  /** Per-question results onto the stored session, plus the skill signal for Skill-up. Best effort: a disk error never blocks the stop. */
+  function saveInterview(done: SessionDetail, iv: Interview): SessionDetail {
+    const next: SessionDetail = { ...done, interview: iv.record() }
+    try { store.save(next); writeSkillSignal(deps.dir(), iv.skillSignal()) } catch (err) { console.error('copilot interview record failed:', err instanceof Error ? err.message : String(err)) }
+    return next
   }
 
   function startPractice(jobId: string, job: JobInfo, cfg: CopilotConfig, extras: PracticeExtras): void {
@@ -203,6 +245,16 @@ export function createCopilot(deps: CopilotDeps) {
       },
     })
     practice.start()
+  }
+
+  let typedN = 0
+  /** The typed-answer fallback (no microphone or speech recognition): the same path as a spoken final. */
+  async function typedAnswer(text: string): Promise<void> {
+    if (!practice || !interview || text.trim() === '') return
+    const at = now()
+    const l: TranscriptLine = { id: `typed-${++typedN}`, speaker: 'you', text: text.trim(), final: true, t0: at, t1: at }
+    if (!deps.session) { recorder.line(l); broadcast('careerloom:copilotTranscript', l) }
+    await practice.feed(l, true)
   }
 
   /** Newest score per question id from this job's earlier sessions (last 10). */
@@ -266,6 +318,8 @@ export function createCopilot(deps: CopilotDeps) {
         await start(lastPractice)
         return
       }
+      if (cmd.interviewer) return void interview?.control(cmd.interviewer)
+      if (cmd.typed !== undefined) return void (await typedAnswer(cmd.typed))
       if (cmd.retry) return void (await deps.retry?.())
       if (cmd.debrief) return void deps.openDebrief?.(store.list()[0]?.id ?? null)
       return deps.overlay ? void deps.overlay(cmd) : notImplemented('copilotOverlay')

@@ -9,13 +9,13 @@ import { kbHandlers as typed } from './handlers'
 const kbHandlers: Record<string, Handler> = typed
 
 const KB = ['kbSummary', 'kbList', 'kbItem', 'kbEstimate', 'kbResearchStart', 'kbResearchStop', 'kbItemUpdate', 'kbItemAdd', 'kbItemRemove', 'kbExport', 'kbImport', 'kbSearchKeyTest', 'kbOpenSource']
-const VOICE = ['interviewVoices', 'interviewPreviewVoice', 'interviewInstallVoice', 'interviewPlanPreview']
+const VOICE = ['interviewVoices', 'interviewPreviewVoice', 'interviewInstallVoice']
 const platform = (p: string) => Object.defineProperty(process, 'platform', { value: p })
 const real = process.platform
 afterEach(() => platform(real))
 
 describe('kb handler stubs (WP0)', () => {
-  it('registers exactly the KbApi methods', () => expect(Object.keys(kbHandlers).sort()).toEqual([...KB, ...VOICE].sort()))
+  it('registers exactly the KbApi methods', () => expect(Object.keys(kbHandlers).sort()).toEqual([...KB, ...VOICE, 'interviewPlanPreview'].sort())) // plan preview is real (KB-WP4)
   it.each(KB)('%s resolves not-implemented on every platform', async name => {
     for (const p of ['darwin', 'win32', 'linux']) {
       platform(p)
