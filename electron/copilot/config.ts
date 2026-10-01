@@ -17,7 +17,8 @@ export const DEFAULT_CONFIG: CopilotConfig = {
     tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter',
     openrouter: { dataCollection: 'allow', zdr: false, sort: 'latency', policyMigrated: true }, // user-approved: free models (which may train) work out of the box
     models: { fast: null, balanced: null, deep: null },
-    factCheck: true, vision: 'vision', autoAnswer: false,
+    factCheck: true, vision: 'vision', autoAnswer: false, speculativeStart: false,
+    gate: { engine: 'heuristic', baseUrl: 'https://openrouter.ai/api', endpoint: 'systemone' },
   },
   coaching: { shape: 'cues+star', length: 2, tone: 'direct', persona: '', quoteResume: true },
   overlay: { layout: 'strip', anchor: 'tr', displayId: null, width: 440, fontPx: 14, opacity: 0.94, theme: 'app', clickThroughIdle: true, aboveFullscreen: true },
@@ -40,6 +41,8 @@ const num = (v: unknown, d: number, min: number, max: number): number => (typeof
 const intOrNull = (v: unknown, d: number | null, min: number, max: number): number | null => (v === null ? null : typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max ? v : d)
 const strOrNull = (v: unknown, d: string | null, max = 200): string | null => (v === null ? null : typeof v === 'string' && v.length <= max ? v : d)
 const text = (v: unknown, d: string, max = 500): string => (typeof v === 'string' && v.length <= max ? v : d)
+/** https only (the key goes with the request); anything else falls back. */
+const httpUrl = (v: unknown, d: string): string => (typeof v === 'string' && /^https:\/\/[^\s/]+(?:\/[^\s?#]*)?$/.test(v) && v.length <= 200 ? v.replace(/\/+$/, '') : d)
 const words = (v: unknown, d: string[]): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= 60).slice(0, 200) : d)
 
 const ANCHORS: readonly Anchor[] = ['tl', 'tc', 'tr', 'ml', 'c', 'mr', 'bl', 'bc', 'br']
@@ -58,7 +61,7 @@ function benchmark(v: unknown): SttBenchmark | null {
 export function normalizeConfig(raw: unknown): CopilotConfig {
   const d = DEFAULT_CONFIG
   const r = obj(raw)
-  const audio = obj(r.audio), stt = obj(r.stt), eng = obj(r.engine), or = obj(eng.openrouter), models = obj(eng.models)
+  const audio = obj(r.audio), stt = obj(r.stt), eng = obj(r.engine), or = obj(eng.openrouter), models = obj(eng.models), gt = obj(eng.gate)
   const co = obj(r.coaching), ov = obj(r.overlay), hk = obj(r.hotkeys), pr = obj(r.privacy), pm = obj(pr.mode), pc = obj(r.practice)
   const accel = (k: keyof typeof d.hotkeys) => text(hk[k], d.hotkeys[k], 60) || d.hotkeys[k]
   return {
@@ -78,6 +81,8 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
       openrouter: { dataCollection: or.policyMigrated === true ? pick(or.dataCollection, ['deny', 'allow'], d.engine.openrouter.dataCollection) : 'allow', policyMigrated: true, zdr: bool(or.zdr, d.engine.openrouter.zdr), sort: pick(or.sort, ['latency', 'price'], d.engine.openrouter.sort) },
       models: { fast: strOrNull(models.fast, null), balanced: strOrNull(models.balanced, null), deep: strOrNull(models.deep, null) },
       factCheck: bool(eng.factCheck, d.engine.factCheck), vision: pick(eng.vision, ['vision', 'ocr'], d.engine.vision), autoAnswer: bool(eng.autoAnswer, d.engine.autoAnswer),
+      speculativeStart: bool(eng.speculativeStart, d.engine.speculativeStart),
+      gate: { engine: pick(gt.engine, ['heuristic', 'jev'], d.engine.gate.engine), baseUrl: httpUrl(gt.baseUrl, d.engine.gate.baseUrl), endpoint: pick(gt.endpoint, ['systemone', 'decisions'], d.engine.gate.endpoint) },
     },
     coaching: {
       shape: pick(co.shape, ['cues', 'cues+star', 'script'], d.coaching.shape), length: pick(co.length, [1, 2, 3], d.coaching.length),

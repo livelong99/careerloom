@@ -1,5 +1,6 @@
 // Copilot IPC handlers (plan §4). Every call is refused off macOS. WP0 stubs are replaced here by real bodies for sessions,
 // consent, retention, practice, debrief and Setup; capture/STT (WP3), engine/context (WP2) and overlay/hotkeys (WP1) plug in via `CopilotDeps`.
+import { summarizeTraces } from './trace'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -221,7 +222,7 @@ export function createCopilot(deps: CopilotDeps) {
     const d = store.get(id)
     // Contract has no "score now" call: an ended, answered, unscored session is (re)scored when opened, at most once a minute.
     if (d && d.endedAt !== null && d.scorecard === null && d.transcript.some(l => l.speaker === 'you') && now() - (lastScoreTry.get(id) ?? 0) > RESCORE_COOLDOWN_MS) score(id)
-    return d
+    return d && { ...d, latency: summarizeTraces(d.suggestions.flatMap(x => (x.done && x.trace ? [x.trace] : []))) }
   }
 
   const impl: Record<string, (...a: unknown[]) => unknown> = {

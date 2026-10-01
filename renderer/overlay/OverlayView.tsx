@@ -50,7 +50,7 @@ function Header({ d, on }: { d: OverlayViewData; on: OverlayActions }) {
       {strip ? <StripMiddle d={d} on={on} /> : (
         <>
           <span className="sp" />
-          {off ? null : <span className="lat" title="First token · cost this session">{d.latency} · {d.cost}</span>}
+          {off ? null : <span className="lat" title="Time to first visible line · cost this session">{d.latency} · {d.cost}</span>}
           <button type="button" className="ib" aria-label="Collapse to strip" title="Collapse" onClick={on.collapse} disabled={!on.collapse}><OvIcon name="expand" size={15} /></button>
         </>
       )}

@@ -3,7 +3,7 @@ import type { SourceId } from '../types'
 
 export type SttEvent = { text: string; t0: number; t1: number; confidence?: number; retrying?: boolean; message?: string }
 export type SttEventName = 'partial' | 'final' | 'endOfTurn' | 'error' | 'closed'
-export type SttStartOpts = { source: SourceId; language: string; vocab: string[]; endSilenceMs: number }
+export type SttStartOpts = { source: SourceId; language: string; vocab: string[]; endSilenceMs: number; /** Interviewer channel: end a finished sentence after ~0.2 s of quiet instead of the full wait (PERF-2). */ fastEndpoint?: boolean }
 
 /** Owner: WP3. One adapter instance per source; 16 kHz mono PCM16 in (plan §6). */
 export interface SttAdapter {

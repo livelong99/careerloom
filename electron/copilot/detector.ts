@@ -1,12 +1,14 @@
 // Interviewer-channel finals only: rules first (cheap, deterministic), then at most one tiny classify call for the
 // ambiguous remainder (plan §3.3). Never throws: a failed classify means "not a question", the hotkey is always there.
-import type { DetectedQuestion, QuestionType, TranscriptLine } from './types'
+import { isSentenceFinal } from './stt/endpoint'
+import { needsScreenshot } from './vision'
+import type { DetectedQuestion, QuestionHint, QuestionType, TranscriptLine } from './types'
 
 export interface QuestionDetector {
   feed(line: TranscriptLine): Promise<DetectedQuestion | null>
   reset(): void
 }
-export type Classification = { isQuestion: boolean; type: QuestionType }
+export type Classification = { isQuestion: boolean; type: QuestionType; hint?: QuestionHint }
 export type Classify = (text: string) => Promise<Classification | null>
 export type RuleVerdict = { verdict: 'question' | 'ambiguous' | 'no'; confidence: number }
 
@@ -57,6 +59,18 @@ export function questionType(text: string): QuestionType {
   return 'other'
 }
 
+// ————— Turn hint: kind, completeness, screenshot need, depth (rules only; the Jev gate can override) —————
+const SMALL_TALK = /\b(?:how are you|how's it going|how is your day|how was your (?:day|weekend)|can you hear me|hear me ok|see my screen|nice to meet you|thanks for (?:joining|coming)|thank you for (?:joining|coming)|weather)\b/i
+const SCREEN = /\b(?:on (?:my|the|your) screen|(?:look|looking) at (?:this|the|my)|this (?:code|diagram|snippet|query|function|schema|doc)|the (?:code|diagram|snippet) (?:above|below|here)|shared (?:screen|doc)|what's wrong (?:here|with this))\b/i
+const KIND: Record<QuestionType, QuestionHint['kind']> = { coding: 'coding', 'system-design': 'system-design', behavioural: 'behavioural', technical: 'factual', other: 'factual' }
+
+export function heuristicHint(text: string): QuestionHint {
+  const type = questionType(text)
+  const kind = SMALL_TALK.test(text) ? 'small-talk' : KIND[type]
+  // One screenshot rule for routing and the capture pipeline (PERF-3's vision.ts), widened by the phrase list above.
+  return { kind, complete: isSentenceFinal(text) || words(text).length >= 7, needsScreenshot: needsScreenshot({ text, type }) || SCREEN.test(text), deep: kind === 'coding' || kind === 'system-design', source: 'heuristic' }
+}
+
 export type DetectorOptions = { classify?: Classify | null; now?: () => number; dedupeMs?: number }
 
 export function createDetector(opts: DetectorOptions = {}): QuestionDetector {
@@ -73,6 +87,7 @@ export function createDetector(opts: DetectorOptions = {}): QuestionDetector {
       const last = seen.get(key)
       if (last !== undefined && at - last < dedupeMs) return null // STT re-emitting the same final
       let type = questionType(text)
+      let hint: QuestionHint | undefined
       let confidence: number
       const rule = classifyByRules(text)
       if (rule.verdict === 'no') return null
@@ -83,10 +98,11 @@ export function createDetector(opts: DetectorOptions = {}): QuestionDetector {
         try { c = await opts.classify(text) } catch { c = null }
         if (!c?.isQuestion) return null
         type = c.type
+        hint = c.hint
         confidence = 0.75
       }
       seen.set(key, at)
-      return { id: `q${++n}`, text, type, confidence, at, auto: true }
+      return { id: `q${++n}`, text, type, confidence, at, auto: true, hint: hint ?? heuristicHint(text) }
     },
     reset() { n = 0; seen.clear() },
   }
