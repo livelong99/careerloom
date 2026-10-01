@@ -53,7 +53,7 @@ export function InterviewDebrief({ session }: { session: SessionDetail }) {
                 <tr key={r.label}>
                   <th scope="row" className="text-left text-sm font-normal">{r.label}</th>
                   {r.cells.map((c, i) => (
-                    <td key={AXES[i]} className="rounded-md py-1.5 text-center tabular-nums" style={{ background: c === null ? 'transparent' : `color-mix(in srgb, var(--primary) ${Math.round(18 + ((c - 1) / 4) * 62)}%, transparent)` }} aria-label={`${r.label} ${AXES[i]}: ${c ?? 'not scored'}`}>{c === null ? '–' : c.toFixed(1)}</td>
+                    <td key={AXES[i]} className="rounded-md py-1.5 text-center tabular-nums" style={{ background: c === null ? 'transparent' : `color-mix(in srgb, var(--color-primary) ${Math.round(18 + ((c - 1) / 4) * 62)}%, transparent)` }} aria-label={`${r.label} ${AXES[i]}: ${c ?? 'not scored'}`}>{c === null ? '–' : c.toFixed(1)}</td>
                   ))}
                 </tr>
               ))}

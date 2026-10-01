@@ -12,8 +12,8 @@ export function FocusSkills({ skills, value, onChange }: { skills: FocusSkill[];
         const on = value.includes(s.id)
         return (
           <button
-            key={s.id} type="button" aria-pressed={on} onClick={() => toggle(s.id)}
-            className={cn('inline-flex h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50', s.gap && 'border-dashed', on ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-accent/40')}
+            key={s.id} type="button" aria-pressed={on} onClick={() => toggle(s.id)} style={s.gap ? { borderStyle: 'dashed' } : undefined}
+            className={cn('inline-flex h-8 items-center gap-1 rounded-full border px-3 text-xs font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50', on ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-accent/40')}
           >
             {s.name}{s.gap && <span className="sr-only"> (gap on your résumé)</span>}
           </button>
