@@ -5,17 +5,19 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { SettingChip } from '../components/settings/SettingChip'
 import { Composer } from '../components/chat/Composer'
 import { StatusBadge, ThreadList } from '../components/chat/ThreadList'
 import { EmptyThread, ThreadView } from '../components/chat/ThreadView'
 import { usePolled } from '../hooks/usePolled'
 import { useRuns } from '../hooks/useRuns'
-import { OPEN_THREAD_KEY } from '../components/RunsDrawer'
+import { OPEN_THREAD_KEY } from '../lib/nav'
 import { careerloom, normalizeCliError } from '../lib/ipc'
+import { goToSettings } from '../lib/nav'
 import { showToast } from '../lib/toast'
 import type { ChatThread } from '../lib/types'
 
-const RUNNERS: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', antigravity: 'Antigravity', api: 'API' }
+const RUNNERS: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', antigravity: 'Antigravity', opencode: 'OpenCode', zen: 'OpenCode Zen', api: 'API' }
 
 /** Agent chat: free-form asks to the agent, outside the fixed pipeline modes. */
 export function Agent() {
@@ -32,11 +34,12 @@ export function Agent() {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [apiRunner, setApiRunner] = useState(false)
+  const [runner, setRunner] = useState<string | null>(null)
+  const apiRunner = runner === 'api'
   const composer = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    const load = () => void careerloom.getSettings().then(s => setApiRunner(s.runner === 'api')).catch(() => {})
+    const load = () => void careerloom.getSettings().then(s => setRunner(s.runner)).catch(() => {})
     load()
     return careerloom.onSettings(load)
   }, [])
@@ -93,7 +96,8 @@ export function Agent() {
       <section aria-label="Chat" className="flex min-h-0 min-w-0 flex-col">
         <header className="flex min-h-12 shrink-0 items-center gap-2 border-b border-border px-4">
           <h2 className="m-0 min-w-0 flex-1 truncate text-sm font-semibold">{thread?.title ?? 'New chat'}</h2>
-          {thread && <span className="shrink-0 text-xs text-muted-foreground">{RUNNERS[thread.runner] ?? thread.runner}</span>}
+          {thread ? <span className="shrink-0 text-xs text-muted-foreground">{RUNNERS[thread.runner] ?? thread.runner}</span>
+            : runner && <SettingChip label="Runner" value={RUNNERS[runner] ?? runner} page="runners" focus={`runner:${runner}`} />}
           {thread && <StatusBadge status={thread.status} />}
           {thread && (
             <Button variant="subtle" size="sm" onClick={() => setConfirmDelete(true)} disabled={running}>
@@ -104,7 +108,7 @@ export function Agent() {
         {apiRunner && (
           <div role="note" className="flex shrink-0 items-center gap-2 bg-accent/10 px-4 py-2 text-sm">
             <span className="flex-1">Chat needs Claude Code, Codex or Antigravity — the API runner only runs fixed pipeline steps.</span>
-            <Button variant="secondary" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('careerloom:navigate', { detail: 'settings' }))}>
+            <Button variant="secondary" size="sm" onClick={() => goToSettings('runners', 'runner:api')}>
               <SettingsIcon aria-hidden /> Open settings
             </Button>
           </div>

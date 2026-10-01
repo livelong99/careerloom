@@ -7,6 +7,43 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261002 Windows Copilot](session_20261002_win-copilot.md) — Copilot enabled on Windows (gate, SAPI voice, ms-settings, tray, labels); worktree cleanup 33→55 GB; committed 6af1741 to PR #3 (feat/resume-job-copilot), untested on Windows
+- [20261001 Bundle bootstrap](session_20261001_bundle-bootstrap.md) — first-launch auto-install, Windows embedded runtimes, faster-whisper CUDA STT; feat/bundle-app, untested on Windows/GPU
+- [20261002 KB WP7 live](session_20261002_kb-wp7-live.md) — question base in live sessions: QUESTION BASE prefix block, top-3 matches in user turn, guard rule, KbChip, Settings toggle, kb trace stage
+- [20261002 KB INT](session_20261002_kb-int.md) — merged KB WP1-6, wired store/research/interviewer/voice seams, one hash + job-folder name, contract v2; cloned-profile e2e on fakes + real `say`
+- [20261002 KB WP5 TTS](session_20261002_kb-wp5-tts.md) — TTS service/engines (system en_IN, hashed Kokoro install, OpenRouter), echo gate, gapless queue; S-V1/S-T1 numbers, S-E1 deferred
+- [20261002 KB WP4](session_20261002_kb-wp4.md) — AI interviewer engine + Practice (text first): selector/probe/score/runner, live-path parity seam, Practice form, overlay row/controls, debrief heat map
+- [20261002 KB WP3 UI](session_20261002_kb-wp3-ui.md) — Job › Knowledge base tab on the kb contract: fake backend (?fakeKb), 7 states dark+light, RTL + a11y tests
+- [20261002 KB WP6 Settings](session_20261002_kb-wp6-settings.md) — Interview prep settings page, Brave one-query key test, consent reset on provider change, config IPC (contract v1.1)
+- [20261002 KB WP2](session_20261002_kb-wp2.md) — job KB research pipeline on fakes: search adapters, SSRF/robots/denylist-safe fetch, poison guard, budget, resume, Run registration; S-R1 not run (needs key)
+- [20261002 KB WP1](session_20261002_kb-wp1.md) — KB store/index/retrieval: per-job JSON store, BM25, retrieve/kbPrefix, import/export, golden fixtures, relevance (recall@3 1.0) + latency (p95 0.22 ms)
+- [20261002 KB WP0](session_20261002_kb-wp0.md) — job knowledge base contract/shell/config skeleton: kb + interviewer types, kb* IPC stubs, interview.json, brave/exa/serper key ids, Settings + Job tab stubs, module stubs; tag kb-contract-v1
+- [20261001 Runs page](session_20261001_copilot-runs-page.md) — Runs drawer → full Runs page (⌘7): filters, live runs, windowed redacted log viewer, deleteRuns IPC; job-aware grouping/filter/card, cloned-profile QA 33/33
+- [20261001 Job knowledge base plan](session_20261001_job-knowledge-base-plan.md) — docs-only research/design/plan: web-researched per-job question base, AI-interviewer practice + TTS, live retrieval; G1 approved
+- [20261001 Copilot SS screenshots wired](session_20261001_copilot-screenshots-wired.md) — screenshot path end to end: image parts to vision models only, routing pre-capture, cleanup hooks, overlay states, opt-in setting; cloned-profile QA
+- [20261001 Copilot PERF-2](session_20261001_copilot-perf2.md) — adaptive endpointing (real Whisper −460 ms), auto-ask policy, heuristic/Jev gate, speculative start, per-turn routing
+- [20261001 Copilot PERF-1](session_20261001_copilot-perf1.md) — latency trace, headline-first/prefix-stable prompt, reasoning-param ladder, pre-warm, cached-token cost + report
+- [20261001 Fix UI layout](session_20261001_fix-ui-layout.md) — Copilot Appearance/Settings Copilot/Agent layout fixes, 19-page audit, no dead controls
+- [20261001 Fix models](session_20261001_fix-models.md) — OpenRouter data-policy fix: free models flagged, friendly errors + actions, paid defaults, allow-free toggle
+- [20261001 Settings QA](session_20261001_settings-qa.md) — real-app QA on cloned profile (74 checks pass), search ranking + registry-id fixes, chip/attribute dedupe, STT install defers to Local models
+- [20261001 Settings C AI pages](session_20261001_settings-c-ai.md) — Runners & models, API keys manager, Local models pages; shared KeyField; revealPath + runLogTail IPC
+- [20261001 Settings WP-A](session_20261001_settings-wpa.md) — contract, atomic migration-safe settings.json, key manager + no-token tests, prefs, data/retention, reset, diagnostics
+- [20261001 Settings B shell](session_20261001_settings-b-shell.md) — settings shell/nav/search/deep links, General/Data/Advanced, providers, Integrations nav removed
+- [20261001 Settings E](session_20261001_settings-e-workflows.md) — workflow settings pages (jobs/resume/agent/copilot/monitoring) + Manage-in-Settings chips
+- [20261001 Copilot WP3b](session_20261001_copilot-wp3b-whisper.md) — Whisper MLX adapter + VAD/chunker, Whisper small default per S2, benchmark + audio-probe backends; live p50 772 ms on synthetic speech
+- [20261001 Copilot review](session_20261001_copilot-review.md) — independent review; 3 HIGH + M1-M8 fixed, M9/M10 follow-ups in docs/plans/interview-copilot/review.md
+- [20261001 Copilot INT](session_20261001_copilot-int.md) — WP1-4 merged + wired e2e (live wiring, mic in overlay, overlay actions); verified on cloned profile with fake mic/OpenRouter
+- [20261001 Copilot WP2](session_20261001_copilot-wp2.md) — OpenRouter SSE engine, detector, grounding, guard, failover, cost; live latency table pending a key
+- [20261001 Copilot WP3](session_20261001_copilot-wp3-capture-stt.md) — mic capture + Moonshine sidecar STT adapter/install, session controller, silent detector, mac entitlements, S1 system-audio spike (GO via loopback)
+- [20261001 Copilot WP1](session_20261001_copilot-wp1-overlay.md) — overlay window, hotkeys, tray, panic, Privacy mode, overlay UI + fake driver, QA evidence
+- [20261001 Copilot WP4](session_20261001_copilot-wp4.md) — config pages, consent gate, job-linked sessions store, retention sweep, practice runner, debrief; G-D-prep
+- [20261001 Copilot WP0](session_20261001_copilot-wp0.md) — frozen copilot IPC/config contract, stub handlers/modules, mac-only Copilot shell, copilot.json config
+- [20261001 Copilot S2 STT spike](session_20261001_copilot-s2-stt-spike.md) — bake-off: Whisper small MLX default, Moonshine small fallback, CoreML unavailable, synthetic-audio caveat
+- [20261001 Interview Copilot plan](session_20261001_interview-copilot-plan.md) — research + design/prototype + WP plan for config screen and overlay; option B responsible-use default, mic-only MVP, SSE runner
+- [20261001 Orca integration](session_20261001_orca-integration.md) — browser spike no-go -> deterministic driver, Orca worker flow, integration branch, job-page agent launched
+- [20261001 Job page](session_20261001_job-page.md) — selected Job page (6 tabs) replaces drawer; report parser, cheap-model structuring, per-job ATS, tailored resume + cover letter, fact gates, vendored humanizer
+- [20261001 Resume rework](session_20261001_resume-rework.md) — side-nav Resume workspace, code-owned ATS scores (parse health + job match), Apply/Undo + fact check, skill-up + verified courses, text-only agent runs
+- [20261001 Fast browser driver](session_20261001_fast-browser-driver.md) — raw-CDP fast boards (LinkedIn 25 jobs/15 s, $0), generic+JSON-LD tiers, agent fallback; openjev/jev-ultrafast spiked & rejected
 - [20260928 OpenCode e2e](session_20260928_opencode-e2e.md) — FreeTierError root cause, skill allowlist −86% tokens, scripted scroll −87% browser tokens, Zen API paid-only
 - [20260928 OpenCode + Zen runners](session_20260928_opencode-zen-runners.md) — opencode CLI runner + in-process OpenCode Zen agent loop (free, no install); Paperclip/dsh rejected as base
 - [20260928 Boards, 0.1.1, cloud](session_20260928_boards-release-cloud.md) — Jobs/Boards split, browser login/scroll fixes, codex sandbox flag, v0.1.1, /cloud-setup
@@ -16,3 +53,8 @@
 - [20260927 Careerloom v3](session_20260927_careerloom-v3-resume-jobs-agent.md) — Resume workspace + Jobs + Agent chat, skills as engine, runs drawer
 - [20260927 Careerloom screens v2](session_20260927_careerloom-screens-v2.md) — Resume/Monitoring/Integrations/Pipeline+kanban/⌘K; Tailwind+shadcn from paperclip/VoiceStudio; Firecrawl per autoshorts
 - [20260927 Careerloom bootstrap](session_20260927_careerloom-bootstrap.md) — Electron UI over career-ops forked from codeburn app/; runners claude/codex/agy/OpenRouter
+- [20261001 Interview Copilot](session_20261001_interview-copilot.md) — Copilot built via Orca agents; feature branch feat/resume-job-copilot, open items
+- [20261001 Settings D](session_20261001_settings-d-integrations.md) — Integrations settings page: filter tabs, Firecrawl key link, browser acks revoke, career-ops check/update
+- [20261001 Settings rebuild](session_20261001_settings-rebuild.md) — Settings rebuilt (12 pages, key manager, integrations); branch livelong99/settings-qa, QA 73/74
+- [20261001 Copilot fix-audio](session_20261001_copilot-fix-audio.md) — audio fixes: dev mic permission, stale faster-whisper, missing-mic health, device fallback/reopen, system audio coming soon
+- [20261001 Copilot PERF-3 screenshots](session_20261001_copilot-perf3-screenshots.md) — screenshot→vision pipeline + table; wiring to handler/engine pending

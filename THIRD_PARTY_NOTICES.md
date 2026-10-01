@@ -29,6 +29,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+### Open-Cluely — the repository owner's own project
+The Interview Copilot (`electron/copilot/**`, `renderer/overlay/**`) ports parts of Open-Cluely, written by the same
+owner as Careerloom and reused by them under Careerloom's MIT License: overlay window handling, global shortcut set,
+panic/emergency hide (as a real kill switch), rolling transcript window and request queue, prompt domain routing,
+model-rotation failover, PCM capture worklet and audio pipeline. Each ported file carries the header
+`// Ported from Open-Cluely (owner's project), adapted for Careerloom`. Its process/app-identity disguise,
+near-invisible window tricks, plaintext key file and LAN companion are not ported.
+
 ### Paperclip — MIT License
 Chat, command palette, board and card components are adapted from [Paperclip](https://github.com/paperclipai/paperclip).
 
@@ -67,10 +75,20 @@ Copyright (c) 2025 Paperclip AI — licensed under the MIT License (same terms a
 |---|---|
 | [yaml](https://github.com/eemeli/yaml) | ISC |
 | [tldts](https://github.com/remusao/tldts) | MIT |
+| [pdf.js](https://github.com/mozilla/pdf.js) (`pdfjs-dist`, legacy build only; reads the text layer of your rendered résumé for the ATS parse check) | Apache-2.0 |
 | [Electron](https://github.com/electron/electron) and its Chromium runtime | MIT and bundled third-party licenses (shipped as `LICENSES.chromium.html` in the app) |
 
 Development-only dependencies (React, Vite, Tailwind CSS, Radix UI, TanStack, dnd-kit and others) are listed in
 `package.json` under their own licenses; they are compiled into the renderer bundle where used.
+
+### shadcn/ui registry components — MIT License
+`renderer/components/ui/{accordion,alert,button-group,empty,field,hover-card,item,kbd,radio-group,resizable,sonner,spinner}.tsx`
+were added from the official [shadcn/ui](https://ui.shadcn.com) registry (© shadcn, MIT), adapted to import `cn` from
+`@/lib/utils` and to read Careerloom's theme. They use `sonner` (© Emil Kowalski, MIT) and `react-resizable-panels`
+(© Brian Vaughn, MIT).
+
+The ATS engine's skill vocabulary, scoring weights and prompts are written for this app. No OpenResume code, pyresparser
+or Lightcast data is used, and no ESCO or O*NET data is used by the ATS engine.
 
 ## Data and model
 
@@ -94,3 +112,27 @@ These are installed on the user's machine only when the user opts in, each under
 | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) | Apache-2.0 | Browser job boards |
 | [Firecrawl](https://github.com/firecrawl/firecrawl) (self-hosted, separate program) | AGPL-3.0 | Integrations → Firecrawl |
 | [career-ops](https://github.com/career-ops-hq/career-ops) | MIT | The user's own career-ops folder |
+| [moonshine-voice](https://pypi.org/project/moonshine-voice/) `==0.1.5` (pinned) | MIT | Copilot → Transcription → Install local speech model |
+| Moonshine speech models (`tiny`, `small`, `medium` English streaming models, fetched by the package from Moonshine AI) | Released by Moonshine AI for English under the MIT License; re-check each model card when the pin or model list changes (non-English Moonshine models use a separate community license and are not used) | Same install step |
+| [mlx-whisper](https://github.com/ml-explore/mlx-examples) and [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | MIT | **Not installed yet**: the Whisper engines are listed as alternates in settings but have no adapter; nothing is downloaded for them |
+
+### Humanizer skill (bundled text)
+`electron/humanizer/SKILL.md` (mirrored in `skill.ts`) is the **humanizer** Agent Skill, version 3.1.0, from
+[blader/humanizer](https://github.com/blader/humanizer), MIT License, Copyright (c) 2025 Siqi Chen.
+It is used unmodified as instructions for an optional second pass over generated prose; its license text is
+kept in `electron/humanizer/LICENSE`:
+
+> MIT License
+>
+> Copyright (c) 2025 Siqi Chen
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+> documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+> the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+> to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above
+> copyright notice and this permission notice shall be included in all copies or substantial portions of the
+> Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+> LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+> SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+> OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+> DEALINGS IN THE SOFTWARE.

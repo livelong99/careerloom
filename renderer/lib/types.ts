@@ -21,7 +21,7 @@ export type RootCheck = { ok: true; root: string; dataRoot: string } | { ok: fal
 export type CliRunner = Exclude<RunnerId, 'api' | 'zen'>
 /** Runners with a model setting. */
 export type ModelRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; hasApiKey: boolean; hasOpencodeKey: boolean; rootCheck: RootCheck | null }
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; helperModels: Partial<Record<ModelRunner, string>>; hasApiKey: boolean; hasOpencodeKey: boolean; rootCheck: RootCheck | null; prefs: Prefs; keyMeta: Partial<Record<KeyId, KeyTest>> }
 export type ModelOption = { id: string; label: string }
 export type RunnerStatus = Record<'claude' | 'codex' | 'antigravity' | 'opencode' | 'node' | 'git', string | null>
 export type ProfileStatus = { cv: boolean; profile: boolean; portals: boolean }
@@ -42,6 +42,8 @@ export type Run = {
   status: RunStatus
   usage?: RunUsage | null
   sessionId?: string | null
+  /** The job this run was about, when it was started for one (evaluate, tailored CV, cover letter, ATS, posting structuring). */
+  jobId?: string | null
 }
 export type RunEvent = { id: string; kind: 'chunk'; text: string } | { id: string; kind: 'exit'; status: RunStatus }
 
@@ -62,7 +64,10 @@ export type CareerloomBridge = {
   listReports(): Promise<ReportMeta[]>
   readReport(rel: string): Promise<string>
   listRuns(): Promise<Run[]>
+  /** Run log with credential-looking lines hidden. */
   getRunLog(id: string): Promise<string>
+  /** Forget finished runs (history + saved log); running ones are skipped. Resolves with how many were removed. */
+  deleteRuns(ids: string[]): Promise<number>
   startRun(req: { mode: string; input?: string }): Promise<Run>
   /** Evaluate a link/JD; prefetches the page through Firecrawl when it is running. */
   evaluateJob(input: string): Promise<Run>
@@ -74,6 +79,10 @@ export type CareerloomBridge = {
   installCareerOpsDefault(): Promise<{ run: Run | null; root: string }>
   onRun(cb: (event: RunEvent) => void): () => void
   onSettings(cb: () => void): () => void
+  /** First-launch dependency installer (electron/runtime/bootstrap.ts). */
+  bootstrapStatus(): Promise<BootstrapStatus>
+  bootstrapStart(arg?: { retry?: BootstrapStepId }): Promise<BootstrapStatus>
+  onBootstrap(cb: (status: BootstrapStatus) => void): () => void
   /** Per-CLI readiness for the chosen folder (install, sign-in, skill, headless setup). */
   getReadiness(force?: boolean): Promise<Readiness | null>
   onReadiness(cb: (event: { readiness: Readiness; switchedTo: string | null }) => void): () => void
@@ -81,8 +90,6 @@ export type CareerloomBridge = {
   resumeOverview(): Promise<ResumeOverview>
   importResume(): Promise<ResumeSource | null>
   parseResume(): Promise<Run>
-  scoreAts(opts?: { keywords?: string; role?: string }): Promise<AtsResult>
-  rankAgainstJob(jobUrlOrText: string): Promise<Run>
   setTemplate(name: string): Promise<boolean>
   importTemplate(): Promise<CvTemplate | null>
   createTemplate(description: string): Promise<Run>
@@ -97,6 +104,31 @@ export type CareerloomBridge = {
   /** Firecrawl-fetches the profile's links, then the agent writes a research summary. */
   researchProfile(): Promise<Run>
   readResearch(): Promise<ProfileResearch>
+  // ————— ATS / Resume —————
+  atsAnalyze(input: AtsAnalyzeInput): Promise<{ runId: string }>
+  /** With `jobId`: that job's own analysis (separate from the résumé-level one). */
+  atsGet(jobId?: string): Promise<AtsReport | null>
+  atsAnswer(runId: string, answers: AtsAnswer[], jobId?: string): Promise<{ runId: string }>
+  atsPreviewApply(findingId: string, answers?: AtsAnswer[]): Promise<AtsPreview>
+  atsApply(findingId: string, answers?: AtsAnswer[]): Promise<AtsApplyResult>
+  atsUndo(undoId: string): Promise<AtsApplyResult>
+  atsDismiss(findingId: string): Promise<boolean>
+  /** Applied changes that can still be undone, newest first. */
+  atsHistory(): Promise<AtsHistoryItem[]>
+  onAtsEvent(cb: (event: AtsEvent) => void): () => void
+  // ————— Job page —————
+  /** Everything the job page shows, from cache when it can; `pending` = structuring still running (an `onJobView` event follows). */
+  jobView(id: string): Promise<JobView & { pending: boolean }>
+  onJobView(cb: (e: { id: string }) => void): () => void
+  setHelperModel(runner: ModelRunner, model: string | null): Promise<unknown>
+  docsList(jobId: string): Promise<Artifact[]>
+  /** Starts in the background; progress and the result arrive through `onDocs`. */
+  docsGenerate(jobId: string, kind: DocKind, options?: DocsOptions): Promise<{ started: true }>
+  docsReadText(rel: string): Promise<string>
+  docsReadPdf(rel: string): Promise<Uint8Array>
+  docsReveal(rel: string): Promise<boolean>
+  docsSave(rel: string): Promise<string | null>
+  onDocs(cb: (e: DocsEvent) => void): () => void
   /** The template filled with the current résumé, as PDF bytes (for the in-app viewer). */
   renderTemplatePdf(name: string): Promise<Uint8Array>
   /** Save dialog → writes that PDF; resolves to the saved path or null if cancelled. */
@@ -159,6 +191,29 @@ export type CareerloomBridge = {
   /** Picked browser boards' domains still needing the one-time terms acknowledgement. */
   browserConsentNeeded(ids: string[]): Promise<string[]>
   acknowledgeBrowser(domains: string[]): Promise<boolean>
+  // ————— Settings rebuild —————
+  /** Keys with masked status only (hasKey + last four) — never a secret. */
+  keysList(): Promise<KeyInfo[]>
+  /** Save (value) or remove (null) a key after format validation; resolves with the fresh row. */
+  keysSet(id: KeyId, value: string | null): Promise<KeyInfo>
+  /** Cheapest possible call (no tokens); persists the result as the key's last test. */
+  keysTest(id: KeyId): Promise<KeyTest>
+  prefsGet(): Promise<Prefs>
+  prefsSet(patch: PrefsPatch): Promise<Prefs>
+  browserAcks(): Promise<string[]>
+  browserRevoke(domain: string): Promise<string[]>
+  dataLocations(): Promise<DataLocation[]>
+  /** Opens one of the `dataLocations()` folders in Finder/Explorer; any other path is refused. */
+  revealPath(path: string): Promise<boolean>
+  /** Last N (≤200) lines of a run's log with credential-like lines dropped. */
+  runLogTail(id: string, lines?: number): Promise<string>
+  dataStats(): Promise<DataStats>
+  dataClear(scope: ClearScope): Promise<PruneResult>
+  /** Applies prefs.retention now (no-op while it is 'forever'). */
+  retentionPrune(): Promise<PruneResult>
+  settingsReset(scope: ResetScope): Promise<Settings>
+  diagnostics(): Promise<Diagnostics>
+  checkForUpdates(): Promise<UpdateStatus>
   // Pipeline
   setStatus(nums: number[], status: CanonicalStatus): Promise<{ updated: number[]; failed: Array<{ num: number; error: string }> }>
   getUpdateStatus(): Promise<UpdateStatus>
@@ -166,7 +221,7 @@ export type CareerloomBridge = {
   openExternal(url: string): Promise<void>
   platform: string
   arch: string
-}
+} & CopilotBridge & KbBridge
 
 export type UpdateStatus = { currentVersion: string; latestVersion: string | null; updateAvailable: boolean; tag: string | null; storeManaged?: boolean }
 
@@ -204,4 +259,7 @@ export type SpendFlow = {
 // Feature contracts live in electron/contract.ts (types only) so the main
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
-import type { AtsResult, CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow } from '../../electron/contract'
+import type { BootstrapStatus, BootstrapStepId } from '../../electron/contract'
+import type { CopilotBridge, KbBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
+import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
+import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'

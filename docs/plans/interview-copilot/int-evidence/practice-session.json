@@ -1,0 +1,94 @@
+{
+  "id": "cf90f0c4-6173-4d36-8bfe-7c9910ea9811",
+  "mode": "practice",
+  "jobId": "https://job-boards.greenhouse.io/gitlab/jobs/8799044002",
+  "jobTitle": "Engineering Manager",
+  "company": "gitlab",
+  "startedAt": 1790811015404,
+  "endedAt": 1790811033421,
+  "questions": 3,
+  "durationSec": 18,
+  "score": 3.6,
+  "transcript": [
+    {
+      "id": "ask-q-5e910d6aad",
+      "speaker": "interviewer",
+      "text": "Tell me about a time you worked with People Mentorship & Engineering Standards.",
+      "final": true,
+      "t0": 1790811015410,
+      "t1": 1790811015410
+    },
+    {
+      "id": "mic-cf90f0c4-6173-4d36-8bfe-7c9910ea9811-4",
+      "speaker": "you",
+      "text": "Tell me about a time you led a migration under pressure?",
+      "final": true,
+      "t0": 1790811015904,
+      "t1": 1790811017904
+    },
+    {
+      "id": "ask-q-f37ec84195",
+      "speaker": "interviewer",
+      "text": "Tell me about a time you worked with AI in Operational Workflows.",
+      "final": true,
+      "t0": 1790811018582,
+      "t1": 1790811018582
+    },
+    {
+      "id": "mic-cf90f0c4-6173-4d36-8bfe-7c9910ea9811-5",
+      "speaker": "you",
+      "text": "I led the migration of forty services to Kubernetes and kept releases weekly.",
+      "final": true,
+      "t0": 1790811023404,
+      "t1": 1790811026404
+    },
+    {
+      "id": "ask-q-67e9d24a57",
+      "speaker": "interviewer",
+      "text": "Tell me about a time you worked with Platform Reliability & Automation.",
+      "final": true,
+      "t0": 1790811027161,
+      "t1": 1790811027161
+    }
+  ],
+  "questionsList": [
+    {
+      "id": "q-5e910d6aad",
+      "text": "Tell me about a time you worked with People Mentorship & Engineering Standards.",
+      "type": "behavioural",
+      "confidence": 1,
+      "at": 1790811015410,
+      "auto": false
+    },
+    {
+      "id": "q-f37ec84195",
+      "text": "Tell me about a time you worked with AI in Operational Workflows.",
+      "type": "behavioural",
+      "confidence": 1,
+      "at": 1790811018582,
+      "auto": false
+    },
+    {
+      "id": "q-67e9d24a57",
+      "text": "Tell me about a time you worked with Platform Reliability & Automation.",
+      "type": "behavioural",
+      "confidence": 1,
+      "at": 1790811027161,
+      "auto": false
+    }
+  ],
+  "suggestions": [],
+  "scorecard": {
+    "structure": 4,
+    "specifics": 3.5,
+    "evidence": 4,
+    "concision": 3,
+    "notes": [
+      {
+        "questionId": "q-5e910d6aad",
+        "tip": "Open with the result, then the steps.",
+        "suggestedLine": null
+      }
+    ]
+  }
+}

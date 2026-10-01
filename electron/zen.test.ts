@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { RunRecord } from './context'
-import { isFreeModel, opencodeBrowserConfig, opencodeConfig, paidCheapestFirst, skillAllowlist, zenModelsFrom } from './opencode'
+import { isFreeModel, opencodeBrowserConfig, opencodeConfig, opencodeTextConfig, paidCheapestFirst, skillAllowlist, zenModelsFrom } from './opencode'
 import { argsForPrompt, startRun, formatOpencodeLine, opencodeResultOk, opencodeSessionId, opencodeUsage } from './runner'
 import { runZen, zenError, zenPrompt } from './zen-agent'
 import { commandSpec, confine, htmlToText, publicUrl, runTool, splitCommand } from './zen-tools'
@@ -211,5 +211,15 @@ describe('agent spawns', () => {
       onExit: () => resolve(),
     }))
     expect(out.trim()).toBe(dir)
+  })
+})
+
+describe('opencodeTextConfig (text-only ATS runs)', () => {
+  it('asks (never denies) for everything but web tools, and keeps the skill allowlist', () => {
+    const cfg = JSON.parse(opencodeTextConfig(['/skills/a/'])) as { permission: Record<string, unknown> }
+    expect(Object.keys(cfg.permission)[0]).toBe('*') // later rules win
+    expect(cfg.permission).toMatchObject({ '*': 'ask', webfetch: 'allow', websearch: 'allow', skill: { '*': 'deny', 'career-ops*': 'allow', 'a*': 'allow' } })
+    expect(cfg.permission.edit).toBeUndefined()
+    expect(cfg.permission.bash).toBeUndefined()
   })
 })

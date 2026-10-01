@@ -27,5 +27,10 @@ export default defineConfig({
   // `@/` = renderer/, the alias the pulled shadcn components import through.
   resolve: { alias: { '@': fileURLToPath(new URL('./renderer', import.meta.url)) } },
   server: { host: '127.0.0.1', port: 5173, strictPort: true },
-  build: { outDir: '../dist/renderer', emptyOutDir: true },
+  // Two pages: the app and the Interview Copilot overlay window (own bundle, none of the app's legacy CSS).
+  build: {
+    outDir: '../dist/renderer',
+    emptyOutDir: true,
+    rollupOptions: { input: { index: fileURLToPath(new URL('./renderer/index.html', import.meta.url)), overlay: fileURLToPath(new URL('./renderer/overlay.html', import.meta.url)) } },
+  },
 })

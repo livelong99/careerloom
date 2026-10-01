@@ -7,10 +7,13 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { dropRunLines } from './runs-prune'
+import { defaultPrefs, normalizeKeyMeta, normalizePrefs } from './settings/prefs'
+import type { KeyId, KeyTest, Prefs } from './settings/types'
 import { agyDenied, ensureAgyProject } from './agy-project'
 import { checkRoot } from './careerops'
 import { logTail } from './scan-history'
-import { NEEDS_ZEN_KEY, opencodeConfig, opencodeEnv, zenModel } from './opencode'
+import { NEEDS_ZEN_KEY, opencodeConfig, opencodeEnv, opencodeTextConfig, zenModel } from './opencode'
 import { agyFormatter, agyResultOk, agySessionId, agyUsage, argsFor, argsForPrompt, claudeSessionId, formatOpencodeLine, isModelId, claudeUsage, formatClaudeLine, isRunner, MODES, opencodeResultOk, opencodeSessionId, opencodeUsage, promptFor, resolveBin, RUNNERS, spawnSpec, startRun, type CliRunner, type ModeId, type PromptOptions, type RunnerId, type RunUsage, type SpawnSpec } from './runner'
 import { BROWSER_SYSTEM, runZen, zenPrompt, zenSystem, type BrowserTools } from './zen-agent'
 
@@ -26,28 +29,47 @@ export const str = (v: unknown, name: string): string => {
 export type { CliRunner }
 /** Runners with a model setting (every one but career-ops' OpenRouter script). */
 export type ModelRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>> }
-const DEFAULT_SETTINGS: Settings = { root: null, runner: 'claude', models: {} }
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; /** Cheap model per runner for structuring/humanizing calls (unset = built-in default). */ helperModels: Partial<Record<ModelRunner, string>>; /** Operational preferences (additive: a v0.1.1 file has none). */ prefs: Prefs; /** Last connection test per key — never the key. */ keyMeta: Partial<Record<KeyId, KeyTest>> }
+const defaultSettings = (): Settings => ({ root: null, runner: 'claude', models: {}, helperModels: {}, prefs: defaultPrefs(), keyMeta: {} })
 
 export const userFile = (name: string) => path.join(app.getPath('userData'), name)
 
-export function readSettings(): Settings {
-  try {
-    const raw = JSON.parse(fs.readFileSync(userFile('settings.json'), 'utf8')) as Partial<Settings>
-    return {
-      root: typeof raw.root === 'string' ? raw.root : null,
-      runner: isRunner(raw.runner) ? raw.runner : DEFAULT_SETTINGS.runner,
-      models: Object.fromEntries(Object.entries(raw.models ?? {}).filter(([k, v]) => k !== 'api' && (RUNNERS as string[]).includes(k) && isModelId(v))),
-    }
-  } catch {
-    return DEFAULT_SETTINGS
+const modelMap = (v: unknown) => Object.fromEntries(Object.entries(v ?? {}).filter(([k, m]) => k !== 'api' && (RUNNERS as string[]).includes(k) && isModelId(m)))
+
+function parseSettings(raw: Partial<Settings>): Settings {
+  return {
+    root: typeof raw.root === 'string' ? raw.root : null,
+    runner: isRunner(raw.runner) ? raw.runner : 'claude',
+    models: modelMap(raw.models),
+    helperModels: modelMap(raw.helperModels),
+    prefs: normalizePrefs(raw.prefs),
+    keyMeta: normalizeKeyMeta(raw.keyMeta),
   }
 }
 
+const readRaw = (file: string): Record<string, unknown> | null => {
+  try {
+    const v = JSON.parse(fs.readFileSync(file, 'utf8')) as unknown
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+  } catch { return null }
+}
+
+/** Never throws: a missing, corrupt or old (v0.1.1) file loads as defaults filled in from whatever is valid. A corrupt file falls back to the last good `.bak`. */
+export function readSettings(): Settings {
+  const file = userFile('settings.json')
+  return parseSettings((readRaw(file) ?? readRaw(`${file}.bak`) ?? {}) as Partial<Settings>)
+}
+
+/** Atomic (tmp + rename) shallow merge. Fields this version doesn't know are preserved; the previous good file is kept once as `.bak`. */
 export function writeSettings(patch: Partial<Settings>): Settings {
+  const file = userFile('settings.json')
+  const existing = readRaw(file)
   const next = { ...readSettings(), ...patch }
   fs.mkdirSync(app.getPath('userData'), { recursive: true })
-  fs.writeFileSync(userFile('settings.json'), JSON.stringify(next, null, 2))
+  const tmp = `${file}.${process.pid}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify({ ...existing, ...next }, null, 2))
+  if (existing) fs.copyFileSync(file, `${file}.bak`)
+  fs.renameSync(tmp, file)
   return next
 }
 
@@ -128,7 +150,7 @@ export function runScript(args: string[], opts: { timeoutMs?: number; env?: Node
 export type RunStatus = 'running' | 'done' | 'failed' | 'cancelled'
 export type RunRecord = {
   id: string
-  runner: RunnerId | 'setup' | 'script'
+  runner: RunnerId | 'setup' | 'script' | 'research'
   mode: string
   label: string
   input: string | null
@@ -138,8 +160,12 @@ export type RunRecord = {
   usage: RunUsage | null
   /** Claude session id (from stream-json init) — lets chat continue the conversation. */
   sessionId?: string | null
+  /** The job this run was started for (evaluate, tailored CV, cover letter, ATS, posting structuring); the Runs page groups by it. */
+  jobId?: string | null
   log: string
 }
+/** What a run is created from. */
+export type RunStart = Pick<RunRecord, 'runner' | 'mode' | 'label' | 'input' | 'jobId'>
 export type RunSummary = Omit<RunRecord, 'log'>
 
 const LOG_CAP = 256 * 1024 // chars kept per run in memory
@@ -177,6 +203,23 @@ export function runLog(id: string): string {
   try { return fs.readFileSync(runLogFile(id), 'utf8') } catch { return '' }
 }
 
+/** Forget finished runs: their history lines, saved log tails and in-memory records. Running runs are kept. Returns how many went. */
+export function deleteRunRecords(ids: string[]): number {
+  const gone = new Set(ids.filter(id => runs.get(id)?.status !== 'running'))
+  if (!gone.size) return 0
+  let removed: string[] = []
+  try {
+    const res = dropRunLines(fs.readFileSync(userFile(HISTORY_FILE), 'utf8'), gone)
+    removed = res.removed
+    fs.writeFileSync(userFile(HISTORY_FILE), res.text)
+  } catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') console.error('run history rewrite failed:', err) }
+  for (const id of gone) {
+    if (runs.delete(id)) removed.push(id)
+    try { fs.rmSync(runLogFile(id), { force: true }) } catch { /* already gone */ }
+  }
+  return new Set(removed).size
+}
+
 function appendRunHistory(run: RunSummary): void {
   try { fs.appendFileSync(userFile(HISTORY_FILE), JSON.stringify(run) + '\n') } catch (err) { console.error('run history write failed:', err) }
 }
@@ -197,7 +240,7 @@ export type LaunchOptions = {
   onExit?: (run: RunRecord) => void
 }
 
-export function launch(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'input'>, steps: Array<{ spec: SpawnSpec; cwd: string }>, opts: LaunchOptions = {}): RunRecord {
+export function launch(record: RunStart, steps: Array<{ spec: SpawnSpec; cwd: string }>, opts: LaunchOptions = {}): RunRecord {
   const run: RunRecord = { ...record, id: randomUUID(), startedAt: Date.now(), endedAt: null, status: 'running', usage: null, log: '' }
   runs.set(run.id, run)
   const append = (raw: string) => {
@@ -253,7 +296,7 @@ export function launch(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'in
 
 /** A tracked run for in-process work (no child process): `work` streams via `log`; a throw
  *  marks it failed. Cancel only flips `run.status` — `work` checks it between steps. */
-export function launchTask(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'input'>, work: (log: (text: string) => void, run: RunRecord) => Promise<void>, onExit?: (run: RunRecord) => void): RunRecord {
+export function launchTask(record: RunStart, work: (log: (text: string) => void, run: RunRecord) => Promise<void>, onExit?: (run: RunRecord) => void): RunRecord {
   const run: RunRecord = { ...record, id: randomUUID(), startedAt: Date.now(), endedAt: null, status: 'running', usage: null, log: '' }
   runs.set(run.id, run)
   const log = (text: string) => {
@@ -331,19 +374,20 @@ export function startAgent(mode: ModeId, input?: string, extraEnv: NodeJS.Proces
 }
 
 /** Per-runner env for a CLI spawn: opencode gets its permission config and optional Zen key. */
-function cliEnv(runner: CliRunner): { env: NodeJS.ProcessEnv; secret?: string } {
+function cliEnv(runner: CliRunner, textOnly = false, neutral = false): { env: NodeJS.ProcessEnv; secret?: string } {
   if (runner !== 'opencode') return { env: {} }
   const key = readOpencodeKey()
-  return { env: opencodeEnv(opencodeConfig(skillContext().dirs), key), secret: key ?? undefined }
+  const dirs = neutral ? [] : skillContext().dirs
+  return { env: opencodeEnv(textOnly ? opencodeTextConfig(dirs) : opencodeConfig(dirs), key), secret: key ?? undefined }
 }
 
 /** A zen (in-process OpenCode Zen) run: career-ops file tools by default, or `browser` tools only. */
-export function startZen(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | 'input'>, prompt: string, opts: AgentPromptOptions & { browser?: BrowserTools } = {}): RunSummary {
+export function startZen(record: RunStart, prompt: string, opts: AgentPromptOptions & { browser?: BrowserTools } = {}): RunSummary {
   const key = readOpencodeKey()
   if (!key) throw new Error(NEEDS_ZEN_KEY)
   const root = careerOpsRoot()
   const skills = skillContext()
-  const chosen = readSettings().models.zen
+  const chosen = opts.model ?? readSettings().models.zen
   const job = {
     key,
     resume: opts.resume,
@@ -357,16 +401,21 @@ export function startZen(record: Pick<RunRecord, 'runner' | 'mode' | 'label' | '
 
 /** Launch a server-built prompt (must start with a fixed literal, e.g. "/career-ops …").
  *  Needs an agent (CLI or zen); the OpenRouter API runner only implements fixed commands. */
-export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void }
+export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean; /** With textOnly on claude/opencode: run in an empty folder with no skills, so no project instructions or skill lists inflate the request (8.7k vs 25k input tokens measured on opencode). */ neutral?: boolean; /** Model for this run only (helper-tier calls); unset = the runner's configured model. */ model?: string; /** The job this run is about. */ jobId?: string }
 
 export function startAgentPrompt(label: string, mode: string, prompt: string, input: string | null = null, opts: AgentPromptOptions = {}): RunSummary {
   const { runner } = readSettings()
   if (runner === 'api') throw new Error(`"${label}" needs an agent (Claude Code, Codex, Antigravity, OpenCode or OpenCode Zen) — switch runner in Settings`)
   if (/^\s*-/.test(prompt)) throw new Error('Prompt must start with a fixed literal, not a flag')
-  if (runner === 'zen') return startZen({ runner, mode, label, input }, prompt, opts)
+  if (runner === 'zen') return startZen({ runner, mode, label, input, jobId: opts.jobId }, prompt, opts)
   const root = careerOpsRoot()
   // claude (--resume), agy (--conversation) and opencode (--session) continue sessions; codex starts fresh each message.
-  const { bin, args } = argsForPrompt(runner, prompt, promptOptions(runner === 'codex' ? {} : { resume: opts.resume }))
-  const cli = cliEnv(runner)
-  return summary(launch({ runner, mode, label, input }, [{ spec: spawnSpec(bin, args, { ...opts.env, ...cli.env }), cwd: root }], { format: streamFormat(runner, root), onExit: opts.onExit, secret: cli.secret }))
+  const base = promptOptions({ ...(runner === 'codex' ? {} : { resume: opts.resume }), ...(opts.model ? { model: opts.model } : {}) })
+  // A text-only run needs neither the installed-skill folders nor their system-prompt note.
+  const { bin, args } = argsForPrompt(runner, prompt, opts.textOnly ? { ...base, addDirs: [], systemAppend: undefined, textOnly: true } : base)
+  const neutral = opts.neutral === true && opts.textOnly === true && (runner === 'opencode' || runner === 'claude')
+  const cli = cliEnv(runner, opts.textOnly, neutral)
+  let cwd = root
+  if (neutral) { cwd = userFile('text-runs'); fs.mkdirSync(cwd, { recursive: true }) }
+  return summary(launch({ runner, mode, label, input, jobId: opts.jobId }, [{ spec: spawnSpec(bin, args, { ...opts.env, ...cli.env }), cwd }], { format: streamFormat(runner, root), onExit: opts.onExit, secret: cli.secret }))
 }

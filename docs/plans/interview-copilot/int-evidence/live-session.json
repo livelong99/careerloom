@@ -1,0 +1,87 @@
+{
+  "id": "4aed3d1e-a939-4c6f-bc3c-ebe82482ee61",
+  "mode": "live",
+  "jobId": "https://job-boards.greenhouse.io/gitlab/jobs/8799044002",
+  "jobTitle": "Engineering Manager",
+  "company": "gitlab",
+  "startedAt": 1790810974277,
+  "endedAt": 1790810989401,
+  "questions": 1,
+  "durationSec": 15,
+  "score": 3.6,
+  "transcript": [
+    {
+      "id": "mic-4aed3d1e-a939-4c6f-bc3c-ebe82482ee61-2",
+      "speaker": "you",
+      "text": "Tell me about a time you led a migration under pressure?",
+      "final": true,
+      "t0": 1790810974777,
+      "t1": 1790810976777
+    },
+    {
+      "id": "mic-4aed3d1e-a939-4c6f-bc3c-ebe82482ee61-3",
+      "speaker": "you",
+      "text": "I led the migration of forty services to Kubernetes and kept releases weekly.",
+      "final": true,
+      "t0": 1790810982277,
+      "t1": 1790810985277
+    }
+  ],
+  "questionsList": [
+    {
+      "id": "q1",
+      "text": "Tell me about a time you led a migration under pressure?",
+      "type": "behavioural",
+      "confidence": 0.95,
+      "at": 1790810976943,
+      "auto": true
+    }
+  ],
+  "suggestions": [
+    {
+      "questionId": "q1",
+      "model": "google/gemini-2.5-flash-lite",
+      "tier": "fast",
+      "say": "At Northwind I led the move of forty services to Kubernetes while keeping releases weekly.",
+      "bullets": [
+        "Situation: forty services on aging VMs, releases slowed to monthly",
+        "Action: staged the migration by service tier and automated the cut-over",
+        "Result: back to weekly releases with fewer incidents"
+      ],
+      "star": {
+        "s": "Forty services on aging VMs slowed releases.",
+        "t": "Move them without stopping delivery.",
+        "a": "Staged by tier, automated cut-over, paired with each team.",
+        "r": "Weekly releases again, fewer incidents."
+      },
+      "proof": [],
+      "flags": [
+        {
+          "kind": "unsupported-name",
+          "text": "Northwind"
+        },
+        {
+          "kind": "unsupported-name",
+          "text": "VMs"
+        }
+      ],
+      "done": true,
+      "firstTokenMs": 257,
+      "totalMs": 3598,
+      "costUsd": 0.0004
+    }
+  ],
+  "scorecard": {
+    "structure": 4,
+    "specifics": 3.5,
+    "evidence": 4,
+    "concision": 3,
+    "notes": [
+      {
+        "questionId": "q1",
+        "tip": "Open with the result, then the steps.",
+        "suggestedLine": null
+      }
+    ]
+  }
+}

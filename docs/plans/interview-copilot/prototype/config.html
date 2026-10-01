@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Copilot configuration — prototype</title>
+<link rel="stylesheet" href="css/tokens.css"><link rel="stylesheet" href="css/app.css"><link rel="stylesheet" href="css/overlay.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="logo"><i>◠</i><span>Career<b>loom</b></span></div>
+    <a class="ni" href="#"><span data-i="grid"></span>Overview</a>
+    <div class="grp">Job search</div>
+    <a class="ni" href="#"><span data-i="list"></span>Jobs</a>
+    <a class="ni" href="#"><span data-i="tag"></span>Resume</a>
+    <a class="ni on" href="#setup"><span data-i="mic"></span>Copilot<span class="new">New</span></a>
+    <div class="grp">Agents</div>
+    <a class="ni" href="#"><span data-i="spark"></span>Agent</a>
+    <a class="ni" href="#"><span data-i="dash"></span>Monitoring</a>
+    <a class="ni" href="#"><span data-i="puzzle"></span>Integrations</a>
+    <a class="ni" href="#" style="margin-top:8px"><span data-i="cog"></span>Settings</a>
+    <div class="foot"><span><span data-i="help"></span> Help</span><span>v0.2.0</span></div>
+  </aside>
+  <header class="top">
+    <h1>Copilot</h1><span class="badge brand">Practice ready</span><span class="sp"></span>
+    <a class="btn" href="overlay.html?view=stage"><span data-i="layout"></span>Preview overlay</a>
+    <button class="btn" id="openGate"><span data-i="mic"></span>Start live session…</button>
+    <button class="btn primary"><span data-i="play"></span>Start practice</button>
+  </header>
+  <main class="main"><div class="ws">
+    <nav class="sub" aria-label="Copilot sections" id="subnav">
+      <h6>Prepare</h6>
+      <a href="#setup"><span data-i="brief"></span>Setup<i class="dot ok"></i></a>
+      <a href="#practice"><span data-i="target"></span>Practice</a>
+      <h6>Live settings</h6>
+      <a href="#audio"><span data-i="mic"></span>Audio<i class="dot"></i></a>
+      <a href="#transcription"><span data-i="wave"></span>Transcription</a>
+      <a href="#engine"><span data-i="spark"></span>Answer engine</a>
+      <a href="#coaching"><span data-i="chat"></span>Coaching style</a>
+      <h6>Overlay</h6>
+      <a href="#appearance"><span data-i="layout"></span>Appearance</a>
+      <a href="#hotkeys"><span data-i="key"></span>Hotkeys</a>
+      <h6>Trust</h6>
+      <a href="#privacy"><span data-i="shield"></span>Privacy &amp; consent</a>
+      <h6>After</h6>
+      <a href="#sessions"><span data-i="history"></span>Sessions &amp; debrief</a>
+    </nav>
+    <div class="pages">
+
+<!-- SETUP -->
+<section class="page" id="p-setup">
+  <header><h2>Set up the interview</h2><p>Pick the job and the kind of interview. The copilot only uses what you choose here, plus your résumé.</p></header>
+    <div class="ready">
+    <div class="chk2"><span class="ok"><i data-i="check" data-s="14"></i>Job context loaded</span><span class="ok"><i data-i="check" data-s="14"></i>Microphone allowed</span><span class="wn"><i data-i="warn" data-s="14"></i>System audio needs permission</span></div>
+    <span style="flex:1"></span>
+    <div style="text-align:right;color:var(--mut);font-size:12.5px;max-width:260px">Practice and mic-only live sessions work now. <a href="#audio" style="color:var(--accent-text)">Fix system audio</a> to hear the interviewer.</div>
+  </div>
+  <div class="card"><div class="ch"><b>Job</b><div class="r"><button class="btn sm"><i data-i="plus" data-s="13"></i>Add a job</button></div></div><div class="cb">
+    <div class="grid2" role="radiogroup" aria-label="Job">
+      <button class="mode" aria-pressed="true"><b>Senior Platform Engineer</b><small>Northwind Labs · fit 4.3 · report ready · interview 14 Oct</small></button>
+      <button class="mode" aria-pressed="false"><b>Staff Backend Engineer</b><small>Tessellate · fit 3.9 · report ready</small></button>
+      <button class="mode" aria-pressed="false"><b>Engineering Manager, Infra</b><small>Harbor &amp; Pine · evaluated · no interview plan yet</small></button>
+    </div>
+    <div class="notice" style="margin-top:12px"><i data-i="history" data-s="16"></i><div>Every session belongs to a job. <b>3 earlier sessions</b> for Senior Platform Engineer (2 practice, 1 live), best score <b>3.9 / 5</b>. <a href="#sessions" style="color:var(--accent-text)">View sessions</a></div></div></div></div>
+  <div class="card"><div class="ch"><b>Interview type</b></div><div class="cb">
+    <div class="seg" role="group" aria-label="Interview type"><button aria-pressed="false">Recruiter screen</button><button aria-pressed="true">Behavioural</button><button aria-pressed="false">Technical</button><button aria-pressed="false">System design</button><button aria-pressed="false">Mixed</button></div>
+    <p class="desc" style="margin-top:8px">Sets how questions are classified and which answer shape is offered first. Mixed detects the type per question.</p></div></div>
+  <div class="card"><div class="ch"><b>What the copilot will know</b><div class="r"><span class="badge ok"><i data-i="check" data-s="12"></i>≈ 5.2k tokens</span><button class="btn sm">Preview context</button></div></div><div class="cb">
+    <div class="grid4">
+      <div class="tile"><div class="k"><i data-i="file" data-s="13"></i>Posting</div><div class="n">9</div><small>requirements · 7 skills</small></div>
+      <div class="tile"><div class="k"><i data-i="dash" data-s="13"></i>Evaluation report</div><div class="n">4 + 2</div><small>strengths · gaps to handle</small></div>
+      <div class="tile"><div class="k"><i data-i="user" data-s="13"></i>Résumé facts</div><div class="n">38</div><small>from cv.md, updated 2 days ago</small></div>
+      <div class="tile"><div class="k"><i data-i="book" data-s="13"></i>STAR stories</div><div class="n">6</div><small>from the report's interview plan</small></div>
+    </div>
+    <p class="desc" style="margin-top:12px">Answers may quote your résumé and stories. Numbers that aren't in them are blocked, not guessed.</p></div></div>
+</section>
+
+<!-- PRACTICE -->
+<section class="page" id="p-practice">
+  <header><h2>Practice</h2><p>A mock interviewer asks questions from this job's report. Nothing is sent to a call, and the overlay shows a Practice chip.</p></header>
+  <div class="card"><div class="ch"><b>Questions for Northwind Labs</b><div class="r"><span class="badge">6 selected</span><button class="btn sm"><i data-i="plus" data-s="13"></i>Add your own</button></div></div><div class="cb" style="display:grid;gap:8px">
+    <label class="chk"><input type="checkbox" checked><span style="flex:1"><b style="font-weight:600">Tell me about a time you pushed back on a deadline without losing trust.</b><br><span style="color:var(--mut);font-size:12.5px">From the report · last try 3.6 / 5</span></span><span class="badge warn">Behavioural</span></label>
+    <label class="chk"><input type="checkbox" checked><span style="flex:1"><b style="font-weight:600">How did you migrate 40 services off the old pipeline with no downtime?</b><br><span style="color:var(--mut);font-size:12.5px">From the report · not tried yet</span></span><span class="badge info">Technical</span></label>
+    <label class="chk"><input type="checkbox" checked><span style="flex:1"><b style="font-weight:600">Design a deploy system for 200 engineers across three regions.</b><br><span style="color:var(--mut);font-size:12.5px">From the report · not tried yet</span></span><span class="badge violet">System design</span></label>
+    <label class="chk"><input type="checkbox"><span style="flex:1"><b style="font-weight:600">What gap in your background worries you most for this role?</b><br><span style="color:var(--mut);font-size:12.5px">From the report's gaps</span></span><span class="badge warn">Behavioural</span></label>
+  </div></div>
+  <div class="card"><div class="cb">
+    <div class="row"><div class="lab"><b>Follow-up questions</b><span>The mock interviewer asks one follow-up based on your answer.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Follow-up questions"></button></div>
+    <div class="row"><div class="lab"><b>Read questions aloud</b><span>Uses your system voice. Headphones recommended.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Read questions aloud"></button></div>
+    <div class="row"><div class="lab"><b>Time per answer</b><span>A soft timer in the overlay. It never cuts you off.</span></div><input class="rng" type="range" min="1" max="5" value="2" aria-label="Time per answer"><span class="val">2 min</span></div>
+  </div></div>
+  <button class="btn primary"><i data-i="play" data-s="14"></i>Start practice (6 questions)</button>
+</section>
+
+<!-- AUDIO -->
+<section class="page" id="p-audio">
+  <header><h2>Audio</h2><p>The interviewer comes from system audio, you come from the microphone. Keeping them apart removes guesswork about who is speaking.</p></header>
+  <div class="card"><div class="ch"><b><i data-i="mic" data-s="15"></i> Your microphone</b><div class="r"><span class="badge ok">Allowed</span></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>Input device</b><span>Speak normally. The bars should move without touching the top.</span></div><select class="sel" aria-label="Microphone"><option>MacBook Pro Microphone</option><option>USB headset</option></select></div>
+    <div class="row"><div class="lab"><b>Input level</b><span>Live from the selected device</span></div><span class="meter" style="height:26px"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span></div>
+  </div></div>
+  <div class="card"><div class="ch"><b><i data-i="speaker" data-s="15"></i> Interviewer (system audio)</b><div class="r"><span class="badge warn">Needs permission</span><button class="sw" role="switch" aria-checked="false" aria-label="Use system audio"></button></div></div><div class="cb">
+    <div class="notice warn"><i data-i="warn" data-s="16"></i><div><b>Careerloom can't hear system audio yet.</b> macOS stays silent instead of showing an error until you allow it.</div></div>
+    <ol class="steps" style="margin:12px 0"><li>Open System Settings → Privacy &amp; Security → System Audio Recording.</li><li>Turn on Careerloom, then quit and reopen it.</li><li>Come back and press Test. You should see the bars move while a video plays.</li></ol>
+    <div style="display:flex;gap:8px"><button class="btn primary"><i data-i="ext" data-s="14"></i>Open System Settings</button><button class="btn">Test for 3 seconds</button></div>
+    <div class="row" style="margin-top:14px"><div class="lab"><b>Source</b><span>Use a virtual device such as BlackHole if system audio capture isn't available on your Mac.</span></div><select class="sel" aria-label="System audio source"><option>Everything this computer plays</option><option>BlackHole 2ch (virtual device)</option></select></div>
+    <div class="notice" style="margin-top:12px"><i data-i="info" data-s="16"></i><div>System audio records <b>the other person</b>. You'll confirm consent before each live session.</div></div>
+  </div></div>
+  <div class="card"><div class="cb"><div class="row"><div class="lab"><b>Use headphones</b><span>If the interviewer comes out of your speakers, your microphone picks them up and they appear twice.</span></div><span class="badge">Recommended</span></div>
+    <div class="row"><div class="lab"><b>Who is who</b><span>System audio is labelled Interviewer. Microphone is labelled You. There is no voice identification.</span></div></div></div></div>
+</section>
+
+<!-- TRANSCRIPTION -->
+<section class="page" id="p-transcription">
+  <header><h2>Transcription</h2><p>Turns speech into text as it happens. It runs on this computer, so your audio is never uploaded.</p></header>
+  <div class="card"><div class="ch"><b>Speech model</b><div class="r"><span class="badge ok"><i data-i="check" data-s="12"></i>Installed</span><button class="btn sm" id="bench"><i data-i="play" data-s="12"></i>Benchmark on this computer</button></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>Engine</b><span>Runs on this computer. Streaming engines show words while the person is still talking.</span></div><select class="sel" aria-label="Engine"><option>Moonshine (streaming)</option><option>Whisper for Apple silicon (MLX)</option><option>faster-whisper (NVIDIA GPU)</option></select></div>
+    <div class="row" style="display:block"><div class="lab"><b>Model</b><span>Pick the smallest model that is accurate enough for you. Latency is measured on this computer.</span></div>
+      <div class="models" role="radiogroup" aria-label="Model" style="margin-top:10px">
+        <button class="mode mrow" aria-pressed="false"><span><b>Tiny streaming</b><small>about 50 MB · fastest · lower accuracy</small></span><span class="badge">Final in 40 ms</span></button>
+        <button class="mode mrow" aria-pressed="true"><span><b>Small streaming</b><small>about 150 MB · balanced</small></span><span class="badge ok">Final in 80 ms</span><span class="badge brand">Recommended</span></button>
+        <button class="mode mrow" aria-pressed="false"><span><b>Medium streaming</b><small>about 400 MB · most accurate of the three</small></span><span class="badge">Final in 120 ms</span><span class="badge warn">Not installed</span></button>
+      </div>
+      <p class="desc" style="margin-top:8px">Sizes and times are examples until you run the benchmark.</p></div>
+    <div class="row"><div class="lab"><b>Compute</b><span>Auto picks the fastest option this computer supports. NVIDIA GPU (CUDA) appears only when the engine can use it.</span></div><select class="sel" aria-label="Compute"><option>Auto (CPU)</option><option>CPU</option><option>Apple Neural Engine / GPU</option><option disabled>NVIDIA GPU (CUDA) — not available here</option></select></div>
+    <div class="row" id="benchres" style="display:none"><div class="lab"><b>Benchmark result</b><span>Small streaming · CPU · 12 s test clip</span></div><span class="badge ok">Final 82 ms</span><span class="badge">RAM 610 MB</span><span class="badge">Speed 0.08× real time</span></div>
+    <div class="notice ok" style="margin-top:12px"><i data-i="shield" data-s="16"></i><div>Audio from your microphone and system audio stays on this computer. Only the text of the conversation is sent to the answer provider.</div></div>
+  </div></div>
+  <div class="card"><div class="cb">
+    <div class="row"><div class="lab"><b>Language</b><span>English only for now. Accented English works, and you can check accuracy with the benchmark.</span></div><select class="sel" aria-label="Language"><option>English</option></select></div>
+    <div class="row"><div class="lab"><b>Wait after the interviewer stops</b><span>Shorter is faster but may cut a question in half.</span></div><input class="rng" type="range" min="400" max="1400" value="800" aria-label="Wait after speech"><span class="val">800 ms</span></div>
+    <div class="row"><div class="lab"><b>Words to recognise</b><span>Names and tools the engine often gets wrong.</span></div><div class="tags"><span class="badge">Kubernetes</span><span class="badge">Northwind</span><span class="badge">Terraform</span><button class="btn sm"><i data-i="plus" data-s="12"></i>Add</button></div></div>
+  </div></div>
+  </section>
+
+<!-- ENGINE -->
+<section class="page" id="p-engine">
+  <header><h2>Answer engine</h2><p>The model that writes suggestions. Speed matters more than polish here: a good answer in one second beats a perfect one in ten.</p></header>
+  <div class="card"><div class="ch"><b>Speed and cost</b></div><div class="cb">
+    <div class="grid3">
+      <button class="mode" aria-pressed="true"><b>Fast</b><small>Small model. First words in about a second.</small><div class="badge brand" style="margin-top:8px">≈ $0.05 per interview</div></button>
+      <button class="mode" aria-pressed="false"><b>Balanced</b><small>Mid-size model. Better structure, a little slower.</small><div class="badge" style="margin-top:8px">≈ $0.10 per interview</div></button>
+      <button class="mode" aria-pressed="false"><b>Deep</b><small>Largest model. For system design and coding.</small><div class="badge" style="margin-top:8px">≈ $0.30 per interview</div></button>
+    </div>
+    <p class="desc" style="margin-top:10px">Estimates assume 15 answers in 45 minutes, before speech-to-text (about $0.11 for the interviewer's side). Your real cost shows in the overlay.</p>
+    <div class="row" style="margin-top:12px"><div class="lab"><b>Use Deep for design and coding questions</b><span>Switches per question. The overlay shows which model answered.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Escalate to Deep"></button></div>
+  </div></div>
+  <div class="card"><div class="cb">
+    <div class="row"><div class="lab"><b>Provider</b><span>OpenRouter streams words as they are written. The text of the conversation is sent to it.</span></div><span class="badge brand">OpenRouter</span></div>
+    <div class="row"><div class="lab"><b>API key</b><span>Shared with your other Careerloom agents. Kept in your system keychain.</span></div><span class="badge ok"><i data-i="check" data-s="12"></i>Saved</span><button class="btn sm">Replace</button></div>
+    <div class="row"><div class="lab"><b>Only use providers that don't keep or train on my data</b><span>Safer, but it limits which models you can pick.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Data collection deny"></button></div>
+    <div class="row"><div class="lab"><b>Answer automatically</b><span>Off: press <span class="kbd">⌃⌥A</span> when you want a suggestion. On: a suggestion starts when a question is detected.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Auto answer"></button></div>
+    <div class="row" style="display:block"><div class="lab"><b>Models</b><span>One model per speed tier. Search the OpenRouter list, then test how fast it starts.</span></div>
+      <div class="mp" style="margin-top:10px">
+        <div class="mprow"><span class="mpt">Fast</span><div class="mpf"><span class="mpname">provider/small-fast-model</span><span class="mpmeta">128k context · $0.10 in / $0.50 out per million tokens</span></div><span class="badge ok">Doesn't collect data</span><span class="badge">First word 0.6 s</span><button class="btn sm">Change…</button><button class="btn sm quiet">Test</button></div>
+        <div class="mprow"><span class="mpt">Balanced</span><div class="mpf"><span class="mpname">provider/mid-model</span><span class="mpmeta">200k context · $1 in / $5 out per million tokens</span></div><span class="badge ok">Doesn't collect data</span><span class="badge">First word 0.9 s</span><button class="btn sm">Change…</button><button class="btn sm quiet">Test</button></div>
+        <div class="mprow"><span class="mpt">Deep</span><div class="mpf"><span class="mpname">provider/large-model</span><span class="mpmeta">200k context · $2 in / $10 out per million tokens</span></div><span class="badge warn">Data policy unknown</span><span class="badge">Not tested</span><button class="btn sm">Change…</button><button class="btn sm quiet">Test</button></div>
+      </div>
+      <p class="desc" style="margin-top:8px">Names, prices and sizes here are placeholders. The real list comes from OpenRouter and is cached for a day.</p></div>
+    <div class="row"><div class="lab"><b>Check answers against your résumé</b><span>Flags numbers, tools and names that aren't in your résumé or stories.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Fact check"></button></div>
+    <div class="row"><div class="lab"><b>Read screenshots with</b><span>For coding questions shown on screen.</span></div><div class="seg"><button aria-pressed="true">Vision model</button><button aria-pressed="false">Text only (OCR)</button></div></div>
+  </div></div>
+</section>
+
+<!-- COACHING -->
+<section class="page" id="p-coaching">
+  <header><h2>Coaching style</h2><p>How much the overlay writes for you. Cues keep your own voice. Full scripts sound read aloud.</p></header>
+  <div class="grid2" style="grid-template-columns:1.1fr 1fr;align-items:start">
+    <div>
+      <div class="card"><div class="cb">
+        <div class="row" style="display:block"><div class="lab"><b>Suggestion shape</b></div><div class="seg" style="margin-top:8px"><button aria-pressed="false">Cues</button><button aria-pressed="true">Cues + STAR</button><button aria-pressed="false">Full script</button></div></div>
+        <div class="row"><div class="lab"><b>Length</b></div><input class="rng" type="range" min="1" max="3" value="2" aria-label="Length"><span class="val">Medium</span></div>
+        <div class="row"><div class="lab"><b>Tone</b></div><div class="seg"><button aria-pressed="true">Direct</button><button aria-pressed="false">Warm</button><button aria-pressed="false">Formal</button></div></div>
+        <div class="row" style="display:block"><div class="lab"><b>How you sound</b><span>One line the model follows.</span></div><input class="inp" style="width:100%;margin-top:8px" value="Calm senior engineer. Plain words, short sentences."></div>
+        <div class="row"><div class="lab"><b>Quote my résumé</b><span>Show the line each proof point comes from.</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Quote résumé"></button></div>
+        <div class="row"><div class="lab"><b>Never invent numbers</b><span>Unsupported figures are removed and flagged.</span></div><button class="sw" role="switch" aria-checked="true" aria-disabled="true" aria-label="Never invent numbers"></button></div>
+      </div></div>
+    </div>
+    <div class="card" style="position:sticky;top:0"><div class="ch"><b>Preview</b><div class="r"><span class="badge">Sample</span></div></div><div class="cb" style="padding:10px"><div class="pv"><div data-overlay="answered" data-mode="panel" id="pvCoach" style="--ovw:100%"></div></div></div></div>
+  </div>
+</section>
+
+<!-- APPEARANCE -->
+<section class="page" id="p-appearance">
+  <header><h2>Overlay appearance</h2><p>Sized to be read in a glance. It sits above your call and never takes keyboard focus.</p></header>
+  <div class="grid2" style="grid-template-columns:1fr 1.15fr;align-items:start">
+    <div class="card"><div class="cb">
+      <div class="row" style="display:block"><div class="lab"><b>Layout</b></div><div class="seg" style="margin-top:8px"><button aria-pressed="false">Strip</button><button aria-pressed="true">Panel</button></div></div>
+      <div class="row" style="display:block"><div class="lab"><b>Position</b><span>On display 1 (built-in).</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,34px);gap:4px;margin-top:8px">
+          <button class="btn sm" aria-label="Top left"></button><button class="btn sm" aria-label="Top centre"></button><button class="btn sm primary" aria-label="Top right"></button>
+          <button class="btn sm" aria-label="Middle left"></button><button class="btn sm" aria-label="Centre"></button><button class="btn sm" aria-label="Middle right"></button>
+          <button class="btn sm" aria-label="Bottom left"></button><button class="btn sm" aria-label="Bottom centre"></button><button class="btn sm" aria-label="Bottom right"></button></div></div>
+      <div class="row"><div class="lab"><b>Width</b></div><input class="rng" type="range" min="360" max="560" value="440" aria-label="Width"><span class="val">440 px</span></div>
+      <div class="row"><div class="lab"><b>Text size</b></div><input class="rng" type="range" min="12" max="18" value="14" aria-label="Text size"><span class="val">14 px</span></div>
+      <div class="row"><div class="lab"><b>Opacity</b><span>Never below 60%.</span></div><input class="rng" type="range" min="60" max="100" value="94" aria-label="Opacity"><span class="val">94%</span></div>
+      <div class="row"><div class="lab"><b>Theme</b></div><div class="seg"><button aria-pressed="true">Match app</button><button aria-pressed="false">Dark</button><button aria-pressed="false">Light</button></div></div>
+      <div class="row"><div class="lab"><b>Click through when idle</b><span>Clicks pass to your call. Hold ⌃⌥ to use the overlay.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Click-through"></button></div>
+      <div class="row"><div class="lab"><b>Stay above full-screen apps</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Above fullscreen"></button></div>
+      <div class="row"><div class="lab"><b>Reduce motion</b><span>Follows your system setting.</span></div><span class="badge">System</span></div>
+    </div></div>
+    <div class="card"><div class="ch"><b>Live preview</b></div><div class="cb" style="padding:10px"><div class="stage" style="height:700px"><div class="tiles"><div class="tl big">AR</div><div class="tl">You</div><div class="tl">MK</div></div><div class="ovw" style="right:14px;top:14px"><div data-overlay="question" data-mode="panel" id="pvApp" style="--ovw:360px"></div></div></div></div></div>
+  </div>
+</section>
+
+<!-- HOTKEYS -->
+<section class="page" id="p-hotkeys">
+  <header><h2>Hotkeys</h2><p>Work while another app has focus. Combinations already used elsewhere are flagged. Avoid Alt+Shift: it switches keyboard language on many systems.</p></header>
+  <div class="card"><div class="cb" style="padding:4px 16px 8px"><table class="tbl">
+    <tr><th>Action</th><th>Shortcut</th><th>Status</th><th></th></tr>
+    <tr><td>Answer the last question</td><td><span class="kbd">⌃⌥A</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
+    <tr><td>Follow-up</td><td><span class="kbd">⌃⌥F</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
+    <tr><td>Clarify the question</td><td><span class="kbd">⌃⌥C</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
+    <tr><td>Screenshot and solve</td><td><span class="kbd">⌃⌥S</span></td><td><span class="badge bad">In use by another app</span></td><td><button class="btn sm primary">Choose another</button></td></tr>
+    <tr><td>Summarise so far</td><td><span class="kbd">⌃⌥M</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
+    <tr><td>Expand or collapse</td><td><span class="kbd">⌃⌥E</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
+    <tr><td>Start or pause listening</td><td><span class="kbd">⌃⌥L</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
+    <tr><td>Show or hide overlay</td><td><span class="kbd">⌃⌥H</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
+    <tr><td>Quick hide (clears text) <span class="badge" style="margin-left:6px">Privacy mode</span></td><td><span class="kbd">⌃⌥⇧H</span></td><td><span class="badge ok">Ready</span></td><td><button class="btn sm">Change</button></td></tr>
+    <tr><td><b style="color:var(--bad)">Stop everything now</b></td><td><span class="kbd">⌃⌥⇧X</span></td><td><span class="badge ok">Ready</span></td><td><span class="badge">Always on</span></td></tr>
+  </table></div></div>
+  <div class="notice"><i data-i="info" data-s="16"></i><div><b>Stop everything now</b> turns off the microphone and system audio, cancels any request in progress and hides the overlay. The tray menu has the same button. On Windows, shortcuts use Ctrl+Alt.</div></div>
+</section>
+
+<!-- PRIVACY -->
+<section class="page" id="p-privacy">
+  <header><h2>Privacy &amp; consent</h2><p>Responsible defaults. You confirm the rules before every live session. Low-profile options live in Privacy mode, which is off until you turn it on.</p></header>
+  <div class="card"><div class="ch"><b>Consent</b><div class="r"><span class="badge brand"><i data-i="lock" data-s="12"></i>Can't be turned off</span></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>Ask before every live session</b><span>A short check on the employer's rules and on consent from everyone on the call.</span></div><button class="sw" role="switch" aria-checked="true" aria-disabled="true" aria-label="Consent each session"></button></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>What is kept</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Audio recordings</b><span>Audio is turned into text and discarded straight away.</span></div><span class="badge">Never saved</span></div>
+    <div class="row"><div class="lab"><b>Keep transcripts for</b><span>Older text is deleted automatically. Lowering this asks before deleting.</span></div><select class="sel" style="min-width:150px" aria-label="Keep transcripts for"><option>Don't keep</option><option>30 days</option><option selected>3 months</option><option>1 year</option><option>Until I delete</option></select></div>
+    <div class="row"><div class="lab"><b>Session records</b><span>Your confirmations, dates and providers, saved on this device only.</span></div><button class="btn sm">Export</button><button class="btn sm danger">Delete all</button></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>What leaves your computer</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Local only</b><span>Uses on-device speech and a local model. Nothing is sent anywhere. Answers are weaker on design and coding.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Local only"></button></div>
+    <div class="row"><div class="lab"><b>Hide names and emails before sending to the model</b></div><button class="sw" role="switch" aria-checked="true" aria-label="Redact"></button></div>
+  </div></div>
+  <div class="card" id="pmcard"><div class="ch"><b>Privacy mode</b><span class="badge" id="pmbadge">Off by default</span><div class="r"><button class="sw" id="pm" role="switch" aria-checked="false" aria-label="Privacy mode"></button></div></div><div class="cb">
+    <p class="desc" style="margin:0 0 10px">Low-profile options for when you don't want the overlay to draw attention on your own screen. They don't change who can hear the call, and some interviewers and employers don't allow AI help.</p>
+    <div class="pmopts" aria-disabled="true">
+    <div class="row"><div class="lab"><b>Hide overlay from screen sharing</b><span>Asks the system to leave the overlay out of screen capture. <span class="badge warn" style="margin-left:4px">Unreliable on macOS 15+</span> It does nothing against cameras, proctoring tools or someone watching your screen.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Hide from screen sharing"></button></div>
+    <div class="row"><div class="lab"><b>No Dock icon while listening</b><span>The menu bar icon stays so you can always stop.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="No dock icon"></button></div>
+    <div class="row"><div class="lab"><b>Neutral window title</b><span>Window lists show “Careerloom” only, never a job, company or question.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Neutral title"></button></div>
+    <div class="row"><div class="lab"><b>Click through when idle</b><span>Same setting as Appearance. Clicks pass to the call.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Click-through"></button></div>
+    <div class="row"><div class="lab"><b>Quick hide <span class="kbd" style="margin-left:6px">⌃⌥⇧H</span></b><span>Hides the overlay and clears its text at once. Press again to bring it back.</span></div><span class="badge">Hotkey</span></div>
+    <div class="row"><div class="lab"><b>Recording indicator</b><span>The menu bar icon always shows when audio is being captured, whatever you choose here.</span></div><div class="seg"><button aria-pressed="true">Full</button><button aria-pressed="false">Small dot</button><button aria-pressed="false">Off</button></div></div>
+    </div>
+  </div></div>
+  <div class="notice warn"><i data-i="warn" data-s="16"></i><div><b>Check the rules first.</b> Many employers don't allow AI help in live interviews. Using it where it is banned can cost you the offer. Practice mode is always fine.</div></div>
+</section>
+
+    <!-- SESSIONS -->
+<section class="page" id="p-sessions">
+  <header><h2>Sessions &amp; debrief</h2><p>Every session belongs to a job, and a job can have many sessions. Review how an answer landed and move the good parts into your résumé and job notes.</p></header>
+  <div class="notice" style="margin-bottom:12px"><i data-i="clock" data-s="16"></i><div>Transcripts are kept for <b>3 months</b>, then deleted. <a href="#privacy" style="color:var(--accent-text)">Change</a></div></div>
+  <div class="card"><div class="ch"><b>Senior Platform Engineer</b><span class="badge">Northwind Labs</span><div class="r"><span class="badge ok">Trend 3.6 → 3.9</span><button class="btn sm">Open job</button></div></div><div class="cb" style="padding:4px 16px 8px"><table class="tbl">
+    <tr><th>Date</th><th>Mode</th><th>Length</th><th>Answers</th><th>Score</th></tr>
+    <tr class="on"><td class="num">Today 09:40</td><td><span class="badge brand">Practice</span></td><td class="num">18 min</td><td class="num">6</td><td class="num"><b>3.9</b> / 5</td></tr>
+    <tr><td class="num">Yesterday</td><td><span class="badge brand">Practice</span></td><td class="num">12 min</td><td class="num">4</td><td class="num">3.6 / 5</td></tr>
+    <tr><td class="num">28 Sep</td><td><span class="badge warn">Live</span></td><td class="num">41 min</td><td class="num">11</td><td class="num">Not scored</td></tr>
+  </table></div></div>
+  <div class="card"><div class="ch"><b>Staff Backend Engineer</b><span class="badge">Tessellate</span><div class="r"><button class="btn sm">Open job</button></div></div><div class="cb" style="padding:4px 16px 8px"><table class="tbl">
+    <tr><td class="num">26 Sep</td><td><span class="badge brand">Practice</span></td><td class="num">9 min</td><td class="num">3</td><td class="num">3.2 / 5</td></tr>
+  </table></div></div>
+  <div class="grid2" style="grid-template-columns:1fr 1.3fr;align-items:start">
+    <div class="card"><div class="ch"><b>Scorecard</b><div class="r"><span class="badge ok">+0.3 vs last</span></div></div><div class="cb" style="display:grid;gap:12px">
+      <div><div style="display:flex;justify-content:space-between;font-size:13px"><span>Structure</span><b>4.2</b></div><div class="bar3"><i style="width:84%"></i></div></div>
+      <div><div style="display:flex;justify-content:space-between;font-size:13px"><span>Specific examples</span><b>3.8</b></div><div class="bar3"><i style="width:76%"></i></div></div>
+      <div><div style="display:flex;justify-content:space-between;font-size:13px"><span>Evidence from your résumé</span><b>3.5</b></div><div class="bar3"><i style="width:70%"></i></div></div>
+      <div><div style="display:flex;justify-content:space-between;font-size:13px"><span>Conciseness</span><b>4.0</b></div><div class="bar3"><i style="width:80%"></i></div></div>
+    </div></div>
+    <div class="card"><div class="ch"><b>Improve this answer</b><div class="r"><span class="badge warn">Behavioural</span></div></div><div class="cb">
+      <p style="margin:0 0 8px;color:var(--mut);font-size:13px">“Tell me about a time you pushed back on a deadline…”</p>
+      <div class="notice"><i data-i="spark" data-s="16"></i><div><b>Lead with the result.</b> You gave the outcome last, after two minutes of setup. Open with “we shipped the core path on time”, then explain how.</div></div>
+      <div class="notice ok" style="margin-top:8px"><i data-i="file" data-s="16"></i><div><b>Stronger résumé line.</b> “Cut release lead time from 4 days to 6 hours across 40 services” is stated three different ways in your résumé. Pick one.</div></div>
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn primary sm"><i data-i="plus" data-s="13"></i>Add to résumé bullets</button><button class="btn sm">Save to job notes</button><button class="btn sm quiet">View transcript</button></div>
+    </div></div>
+  </div>
+</section>
+
+    </div>
+  </div></main>
+</div>
+
+<!-- per-session consent gate -->
+<div class="scrim" id="gate" role="dialog" aria-modal="true" aria-labelledby="gt"><div class="dlg">
+  <header><h3 id="gt">Before you start a live session</h3><p>Careerloom will listen on this computer (audio never leaves it) and send the conversation's text to <b>OpenRouter</b> to suggest answers. Transcripts are kept for <b>3 months</b> (change in Privacy). A “Listening” indicator is shown by default.</p></header>
+  <div class="body">
+    <div class="src"><i data-i="mic" data-s="16"></i><div class="lab"><b style="font-weight:600">Your microphone</b><span>Always included in a live session</span></div><span class="badge ok">On</span></div>
+    <div class="src"><i data-i="speaker" data-s="16"></i><div class="lab"><b style="font-weight:600">System audio (the other person)</b><span>Records them. Off unless you turn it on.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Include system audio"></button></div>
+    <label class="chk"><input type="checkbox" id="c1"><span>I'm allowed to use AI assistance in this conversation. I've checked the employer's or interviewer's rules.</span></label>
+    <label class="chk"><input type="checkbox" id="c2"><span>Everyone on this call knows it's being transcribed, or I've confirmed the law where we are allows it.</span></label>
+    <div style="display:flex;gap:10px;align-items:center;font-size:13px;color:var(--mut)">Where is everyone? <select class="sel" style="min-width:150px" aria-label="Jurisdiction"><option>Choose…</option><option>India</option><option>California, US</option><option>United Kingdom</option></select><a href="#" style="color:var(--accent-text)">What do the rules say?</a></div>
+    <div class="notice"><i data-i="info" data-s="16"></i><div>Not legal advice. Some places require everyone's consent. A simple line helps: “I'm using a transcription tool for my own notes. Is that okay?”</div></div>
+  </div>
+  <footer><button class="btn quiet" id="closeGate">Cancel</button><button class="btn" id="goPractice"><i data-i="target" data-s="14"></i>Practice instead</button><button class="btn primary dis" id="goLive" disabled><i data-i="play" data-s="14"></i>Start live session</button></footer>
+</div></div>
+
+<div class="scrim" id="pmnotice" role="dialog" aria-modal="true" aria-labelledby="pnt"><div class="dlg">
+  <header><h3 id="pnt">Before you turn on Privacy mode</h3><p>These options make the overlay less visible on your own screen. Read this once.</p></header>
+  <div class="body">
+    <div class="notice warn"><i data-i="warn" data-s="16"></i><div>Some interviewers and employers <b>don't allow AI assistance</b>. Using Careerloom where it is banned may break their rules, whatever the overlay looks like.</div></div>
+    <div class="notice"><i data-i="info" data-s="16"></i><div><b>Hiding from screen sharing is unreliable on macOS 15 and later.</b> The system can ignore it. It also does nothing against cameras, proctoring software or someone watching your screen.</div></div>
+    <div class="notice"><i data-i="shield" data-s="16"></i><div>You still confirm consent before every live session, and the menu bar icon always shows when audio is being captured.</div></div>
+  </div>
+  <footer><button class="btn quiet" id="pmCancel">Cancel</button><button class="btn primary" id="pmOk">I understand, turn on</button></footer>
+</div></div>
+
+<script src="js/icons.js"></script><script src="js/overlay.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+document.documentElement.dataset.theme = q.get('theme') || 'dark';
+if (q.get('motion') === 'off') document.documentElement.dataset.motion = 'off';
+const pages = [...document.querySelectorAll('.page')], links = [...document.querySelectorAll('#subnav a')];
+function show() {
+  const id = (location.hash || '#setup').slice(1); const on = document.getElementById('p-' + id) ? id : 'setup';
+  pages.forEach(p => p.classList.toggle('on', p.id === 'p-' + on));
+  links.forEach(a => { const cur = a.getAttribute('href') === '#' + on; a.classList.toggle('on', cur); cur ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
+}
+addEventListener('hashchange', show); show();
+document.querySelectorAll('.sw:not(#pm)').forEach(b => b.onclick = () => { if (b.getAttribute('aria-disabled') !== 'true') b.setAttribute('aria-checked', b.getAttribute('aria-checked') !== 'true'); });
+document.querySelectorAll('.seg').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); }));
+document.querySelectorAll('.grid2 > .mode, .grid3 > .mode').forEach(m => m.onclick = () => { m.parentElement.querySelectorAll('.mode').forEach(x => x.setAttribute('aria-pressed', x === m)); });
+const gate = document.getElementById('gate'), go = document.getElementById('goLive'), c1 = document.getElementById('c1'), c2 = document.getElementById('c2');
+const upd = () => { const ok = c1.checked && c2.checked; go.disabled = !ok; go.classList.toggle('dis', !ok); };
+c1.onchange = c2.onchange = upd;
+document.getElementById('openGate').onclick = () => { gate.classList.add('on'); c1.focus(); };
+const close = () => gate.classList.remove('on');
+document.getElementById('closeGate').onclick = close; document.getElementById('goPractice').onclick = () => { close(); location.hash = 'practice'; };
+addEventListener('keydown', e => { if (e.key === 'Escape') { close(); document.getElementById('pmnotice').classList.remove('on'); } });
+if (q.get('gate') === '1') { gate.classList.add('on'); if (q.get('checked')) { c1.checked = c2.checked = true; upd(); } }
+
+// Privacy mode master switch (off by default). First enable shows the one-time notice.
+const pm = document.getElementById('pm'), pmo = document.querySelector('.pmopts'), pmn = document.getElementById('pmnotice'), pmb = document.getElementById('pmbadge');
+const setPm = on => { pm.setAttribute('aria-checked', on); pmo.setAttribute('aria-disabled', !on); pmo.style.opacity = on ? 1 : .5; pmo.style.pointerEvents = on ? '' : 'none'; pmb.textContent = on ? 'On' : 'Off by default'; pmb.className = 'badge' + (on ? ' warn' : ''); };
+setPm(false);
+pm.onclick = e => { e.stopImmediatePropagation(); if (pm.getAttribute('aria-checked') === 'true') setPm(false); else pmn.classList.add('on'); };
+document.getElementById('pmCancel').onclick = () => pmn.classList.remove('on');
+document.getElementById('pmOk').onclick = () => { pmn.classList.remove('on'); setPm(true); };
+if (q.get('pm') === '1') setPm(true); if (q.get('notice') === '1') pmn.classList.add('on');
+document.getElementById('bench').onclick = () => { document.getElementById('benchres').style.display = 'flex'; };
+if (q.get('bench') === '1') document.getElementById('benchres').style.display = 'flex';
+// range value labels
+document.querySelectorAll('.rng').forEach(r => r.oninput = () => { const v = r.nextElementSibling; if (!v) return; const t = v.textContent; v.textContent = /ms/.test(t) ? r.value + ' ms' : /px/.test(t) ? r.value + ' px' : /%/.test(t) ? r.value + '%' : /min/.test(t) ? r.value + ' min' : t; });
+</script>
+</body>
+</html>

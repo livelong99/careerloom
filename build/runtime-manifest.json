@@ -1,0 +1,87 @@
+{
+  "node": {
+    "version": "22.23.3",
+    "assets": {
+      "win32-x64": {
+        "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-win-x64.zip",
+        "sha256": "2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71",
+        "archive": "zip",
+        "stripComponents": 1
+      },
+      "win32-arm64": {
+        "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-win-arm64.zip",
+        "sha256": "33dad22e4cef5ee8f9fbb1b0d037fdacd0e56d12a4580f0d63f68b894deab535",
+        "archive": "zip",
+        "stripComponents": 1
+      },
+      "darwin-arm64": {
+        "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-darwin-arm64.tar.gz",
+        "sha256": "23b25245dcfb9af7262f8ff142e9e2e0af025368117329e7a7458a51e5922f53",
+        "archive": "tar.gz",
+        "stripComponents": 1
+      },
+      "darwin-x64": {
+        "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-darwin-x64.tar.gz",
+        "sha256": "8a677b0219178efd6eb0e475457c4afb452b521a92f6e67845a73bd85727f2a8",
+        "archive": "tar.gz",
+        "stripComponents": 1
+      },
+      "linux-x64": {
+        "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz",
+        "sha256": "df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de",
+        "archive": "tar.xz",
+        "stripComponents": 1
+      }
+    }
+  },
+  "python": {
+    "version": "3.12.14",
+    "assets": {
+      "win32-x64": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260929/cpython-3.12.14%2B20260929-x86_64-pc-windows-msvc-install_only.tar.gz",
+        "sha256": "28728baf30b65e263f0b25c5a85be8226e7ab0d212fbadd6a8f0f796139fa804",
+        "archive": "tar.gz",
+        "stripComponents": 1
+      },
+      "win32-arm64": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260929/cpython-3.12.14%2B20260929-aarch64-pc-windows-msvc-install_only.tar.gz",
+        "sha256": "96b4c8cb02ad37d97141035530fa63cac3ff2690a9cfdfd343290c0c94227ea2",
+        "archive": "tar.gz",
+        "stripComponents": 1
+      },
+      "darwin-arm64": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260929/cpython-3.12.14%2B20260929-aarch64-apple-darwin-install_only.tar.gz",
+        "sha256": "de6b8f94fa765639b423ea353ab340669704c7186f96ee3cab389dcfde770c3c",
+        "archive": "tar.gz",
+        "stripComponents": 1
+      },
+      "darwin-x64": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260929/cpython-3.12.14%2B20260929-x86_64-apple-darwin-install_only.tar.gz",
+        "sha256": "f51ec8a7fa0ede129a5e2e942a2a453ba4830adaca2289da4449390e42443292",
+        "archive": "tar.gz",
+        "stripComponents": 1
+      },
+      "linux-x64": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260929/cpython-3.12.14%2B20260929-x86_64-unknown-linux-gnu-install_only.tar.gz",
+        "sha256": "06c90b93f419b63371c18f20fed0558a1a901f6518c3c24f755077e048447e7f",
+        "archive": "tar.gz",
+        "stripComponents": 1
+      }
+    }
+  },
+  "git": {
+    "version": "2.56.0",
+    "assets": {
+      "win32-x64": {
+        "url": "https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.1/MinGit-2.56.0-64-bit.zip",
+        "sha256": "064b440ff870ed5198527e8f3a92cdf5bd2fd0fedf5e718af95e3fdaddeff718",
+        "archive": "zip"
+      },
+      "win32-arm64": {
+        "url": "https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.1/MinGit-2.56.0-arm64.zip",
+        "sha256": "cb3b0f2d486ea52673227151a5baf5bc13861ff80e74e94e46d614d1bfcd5c06",
+        "archive": "zip"
+      }
+    }
+  }
+}

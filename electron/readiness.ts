@@ -7,7 +7,7 @@ import path from 'node:path'
 
 import { ensureAgyProject } from './agy-project'
 import type { CliCheck, Readiness } from './contract'
-import { resolveBin, spawnSpec } from './runner'
+import { resolveBin, spawnSpec, type SpawnSpec } from './runner'
 
 export type CliId = CliCheck['id']
 export type { CliCheck, Readiness }
@@ -22,10 +22,10 @@ const SKILL: Record<CliId, string[]> = {
   opencode: ['.opencode/skills/career-ops/SKILL.md', '.claude/skills/career-ops/SKILL.md'],
 }
 const HOW_TO_INSTALL: Record<CliId, string> = {
-  claude: 'Install Claude Code: npm install -g @anthropic-ai/claude-code',
-  codex: 'Install Codex: npm install -g @openai/codex',
-  antigravity: 'Install the Antigravity CLI (agy) from antigravity.google',
-  opencode: 'Install OpenCode: npm install -g opencode-ai',
+  claude: 'Claude Code isn\'t installed. Optional: paste "install @anthropic-ai/claude-code with npm into ~/.careerloom/runtime/npm" into any agent, or use OpenCode (installed automatically)',
+  codex: 'Codex isn\'t installed. Optional: paste "install @openai/codex with npm into ~/.careerloom/runtime/npm" into any agent, or use OpenCode (installed automatically)',
+  antigravity: 'Install the Antigravity CLI (agy) from antigravity.google, or use OpenCode (installed automatically)',
+  opencode: 'OpenCode is installed automatically when Careerloom starts — open Setup and press Retry if it is missing',
 }
 const HOW_TO_SIGN_IN: Record<CliId, string> = {
   claude: 'Sign in: run `claude` in a terminal and use /login',
@@ -48,9 +48,10 @@ export const firstLine = (out: string) => out.split('\n').map(l => l.trim()).fin
 
 function run(bin: string, args: string[], cwd: string, timeoutMs = 20_000): Promise<{ ok: boolean; out: string }> {
   return new Promise(resolve => {
-    let env: NodeJS.ProcessEnv
-    try { env = spawnSpec(path.basename(bin), []).env } catch { env = process.env }
-    execFile(bin, args, { cwd, timeout: timeoutMs, env, windowsHide: true }, (err, stdout, stderr) => {
+    // .cmd shims (npm-installed CLIs on Windows) can't be exec'd directly (spawn EINVAL); spawnSpec wraps them in cmd.exe.
+    let spec: SpawnSpec
+    try { spec = spawnSpec(path.basename(bin), args) } catch { spec = { bin, args, env: process.env } }
+    execFile(spec.bin, spec.args, { cwd, timeout: timeoutMs, env: spec.env, windowsHide: true, windowsVerbatimArguments: spec.verbatim }, (err, stdout, stderr) => {
       resolve({ ok: !err, out: `${stdout}\n${stderr}` })
     })
   })

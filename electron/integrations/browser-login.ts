@@ -8,6 +8,7 @@ import path from 'node:path'
 
 import type { BrowserLoginStatus, ConfigField, HealthCheck, IntegrationDetail } from '../contract'
 import { resolveBin, spawnSpec } from '../runner'
+import { findBrowser } from '../browser-driver/chrome'
 import { PLAYWRIGHT_MCP } from './browser-args'
 import {
   APP_BOUND, chromeLastUsed, chromeMacKey, chromeProfiles, chromeUserDataDir, cookiesDbPath, parseCookiesTxt, readChromeCookies, registrableDomain,
@@ -126,12 +127,23 @@ export function acknowledge(domains: string[]): void {
   writeRegistry({ browser: { ...cfg, acks: [...new Set([...cfg.acks, ...clean])] } })
 }
 
+export const acknowledgeList = (): string[] => [...readRegistry().browser.acks]
+export function revokeAck(domain: string): string[] {
+  const cfg = readRegistry().browser
+  const acks = cfg.acks.filter(d => d !== domain)
+  writeRegistry({ browser: { ...cfg, acks } })
+  return acks
+}
+
 // ————— Integrations card —————
 
 function profileOptions(): string[] {
   const profiles = chromeProfiles(localState(chromeUserDataDir()))
   return profiles.length ? profiles.map(p => p.dir) : ['Default']
 }
+
+/** The fast driver runs unless switched off, and only when a Chrome or Edge binary exists. */
+export const fastBrowserEnabled = (cfg: BrowserLoginConfig = effectiveLogin()): boolean => cfg.fast !== false && findBrowser() !== null
 
 export function browserLoginDetail(): IntegrationDetail {
   const cfg = effectiveLogin()
@@ -142,6 +154,7 @@ export function browserLoginDetail(): IntegrationDetail {
   const checks: HealthCheck[] = [
     ...(cfg.source === 'chrome' ? [{ label: 'Google Chrome profile found', ok: chromeFound }] : []),
     ...(cfg.source === 'file' ? [{ label: 'cookies.txt is valid', ok: fileError === null, detail: fileError ?? undefined }] : []),
+    { label: 'Chrome or Edge found (fast browser boards)', ok: findBrowser() !== null, optional: true, detail: findBrowser() ? undefined : 'Without it, browser boards use the agent (slower, costs tokens)' },
     { label: 'npx available (runs Playwright MCP)', ok: resolveBin('npx') !== null },
     ...(lastTest ? [lastTest] : []),
     ...(cfg.source === 'chrome' && process.platform === 'darwin'
@@ -154,6 +167,7 @@ export function browserLoginDetail(): IntegrationDetail {
     ...(cfg.source === 'file' ? [{ key: 'cookiesFile', label: 'cookies.txt file', type: 'path' as const, value: cfg.cookiesFile, help: 'Inside your home folder, ≤5 MB, Netscape format' }] : []),
     { key: 'testDomain', label: 'Test domain', type: 'text', value: cfg.testDomain, help: 'Test shows how many cookies Careerloom can read for it — never their values' },
     { key: 'pageWait', label: 'Page load wait (s)', type: 'text', value: String(pageWaitSeconds(cfg)), help: `Seconds the agent waits after each page loads (1–${MAX_WAIT_S}); raise it for slow boards` },
+    { key: 'fast', label: 'Fast browser boards', type: 'boolean', value: cfg.fast !== false, help: 'Careerloom reads job lists itself (no agent, no tokens, read-only) and falls back to the agent if a site changes' },
     { key: 'headless', label: 'Hide the browser window', type: 'boolean', value: cfg.headless },
   ]
   return {
@@ -188,6 +202,7 @@ export function setBrowserLoginConfig(patch: Record<string, string | boolean | n
     next.testDomain = d
   }
   if (typeof patch.headless === 'boolean') next.headless = patch.headless
+  if (typeof patch.fast === 'boolean') next.fast = patch.fast
   if (next.source !== cfg.source || next.profile !== cfg.profile || next.cookiesFile !== cfg.cookiesFile) lastTest = null
   writeRegistry({ browser: next })
 }

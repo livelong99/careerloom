@@ -1,0 +1,26 @@
+/* AI-interviewer additions to the overlay panel (design §3.3). Tokens come from .ov (overlay.css). */
+.ov .ivrow { display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 16px; border-bottom: 1px solid var(--line); }
+.ov .ivav { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; flex: none; font: 600 11px var(--sans); color: var(--accent-text); background: color-mix(in srgb, var(--accent) 16%, transparent); border: 1.5px solid var(--accent); }
+.ov .ivwho { display: grid; min-width: 0; flex: 1; line-height: 1.3; }
+.ov .ivwho b { font-weight: var(--fw-sub); }
+.ov .ivwho .ivmic { color: var(--thread, var(--mut)); }
+.ov .ivwho span { font-size: 11.5px; color: var(--mut); }
+.ov .ivwave { display: inline-flex; align-items: center; gap: 2px; height: 16px; opacity: 0; }
+.ov .ivwave i { width: 3px; height: 4px; border-radius: 2px; background: var(--accent); }
+.ov .ivrow[data-state="speaking"] .ivwave { opacity: 1; }
+.ov .ivrow[data-state="speaking"] .ivwave i { animation: iv-wave .9s ease-in-out infinite; }
+.ov .ivrow[data-state="speaking"] .ivwave i:nth-child(2) { animation-delay: .12s; }
+.ov .ivrow[data-state="speaking"] .ivwave i:nth-child(3) { animation-delay: .24s; }
+.ov .ivrow[data-state="speaking"] .ivwave i:nth-child(4) { animation-delay: .36s; }
+.ov .ivrow[data-state="speaking"] .ivwave i:nth-child(5) { animation-delay: .48s; }
+.ov .ivrow[data-state="speaking"] .ivav { animation: iv-ring 1.6s ease-out infinite; }
+.ov .ivcap { margin: 0; padding: 12px 14px 12px 16px; font-size: 1.05em; font-weight: var(--fw-sub); line-height: 1.45; border-bottom: 1px solid var(--line); }
+.ov .ivtype { display: flex; gap: 8px; padding: 0 14px 12px 16px; }
+.ov .ivtype input { flex: 1; min-width: 0; height: 28px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; }
+.ov .ivtype input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@keyframes iv-wave { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+@keyframes iv-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+@media (prefers-reduced-motion: reduce) {
+  .ov .ivrow[data-state="speaking"] .ivwave i, .ov .ivrow[data-state="speaking"] .ivav { animation: none; }
+  .ov .ivrow[data-state="speaking"] .ivwave i { height: 10px; }
+}

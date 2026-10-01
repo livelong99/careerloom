@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Settings — prototype</title>
+<link rel="stylesheet" href="css/tokens.css"><link rel="stylesheet" href="css/app.css"><link rel="stylesheet" href="css/settings.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="logo"><i>◠</i><span>Career<b>loom</b></span></div>
+    <a class="ni" href="#"><span data-i="grid"></span>Overview</a>
+    <div class="grp">Job search</div>
+    <a class="ni" href="#"><span data-i="list"></span>Jobs</a>
+    <a class="ni" href="#"><span data-i="tag"></span>Boards</a>
+    <a class="ni" href="#"><span data-i="brief"></span>Resume</a>
+    <a class="ni" href="#"><span data-i="mic"></span>Copilot</a>
+    <div class="grp">Agents</div>
+    <a class="ni" href="#"><span data-i="spark"></span>Agent</a>
+    <a class="ni" href="#"><span data-i="dash"></span>Monitoring</a>
+    <a class="ni on" href="#general" style="margin-top:8px"><span data-i="cog"></span>Settings<i class="attn" title="Needs attention"></i></a>
+    <div class="foot"><span><span data-i="help"></span> Help</span><span>v0.2.0</span></div>
+  </aside>
+  <header class="top">
+    <h1>Settings</h1><span class="sp"></span>
+    <button class="btn"><span data-i="clock"></span>Runs</button>
+    <button class="btn"><span data-i="search"></span>Search <span class="kbd">⌘K</span></button>
+  </header>
+  <main class="main"><div class="ws">
+    <nav class="sub" aria-label="Settings sections" id="subnav">
+      <div class="srch"><span data-i="search"></span><input id="q" placeholder="Search settings" aria-label="Search settings" autocomplete="off"><span class="kbd">/</span>
+        <div class="sres" id="sres" role="listbox">
+          <div class="h">Settings</div>
+          <a class="hl" href="#data"><span data-i="clock"></span><span>Run log <mark>retention</mark></span><small>Data &amp; privacy</small></a>
+          <a href="#copilot"><span data-i="mic"></span><span>Copilot session <mark>retention</mark></span><small>Copilot</small></a>
+          <a href="#monitoring"><span data-i="dash"></span><span>Findings window</span><small>Monitoring</small></a>
+          <div class="h">No more matches</div>
+        </div>
+      </div>
+      <h6>Basics</h6>
+      <a href="#general"><span data-i="home"></span>General</a>
+      <h6>AI</h6>
+      <a href="#runners"><span data-i="spark"></span>Runners &amp; models<i class="dot ok"></i></a>
+      <a href="#keys"><span data-i="key"></span>API keys<i class="dot"></i></a>
+      <a href="#local"><span data-i="chip"></span>Local models<i class="dot"></i></a>
+      <h6>Connections</h6>
+      <a href="#integrations"><span data-i="puzzle"></span>Integrations<i class="dot bad"></i></a>
+      <h6>Workflows</h6>
+      <a href="#jobs"><span data-i="list"></span>Jobs &amp; boards</a>
+      <a href="#resume"><span data-i="brief"></span>Resume &amp; documents</a>
+      <a href="#agent"><span data-i="chat"></span>Agent</a>
+      <a href="#copilot"><span data-i="mic"></span>Copilot</a>
+      <a href="#monitoring"><span data-i="dash"></span>Monitoring</a>
+      <h6>System</h6>
+      <a href="#data"><span data-i="shield"></span>Data &amp; privacy</a>
+      <a href="#advanced"><span data-i="sliders"></span>Advanced</a>
+    </nav>
+    <div class="pages">
+
+<!-- GENERAL -->
+<section class="page" id="p-general">
+  <header><h2>General</h2><p>Where your data lives, how the app looks and how often it refreshes.</p></header>
+  <div class="card"><div class="ch"><b>career-ops folder</b><div class="r"><span class="ss ok"><span data-i="check" data-s="13"></span>Saved</span></div></div><div class="cb">
+    <div class="row"><div class="lab"><b class="mono" style="color:var(--ink)">~/Documents/Interview/career-ops</b><span>Your CV, tracker and reports live here. Careerloom reads them; the agent writes.</span></div><span class="badge ok">● Valid</span><button class="btn">Choose folder…</button></div>
+    <div class="row"><div class="lab"><b>Dependencies</b><span>node_modules present · git found · Node 22</span></div><span class="badge ok">Ready</span><button class="btn sm">Check again</button></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Appearance &amp; language</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Theme</b><span>App only. The Copilot overlay has its own theme under Copilot.</span></div><div class="seg"><button aria-pressed="false">System</button><button aria-pressed="false">Light</button><button aria-pressed="true">Dark</button></div></div>
+    <div class="row"><div class="lab"><b>Language</b><span>Applies to menus and labels. Job content stays as written.</span></div><select class="sel"><option>English</option><option>Français</option><option>日本語</option></select></div>
+    <div class="row"><div class="lab"><b>Reduce motion</b><span>Follows your system setting unless turned on here.</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Reduce motion"></button></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Refresh &amp; updates</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Refresh cadence</b><span>How often Overview, Jobs, Boards and Monitoring re-read data. Slows on battery.</span></div><div class="seg" id="cad"><button aria-pressed="false">30 s</button><button aria-pressed="true">1 min</button><button aria-pressed="false">5 min</button><button aria-pressed="false">Manual</button></div></div>
+    <div class="row"><div class="lab"><b>Check for updates</b><span>Once a day, notify only. v0.2.0 · last checked 3 h ago</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Check for updates"></button><button class="btn sm">Check now</button></div>
+  </div></div>
+</section>
+
+<!-- RUNNERS -->
+<section class="page" id="p-runners">
+  <header><h2>Runners &amp; models</h2><p>Which agent does the work, what it may do, and which model it uses. Pre-screening and finding fit are done locally and never use these.</p></header>
+  <div class="rc active"><div class="top2"><div><h4>Claude Code <span class="badge brand">Active</span> <span class="badge ok">● Ready</span></h4><p>Uses your Claude subscription. Edits files and runs career-ops scripts; nothing else without asking.</p></div><span style="flex:1"></span><button class="btn" disabled>In use</button></div>
+    <div class="facts"><span><span data-i="check" data-s="13"></span>Installed 2.1.4</span><span><span data-i="check" data-s="13"></span>Signed in</span><span><span data-i="check" data-s="13"></span>career-ops skill found</span></div>
+    <div class="mods"><label>Model<input class="inp" value="" placeholder="CLI default"></label><label><span>Helper model <span style="color:var(--mut2)">· structures postings, humanizes text</span></span><input class="inp" value="haiku"></label></div></div>
+  <div class="rc"><div class="top2"><div><h4>Codex <span class="badge warn">Needs attention</span></h4><p>ChatGPT/Codex plan, sandboxed to the folder (<span class="mono">codex exec</span>).</p></div><span style="flex:1"></span><button class="btn">Use</button></div>
+    <div class="facts"><span><span data-i="check" data-s="13"></span>Installed 0.41</span><span style="color:var(--bad)"><span data-i="x" data-s="13"></span>Not signed in</span><span><span data-i="check" data-s="13"></span>skill found</span></div>
+    <div class="notice warn" style="margin-top:10px"><span class="ic" data-i="warn"></span><span><b>Fix:</b> run <span class="kbd">codex login</span> in a terminal, then <a href="#" style="color:var(--accent-text)">Check again</a>.</span></div></div>
+  <div class="rc"><div class="top2"><div><h4>OpenCode Zen (API) <span class="badge">Key missing</span></h4><p>Nothing to install; Careerloom runs the agent on the OpenCode Zen API. Needs a paid model.</p></div><span style="flex:1"></span><button class="btn">Add key in API keys →</button></div></div>
+  <details class="card" style="padding:0"><summary style="padding:12px 16px;cursor:pointer;font-weight:var(--fw-sub)">3 more runners — Antigravity, OpenCode, OpenRouter API <span class="badge" style="margin-left:6px">1 ready</span></summary></details>
+</section>
+
+<!-- KEYS -->
+<section class="page" id="p-keys">
+  <header><h2>API keys</h2><p>Stored in your OS keychain. Careerloom shows only the last four characters, never the key. Needed for your active runner (<b>Claude Code</b>): none.</p></header>
+  <div class="card"><div class="cb">
+    <div class="key" id="k-openrouter"><div class="lg">OR</div>
+      <div><h4>OpenRouter <span class="badge ok">● Saved</span> <span class="mask">••••a1b2</span></h4>
+        <div class="meta"><span>Used by: API runner · Copilot answers</span><span class="test ok"><span data-i="check" data-s="13"></span>Tested 2 min ago · 412 ms</span></div></div>
+      <div class="acts"><button class="btn sm"><span data-i="refresh" data-s="13"></span>Test</button><button class="btn sm">Replace</button><button class="btn sm danger">Remove</button></div></div>
+    <div class="key" id="k-zen"><div class="lg">Z</div>
+      <div><h4>OpenCode Zen <span class="badge warn">Replacing</span> <span class="mask">••••9f3c</span></h4>
+        <div class="meta"><span>Used by: OpenCode CLI (paid models) · Zen runner</span></div></div>
+      <div class="acts"><button class="btn sm" disabled>Test</button></div>
+      <div class="edit"><input class="inp bad" type="password" value="oc_short" aria-label="New OpenCode Zen key" aria-invalid="true"><button class="btn primary sm" disabled>Save</button><button class="btn sm">Cancel</button><a class="btn quiet sm" href="#">Get a key <span data-i="ext" data-s="12"></span></a></div>
+      <div class="err"><span data-i="warn" data-s="13"></span>Zen keys are 16–200 characters (letters, digits, . _ -). This one is 8.</div></div>
+    <div class="key" id="k-firecrawl"><div class="lg">FC</div>
+      <div><h4>Firecrawl <span class="badge">Not set</span> <span class="badge">Optional</span></h4>
+        <div class="meta"><span>Used by: any-site job boards (self-hosted, local)</span><span class="test bad"><span data-i="x" data-s="13"></span>Last test failed · API unreachable at 127.0.0.1:3002</span></div></div>
+      <div class="acts"><button class="btn sm">Add key</button><button class="btn sm">Test</button></div></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Plugin keys</b><span class="badge">read-only</span></div><div class="cb">
+    <div class="desc" style="margin:0 0 8px">Stored by career-ops in its own <span class="mono">.env</span>. Edit them on the plugin in Integrations.</div>
+    <div class="row"><div class="lab"><b>linkedin-enrich</b><span class="mono">LINKEDIN_API_TOKEN</span></div><span class="badge warn">Missing</span><button class="btn sm">Open plugin →</button></div>
+  </div></div>
+  <div class="notice"><span class="ic" data-i="lock"></span><span>Keys never leave the OS keychain, aren't written to logs, and aren't shown after saving. Testing uses the cheapest call (a key lookup or model list) — no tokens are spent.</span></div>
+</section>
+
+<!-- LOCAL -->
+<section class="page" id="p-local">
+  <header><h2>Local models</h2><p>Small models that run on this Mac. Nothing is bundled with the app; installs happen here.</p></header>
+  <div class="card"><div class="ch"><b>Pre-screen &amp; fit</b><div class="r"><span class="badge ok">● Installed</span></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>verdict-small</b><span>Sorts jobs into likely / maybe / unlikely and scores resume fit. 1.4 GB · Python 3.12 · CPU</span></div><button class="btn sm">Retrain on my feedback</button></div>
+    <div class="row"><div class="lab"><b>Location</b><span class="mono">~/.careerloom/model</span></div><button class="btn sm">Show in Finder</button></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Interview Copilot transcription</b><div class="r"><span class="badge warn">Not installed</span></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>Whisper small (MLX)</b><span>Default for Apple Silicon · ~500 MB · p50 772 ms on test speech</span></div><button class="btn primary sm">Install</button></div>
+    <div class="row"><div class="lab"><b>Memory</b><span>16 GB total · 9.1 GB free — one model runs at a time.</span></div><div style="width:140px"><div class="bar3"><i style="width:43%"></i></div></div></div>
+  </div></div>
+</section>
+
+<!-- INTEGRATIONS -->
+<section class="page" id="p-integrations">
+  <header><h2>Integrations</h2><p>Services, skills and plugins Careerloom can use. 4 ready · 1 needs setup · 1 error.</p></header>
+  <div class="cats"><span class="c on">All <i>6</i></span><span class="c">Services <i>2</i></span><span class="c">Skills <i>2</i></span><span class="c">Plugins <i>2</i></span><span class="c" title="Managed on Boards">Job sources → Boards</span><button class="btn sm" style="margin-left:auto"><span data-i="plus" data-s="13"></span>Add skill or plugin…</button></div>
+  <div class="card"><table class="it"><tbody>
+    <tr><td class="nm" style="width:34%"><b>career-ops</b><span>Skill · system layer</span></td><td><span class="badge ok">● Ready</span></td><td style="color:var(--mut);font-size:12.5px">Tracked · node_modules present</td><td style="text-align:right"><button class="btn sm">Check</button> <button class="btn sm">Update</button></td></tr>
+    <tr><td class="nm"><b>Firecrawl</b><span>Service · self-hosted scraping</span></td><td><span class="badge bad">● Error</span></td><td style="color:var(--bad);font-size:12.5px">API unreachable · Docker stopped</td><td style="text-align:right"><button class="btn primary sm">Start</button> <button class="btn sm">Test</button></td></tr>
+    <tr><td colspan="4" style="padding:0"><div class="detail">
+      <ul class="checks"><li class="y"><span data-i="check" data-s="13"></span>URL is loopback (127.0.0.1:3002)</li><li class="y"><span data-i="check" data-s="13"></span>Docker installed</li><li class="n"><span data-i="x" data-s="13"></span>Docker running — <span class="mono">docker info</span> failed</li><li class="o"><span data-i="x" data-s="13"></span>Containers up (optional)</li></ul>
+      <div class="cfg"><label>URL<input class="inp" value="http://127.0.0.1:3002"></label><label>API key <span style="color:var(--mut2)">· optional, managed in <a href="#keys" style="color:var(--accent-text)">API keys</a></span><span class="badge" style="width:fit-content">Not set</span></label></div><div style="margin-top:10px"><button class="btn primary sm">Save</button></div></div></td></tr>
+    <tr><td class="nm"><b>Browser login</b><span>Service · Chrome cookies, read-only</span></td><td><span class="badge warn">● Needs setup</span></td><td style="color:var(--mut);font-size:12.5px">Profile “Default” · 2 sites acknowledged</td><td style="text-align:right"><button class="btn sm">Test</button> <button class="btn sm">Configure</button></td></tr>
+    <tr><td class="nm"><b>humanizer</b><span>Skill · user-installed</span></td><td><span class="badge ok">● Ready</span></td><td style="color:var(--mut);font-size:12.5px">1 entrypoint</td><td style="text-align:right"><button class="btn sm">Disable</button> <button class="btn sm danger">Remove</button></td></tr>
+    <tr><td class="nm"><b>linkedin-enrich</b><span>Plugin · career-ops</span></td><td><span class="badge warn">● Needs setup</span></td><td style="color:var(--mut);font-size:12.5px">Missing key: LINKEDIN_API_TOKEN</td><td style="text-align:right"><button class="btn sm">Configure</button></td></tr>
+  </tbody></table></div>
+</section>
+
+<!-- JOBS -->
+<section class="page" id="p-jobs">
+  <header><h2>Jobs &amp; boards</h2><p>How roles are filtered before you see them, and what scans and evaluation do by default.</p></header>
+  <div class="card"><div class="ch"><b>Pre-screen policy</b><div class="r"><span class="ss dirty">● Unsaved</span><button class="btn sm">Revert</button><button class="btn primary sm">Save</button></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>Countries you'll work in</b><span>Roles elsewhere are marked “unlikely”. Defaults come from your resume.</span></div><div class="tags" style="max-width:340px;justify-content:flex-end"><span class="badge brand">India ×</span><span class="badge brand">Singapore ×</span><span class="badge">+ Add</span></div></div>
+    <div class="row"><div class="lab"><b>Remote anywhere counts</b><span>Keeps fully remote roles regardless of country.</span></div><button class="sw" role="switch" aria-checked="true"></button></div>
+    <div class="row"><div class="lab"><b>Your years of experience</b><span>Skips the seniority check when empty.</span></div><input class="inp" type="number" value="6" style="min-width:90px;width:90px"></div>
+    <div class="row"><div class="lab"><b>Model</b><span>Pre-screen model is installed.</span></div><span class="badge ok">● Installed</span><a class="btn quiet sm" href="#local">Local models →</a></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Limits (fixed)</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Evaluation runs one job at a time</b><span>Each job gets its own agent worker; running them in parallel exhausts memory on most laptops.</span></div><span class="badge">Sequential</span></div>
+    <div class="row"><div class="lab"><b>Scan caps</b><span>Up to 200 jobs and 3 pages per web board per scan.</span></div></div>
+  </div></div>
+</section>
+
+<!-- RESUME -->
+<section class="page" id="p-resume">
+  <header><h2>Resume &amp; documents</h2><p>Defaults for tailored resumes and cover letters. You can still override them per document.</p></header>
+  <div class="card"><div class="ch"><b>Writing defaults</b><div class="r"><span class="ss ok"><span data-i="check" data-s="13"></span>Saved</span></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>Tone</b></div><div class="seg"><button aria-pressed="false">Concise</button><button aria-pressed="true">Warm</button><button aria-pressed="false">Formal</button></div></div>
+    <div class="row"><div class="lab"><b>Length</b></div><div class="seg"><button aria-pressed="false">Short</button><button aria-pressed="true">Standard</button></div></div>
+    <div class="row"><div class="lab"><b>Humanize text</b><span>Rewrites stiff phrasing. Facts are checked after.</span></div><button class="sw" role="switch" aria-checked="true"></button></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Output</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Page format</b><span>Written to <span class="mono">config/profile.yml</span>.</span></div><div class="seg"><button aria-pressed="false">A4</button><button aria-pressed="true">Letter</button></div></div>
+    <div class="row"><div class="lab"><b>Template</b><span>Picked while viewing the document.</span></div><span class="chip"><b>Classic</b><a href="#">Change in Resume →</a></span></div>
+    <div class="row"><div class="lab"><b>ATS scoring</b><span>Uses the local model; falls back to keyword match without it.</span></div><span class="badge ok">● Local model ready</span></div>
+  </div></div>
+</section>
+
+<!-- AGENT -->
+<section class="page" id="p-agent">
+  <header><h2>Agent</h2><p>What the agent is allowed to do. These limits are fixed for safety.</p></header>
+  <div class="card"><div class="ch"><b>Active runner</b></div><div class="cb"><div class="row"><div class="lab"><b>Claude Code</b><span>Change on Runners &amp; models.</span></div><span class="badge ok">● Ready</span><a class="btn sm" href="#runners">Manage →</a></div></div></div>
+  <div class="card"><div class="ch"><b>What each runner may do</b></div><div class="cb"><table class="tbl"><thead><tr><th>Runner</th><th>Files</th><th>Commands</th><th>Network</th></tr></thead><tbody>
+    <tr><td>Claude Code</td><td>Edit in folder</td><td>career-ops scripts</td><td>Ask first</td></tr>
+    <tr><td>Codex</td><td>Workspace-write sandbox</td><td>Sandboxed</td><td>Off</td></tr>
+    <tr><td>Antigravity</td><td>Write only in folder</td><td>Any, sandboxed</td><td>Sandbox rules</td></tr>
+    <tr><td>OpenCode / Zen</td><td>Edit in folder</td><td>career-ops scripts</td><td>Search + fetch</td></tr></tbody></table></div></div>
+  <div class="card"><div class="ch"><b>Skills in use</b></div><div class="cb"><div class="row"><div class="lab"><b>career-ops, humanizer</b><span>Enabled skills are visible to every runner.</span></div><a class="btn sm" href="#integrations">Manage in Integrations →</a></div></div></div>
+</section>
+
+<!-- COPILOT -->
+<section class="page" id="p-copilot">
+  <header><h2>Copilot</h2><p>Speech recognition, answer models and what is kept. Coaching style, overlay look, hotkeys and audio devices stay in the <a href="#" style="color:var(--accent-text)">Copilot workspace</a>, next to the live preview.</p></header>
+  <div class="card"><div class="ch"><b>Transcription</b><div class="r"><span class="badge warn">Engine not installed</span></div></div><div class="cb">
+    <div class="row"><div class="lab"><b>Engine</b></div><select class="sel"><option>Whisper (MLX)</option><option>Moonshine</option></select></div>
+    <div class="row"><div class="lab"><b>Model</b></div><select class="sel"><option>small</option></select></div>
+    <div class="row"><div class="lab"><b>Wait for silence</b><span>How long to wait before a question counts as finished.</span></div><input type="range" class="rng" value="650" min="200" max="3000"><span class="val">650 ms</span></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Answer engine</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Speed tier</b></div><div class="seg"><button aria-pressed="false">Fast</button><button aria-pressed="true">Balanced</button><button aria-pressed="false">Deep</button></div></div>
+    <div class="row"><div class="lab"><b>OpenRouter key</b></div><span class="badge ok">● Saved ••••a1b2</span><a class="btn sm" href="#keys">Manage →</a></div>
+    <div class="row"><div class="lab"><b>Share prompts with model providers</b><span>Off asks OpenRouter to route only to providers that don't keep data.</span></div><button class="sw" role="switch" aria-checked="false"></button></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Privacy &amp; retention</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Keep session text for</b><span>Summaries are kept; transcript text is removed after this. 12 sessions will expire.</span></div><select class="sel"><option>90 days</option><option>30 days</option><option>Forever</option></select></div>
+    <div class="row"><div class="lab"><b>Redact names and numbers</b></div><button class="sw" role="switch" aria-checked="true"></button></div>
+    <div class="row"><div class="lab"><b>Privacy mode</b><span>Hides the overlay from screen capture · neutral window title · indicator chip</span></div><span class="badge">Off</span></div>
+  </div></div>
+</section>
+
+<!-- MONITORING -->
+<section class="page" id="p-monitoring">
+  <header><h2>Monitoring</h2><p>How current the dashboards are and how long run history is kept.</p></header>
+  <div class="card"><div class="cb">
+    <div class="row"><div class="lab"><b>Refresh cadence</b><span>Shared with Overview, Jobs and Boards.</span></div><span class="chip"><b>1 min</b><a href="#general">Change in General →</a></span></div>
+    <div class="row"><div class="lab"><b>Keep run history</b><span>1,284 runs · 38 MB of logs. Costs and totals stay; only logs are removed.</span></div><select class="sel"><option>Forever</option><option>90 days</option><option>30 days</option></select></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>What raises a finding</b></div><div class="cb"><div class="tags"><span class="badge">3+ unapplied strong matches</span><span class="badge">No scan in 7 days</span><span class="badge">30%+ runs failing</span><span class="badge">Follow-up older than 7 days</span><span class="badge">Cost per evaluation over $0.50</span></div></div></div>
+</section>
+
+<!-- DATA -->
+<section class="page" id="p-data">
+  <header><h2>Data &amp; privacy</h2><p>Where everything is stored, what's secret, and how to clear it.</p></header>
+  <div class="card"><div class="ch"><b>Locations</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>App data</b><span class="mono">~/Library/Application Support/careerloom</span></div><button class="btn sm">Show in Finder</button></div>
+    <div class="row"><div class="lab"><b>career-ops folder</b><span class="mono">~/Documents/Interview/career-ops</span></div><button class="btn sm">Show in Finder</button></div>
+    <div class="row"><div class="lab"><b>Local models</b><span class="mono">~/.careerloom</span></div><button class="btn sm">Show in Finder</button></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Secrets</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>OS keychain · 3 keys</b><span>OpenRouter, OpenCode Zen saved; Firecrawl not set. Plugin keys sit in career-ops <span class="mono">.env</span> (owner-only file).</span></div><a class="btn sm" href="#keys">Manage →</a></div>
+    <div class="row"><div class="lab"><b>Copilot consent log</b><span>Every time you accepted the interview-recording notice.</span></div><button class="btn sm">Export…</button></div>
+  </div></div>
+  <div class="card dz"><div class="ch"><b>Danger zone</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Clear run logs</b><span>38 MB · 1,284 runs. Costs and totals are kept.</span></div><button class="btn sm">Clear logs…</button></div>
+    <div class="row"><div class="lab"><b>Delete chat threads</b><span>14 threads.</span></div><button class="btn sm">Delete…</button></div>
+    <div class="row"><div class="lab"><b>Delete Copilot sessions</b><span>31 sessions, including summaries.</span></div><button class="btn sm">Delete…</button></div>
+  </div></div>
+</section>
+
+<!-- ADVANCED -->
+<section class="page" id="p-advanced">
+  <header><h2>Advanced</h2><p>Diagnostics and resets.</p></header>
+  <div class="card"><div class="ch"><b>Diagnostics</b><div class="r"><button class="btn sm"><span data-i="refresh" data-s="13"></span>Recheck all</button><button class="btn sm"><span data-i="copy" data-s="13"></span>Copy report</button></div></div><div class="cb">
+    <div class="kv"><span>Node</span><span class="mono">v22.4.0</span><span class="badge ok">OK</span>
+      <span>git</span><span class="mono">/usr/bin/git 2.45</span><span class="badge ok">OK</span>
+      <span>Python</span><span class="mono">3.12.3 (local models)</span><span class="badge ok">OK</span>
+      <span>claude</span><span class="mono">~/.local/bin/claude 2.1.4</span><span class="badge ok">OK</span>
+      <span>codex</span><span class="mono">/opt/homebrew/bin/codex 0.41</span><span class="badge warn">Not signed in</span>
+      <span>Memory</span><span class="mono">9.1 GB free of 16 GB</span><span class="badge ok">OK</span></div>
+  </div></div>
+  <div class="card"><div class="ch"><b>Reset</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Reset preferences</b><span>Theme, language, cadence, doc defaults. Keys, folder and runner are kept.</span></div><button class="btn sm" id="openReset">Reset preferences…</button></div>
+  </div></div>
+  <div class="card dz"><div class="ch"><b>Danger zone</b></div><div class="cb">
+    <div class="row"><div class="lab"><b>Reset everything</b><span>Removes preferences and all saved API keys from the keychain. Your career-ops folder is not touched.</span></div><button class="btn sm">Reset everything…</button></div>
+  </div></div>
+</section>
+
+    </div>
+  </div></main>
+</div>
+
+<div class="toast" id="toast" role="status"><span>Refresh cadence set to 1 min</span><button>Undo</button></div>
+<div class="scrim" id="scrim"><div class="dlg" role="alertdialog" aria-labelledby="dt">
+  <header><h3 id="dt">Remove the OpenRouter key?</h3><p>This deletes the key from your keychain. It can't be undone.</p></header>
+  <div class="body"><div class="notice warn"><span class="ic" data-i="warn"></span><span><b>Stops working:</b> the API runner and Copilot answers. Your active runner (Claude Code) is unaffected.</span></div></div>
+  <footer><button class="btn" id="dlgCancel">Cancel</button><button class="btn primary" style="background:var(--bad);color:#fff">Remove key</button></footer>
+</div></div>
+
+<script src="js/icons.js"></script>
+<script>
+const q = new URLSearchParams(location.search); document.documentElement.dataset.motion = 'off';
+document.documentElement.dataset.theme = q.get('theme') === 'light' ? 'light' : 'dark';
+const pages = [...document.querySelectorAll('.page')], links = [...document.querySelectorAll('#subnav > a')];
+function show() {
+  const id = (location.hash || '#general').slice(1);
+  pages.forEach(p => p.classList.toggle('on', p.id === 'p-' + id));
+  links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + id));
+  const f = q.get('focus'); if (f) { const el = document.getElementById(f); if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('pulse'); } }
+}
+addEventListener('hashchange', show); show();
+document.querySelectorAll('.seg').forEach(s => s.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; s.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); document.getElementById('toast').classList.add('on'); setTimeout(() => document.getElementById('toast').classList.remove('on'), 5000); }));
+document.querySelectorAll('.sw').forEach(s => s.addEventListener('click', () => s.setAttribute('aria-checked', s.getAttribute('aria-checked') !== 'true')));
+if (q.get('toast')) document.getElementById('toast').classList.add('on');
+if (q.get('search')) { document.getElementById('q').value = q.get('search'); document.getElementById('sres').classList.add('on'); }
+if (q.get('dlg')) document.getElementById('scrim').classList.add('on');
+document.getElementById('dlgCancel').onclick = () => document.getElementById('scrim').classList.remove('on');
+document.getElementById('q').addEventListener('input', e => document.getElementById('sres').classList.toggle('on', !!e.target.value));
+</script>
+</body>
+</html>

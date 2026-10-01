@@ -1,0 +1,222 @@
+// Default (Electron + career-ops) bindings for createCopilot's slots: the real overlay host (WP1), engine/context/detector (WP2)
+// and session controller + local STT (WP3). Everything is built lazily on first use, so importing this never touches Electron.
+import fs from 'node:fs'
+import path from 'node:path'
+
+import { app, BrowserWindow, desktopCapturer, screen, shell, systemPreferences } from 'electron'
+
+import { broadcast, readApiKey, userFile } from '../context'
+import { readCv } from '../resume-agent'
+import { jobContext } from '../job-view/handlers'
+import { asPermStatus, ensureMic, micSettingsPath, screenStatus, settingsUrl } from './audio-perms'
+import { readCopilotConfig, writeCopilotConfig } from './config'
+import { kbLive } from './kb-live'
+import { createContextBuilder, defaultContextDeps, type GroundingContext } from './context'
+import { createCostMeter } from './cost'
+import { createTraceLog } from './trace'
+import { createDetector } from './detector'
+import { e2eHooks } from './e2e-hooks'
+import { createAnswerEngine, createLlmClassifier, defaultModelFor, recVision, type AnswerEngine } from './engine'
+import type { CopilotDeps, createCopilot } from './handlers'
+import { createConfiguredClassify } from './gate/configured'
+import { createLiveWiring } from './live-wiring'
+import { listLiveModels, liveProvider, testLiveModel } from './live'
+import { getOverlayHost } from './overlay-runtime'
+import { createScoreCall, nameFromCv, redactIfOn } from './privacy-calls'
+import { PRIVACY_NOTICE_VERSION } from './privacy-mode'
+import { collectText } from './providers/openrouter'
+import { createScreenshotPipeline, sweepShotDir, type ScreenshotPipeline } from './screenshots'
+import { fitLongEdge } from './vision'
+import { createSessionController } from './session'
+import { createFakeAdapter, parseFixture } from './stt/fake'
+import { benchmarkStt } from './stt/benchmark'
+import { killSttSidecars } from './stt/child'
+import { createSttAdapter, listSttModels } from './stt/engines'
+import { interviewPool } from '../interviewer/pool'
+import { getKbStore } from '../kb/runtime'
+import { endInterviewVoice, interviewSpeaker, micPausesWhileSpeaking, ttsRuntime } from '../kb/voice'
+import { gateAudioMsg, parseAudioMsg } from './audio-in'
+import { installStt } from './stt/install'
+import { createProbeHub } from './stt/probe'
+import { defaultModel, findSttRuntime } from './stt/runtime'
+import type { SessionController } from './session'
+import type { AudioChunkMsg, PermStatus } from './types'
+
+type CopilotInstance = ReturnType<typeof createCopilot>
+const SESSION_CEILING_USD = 1 // plan §10: stops answering with a visible message instead of silently degrading
+
+const mediaStatus = (kind: 'microphone' | 'screen'): PermStatus => { try { return kind === 'screen' ? screenStatus(systemPreferences) : asPermStatus(systemPreferences.getMediaAccessStatus(kind)) } catch { return 'unknown' } }
+const lazy = <T>(make: () => T): (() => T) => { let v: { value: T } | null = null; return () => (v ??= { value: make() }).value }
+
+const SHOT_DIR = (): string => path.join(app.getPath('temp'), 'careerloom-copilot-shots')
+/** Crash recovery: frames a killed run left in the temp dir. Call once at startup (main.ts). */
+export const sweepCopilotShots = (): number => sweepShotDir(SHOT_DIR())
+let shots: ScreenshotPipeline | null = null
+/** Deletes every held frame: session stop, panic, delete, quit. Also sweeps the directory, so nothing outlives the app. */
+export const clearCopilotShots = (): void => { shots?.clear(); sweepShotDir(SHOT_DIR()) }
+const overlayWindow = (): BrowserWindow | undefined => BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().includes('overlay.html'))
+/** One pipeline per session (the image budget is per session). Frames are captured with the overlay hidden, never faded. */
+function shotPipeline(): ScreenshotPipeline {
+  let overlayWasVisible = false
+  return (shots ??= createScreenshotPipeline({
+    dir: SHOT_DIR(),
+    screenStatus: () => mediaStatus('screen'),
+    hideOverlay: () => { const w = overlayWindow(); overlayWasVisible = w?.isVisible() ?? false; if (overlayWasVisible) w!.hide() },
+    showOverlay: () => { if (overlayWasVisible) overlayWindow()?.showInactive() }, // never takes focus
+    displaySize: () => fitLongEdge(displayUnderOverlay().size, 1280),
+    grab: async size => {
+      const d = displayUnderOverlay()
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size })
+      const src = sources.find(s => s.display_id === String(d.id)) ?? sources[0]
+      return src && !src.thumbnail.isEmpty() ? src.thumbnail : null
+    },
+  }))
+}
+const displayUnderOverlay = (): Electron.Display => {
+  const id = readCopilotConfig().overlay.displayId
+  return screen.getAllDisplays().find(d => d.id === id) ?? screen.getPrimaryDisplay()
+}
+
+let gated = 0
+let audioSink: ((m: AudioChunkMsg) => void) | null = null
+const probeHub = createProbeHub()
+/** `careerloom:copilotAudio` handler body: validated chunks reach the running session and any open audio test, everything else is dropped. */
+export function copilotAudioIn(raw: unknown): void {
+  const m = parseAudioMsg(raw)
+  if (!m) return
+  probeHub.tap(m)
+  const heard = gateAudioMsg(m, ttsRuntime().gate()) // mic frames are dropped while the interviewer speaks (half-duplex)
+  if (heard) audioSink?.(heard)
+  else if (process.env.CL_KB_E2E === '1' && ++gated % 20 === 1) console.log('[kb-e2e] mic frame dropped while the interviewer speaks, total', gated) // QA evidence
+}
+
+export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
+  const e2e = lazy(e2eHooks)
+  const provider = lazy(liveProvider)
+  const context = lazy(() => createContextBuilder({ ...defaultContextDeps(), kbBlock: id => { try { return kbLive().block(id) } catch { return '' } } }))
+  const fastModel = (): string => readCopilotConfig().engine.models.fast ?? defaultModelFor('fast')
+  const cv = (): string => readCv()?.markdown ?? ''
+  const names = (): string[] => nameFromCv(cv())
+  const mask = redactIfOn(readCopilotConfig, names)
+
+  let jobId = ''
+  let grounding: Promise<GroundingContext> | null = null
+  let engine: AnswerEngine | null = null
+  let nextId = ''
+  const liveVision = new Set<string>() // vision models from OpenRouter's public list (models outside recommended-models.json)
+  const isVision = (id: string): boolean => recVision(id) || liveVision.has(id)
+  let starting = false
+  // Metrics log: one JSON line of stage numbers per answer (no text), next to the session files.
+  const traceLog = () => createTraceLog(200, line => { try { fs.appendFileSync(path.join(userFile('copilot'), 'latency.jsonl'), `${line}\n`) } catch { /* metrics are best effort */ } })
+
+  // One engine per session (fresh cost meter, so the ceiling is per session); the wiring holds this proxy.
+  const engineProxy: AnswerEngine = {
+    answer: req => { if (!engine) throw new Error('No session is running'); return engine.answer(req) },
+    cancelAll: () => engine?.cancelAll(),
+    warm: async () => { await engine?.warm?.() },
+  }
+
+  const live = lazy(() => {
+    const host = getOverlayHost()
+    // Ambiguous lines: the optional Jev gate when the setting is on (heuristic fallback inside), else the tiny LLM classify call.
+    const jev = createConfiguredClassify({ config: readCopilotConfig, getKey: readApiKey })
+    const detector = createDetector({ classify: text => (readCopilotConfig().engine.gate.engine === 'jev' ? jev(mask(text)) : createLlmClassifier(provider(), fastModel())(mask(text))) })
+    const wiring = createLiveWiring({
+      host, recorder: getInstance().recorder, feed: (l, eot) => getInstance().feed(l, eot), engine: engineProxy, detector,
+      config: readCopilotConfig,
+      screen: { capture: () => shotPipeline().capture(), latest: ms => shotPipeline().latest(ms), clear: clearCopilotShots, isVision },
+      onStopped: () => { if (!starting && getInstance().recorder.active()) void getInstance().stop('user') },
+    })
+    const ctl: SessionController & { audio(m: AudioChunkMsg): void; retry(): Promise<void> } = createSessionController({
+      createAdapter: () => {
+        const hooks = e2e()
+        return hooks ? createFakeAdapter(parseFixture(fs.readFileSync(hooks.sttFixture, 'utf8'))) : createSttAdapter(readCopilotConfig().stt)
+      },
+      stt: () => readCopilotConfig().stt, emit: wiring.emit, endOfTurn: wiring.endOfTurn, newId: () => nextId,
+    })
+    wiring.bindSession(ctl)
+    audioSink = m => ctl.audio(m)
+    return { host, wiring, ctl }
+  })
+
+  const sttReady = (): boolean => {
+    if (e2e()) return true
+    const stt = readCopilotConfig().stt
+    return findSttRuntime(stt.engine)?.models.includes(stt.model ?? defaultModel(stt.engine)) ?? false
+  }
+
+  return {
+    dir: () => userFile('copilot'),
+    job: id => {
+      try { const c = jobContext(id); return { id, title: c.job.title, company: c.job.company, report: c.report, posting: c.posting } } catch { return null }
+    },
+    cv,
+    permission: mediaStatus,
+    hasKey: () => e2e() !== null || readApiKey() !== null,
+    sttInstalled: sttReady,
+    // Same provider, redaction and local-only rule as live answers: the transcript never goes to an agent CLI.
+    call: createScoreCall({ provider, config: readCopilotConfig, model: fastModel, names }),
+    openSettings: pane => { void shell.openExternal(settingsUrl(pane)); return true },
+
+    session: {
+      async start(req, sessionId) {
+        if (!e2e() && (await ensureMic(systemPreferences)) !== 'granted') throw new Error(`Microphone access is off: allow Careerloom in ${micSettingsPath()}`)
+        const { ctl } = live()
+        starting = true
+        try {
+          jobId = req.jobId; grounding = null; nextId = sessionId
+          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), kbMatch: (id, q) => kbLive().match(id, q), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD, trace: traceLog(), sessionId: () => nextId, isVision })
+          shots = null // fresh image budget
+          if (readCopilotConfig().engine.screenshots) void listLiveModels().then(ms => ms.forEach(m => { if (m.vision) liveVision.add(m.id) })).catch(() => undefined)
+          await ctl.start(req)
+        } finally { starting = false }
+      },
+      stop: reason => live().host.stop(reason),
+    },
+    retry: () => live().ctl.retry(),
+    openDebrief: sessionId => {
+      const main = BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && !w.webContents.getURL().includes('overlay.html'))
+      if (main) { if (main.isMinimized()) main.restore(); main.show(); main.focus() }
+      broadcast('careerloom:copilotOpenDebrief', { sessionId })
+    },
+    answer: (kind, questionId) => { void live().wiring.answer(kind, questionId) },
+    screenshot: () => live().wiring.screenshot(),
+    clearScreenshots: clearCopilotShots,
+    context: { preview: id => context().preview(id) },
+    complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: mask(user) }], model: fastModel(), maxTokens: 120, signal: AbortSignal.timeout(8000) })).text,
+
+    interviewer: {
+      pool: interviewPool,
+      complete: async (system, user) => (await collectText(provider(), { system, messages: [{ role: 'user', content: mask(user) }], model: fastModel(), maxTokens: 500, signal: AbortSignal.timeout(15_000) })).text,
+      events: { line: l => live().wiring.emit('copilotTranscript', l), question: q => { void live().wiring.interviewerAsked(q) } },
+      speaker: interviewSpeaker,
+      ended: endInterviewVoice,
+      recordStats: (jobId, itemId, stats) => { getKbStore().updateItem(jobId, itemId, i => ({ ...i, stats })); broadcast('careerloom:kbChanged', { jobId }) },
+      onState: s => broadcast('careerloom:interviewerState', { ...s, micPaused: s.state === 'speaking' && micPausesWhileSpeaking() }),
+    },
+    overlay: cmd => getOverlayHost().overlayCommand(cmd),
+    ackNotice: version => getOverlayHost().ackPrivacyNotice(version),
+    checkHotkey: accel => getOverlayHost().checkHotkey(accel),
+    currentNotice: PRIVACY_NOTICE_VERSION,
+
+    sttModels: () => listSttModels(readCopilotConfig().stt),
+    benchmark: sel => benchmarkStt(sel, {
+      cfg: readCopilotConfig().stt, busy: () => getInstance().recorder.active() !== null,
+      installed: (engine, model) => findSttRuntime(engine)?.models.includes(model) ?? false,
+      make: createSttAdapter, save: lastBenchmark => void writeCopilotConfig({ stt: { lastBenchmark } }), kill: killSttSidecars,
+    }),
+    probe: async (source, ms) => {
+      if (source === 'mic' && !e2e()) {
+        const p = mediaStatus('microphone')
+        if (p === 'denied' || p === 'restricted') return { source, status: 'denied', level: 0 }
+      }
+      return probeHub.probe(source, ms)
+    },
+    installStt: async model => {
+      const { engine } = readCopilotConfig().stt
+      return { runId: (await installStt(engine, model ?? defaultModel(engine))).id }
+    },
+    listLlmModels: () => listLiveModels(),
+    testLlmModel: id => testLiveModel(id),
+  }
+}

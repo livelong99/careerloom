@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Copilot overlay — prototype</title>
+<link rel="stylesheet" href="css/tokens.css"><link rel="stylesheet" href="css/app.css"><link rel="stylesheet" href="css/overlay.css">
+<style>
+  body { background:var(--canvas); padding:22px 26px 40px; }
+  .hdr { display:flex; align-items:center; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
+  .hdr h1 { margin:0; font-size:18px; font-weight:var(--fw-strong); }
+  .hdr .sp { flex:1; }
+  .hdr a { color:var(--accent-text); font-size:13px; text-decoration:none; }
+  .gal { display:grid; grid-template-columns:repeat(3,440px); gap:30px 28px; justify-content:center; align-items:start; }
+  .cell > .cap { font-size:12px; font-weight:var(--fw-med); color:var(--mut); margin:0 0 7px 4px; display:flex; gap:8px; align-items:center; }
+  .cell > .cap b { color:var(--ink); font-weight:var(--fw-sub); }
+  .strips { display:grid; gap:14px; justify-items:center; }
+  .strips .cell { width:780px; }
+  .stage { width:1280px; height:780px; margin:0 auto; }
+  .stage .ovw { right:26px; top:26px; } .stage .ovw.strip { right:auto; left:50%; transform:translateX(-50%); top:22px; }
+  .stage .hintp { position:absolute; left:26px; bottom:70px; }
+  .demo { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:14px 0 0; }
+  .demo .seg button { height:28px; }
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>Copilot overlay</h1>
+  <div class="seg" role="group" aria-label="View" id="views">
+    <button data-v="stage">In a call</button><button data-v="gallery">Panel states</button><button data-v="strips">Strip states</button>
+  </div>
+  <div class="seg" role="group" aria-label="Theme" id="themes"><button data-t="dark">Dark</button><button data-t="light">Light</button></div>
+  <span class="sp"></span><a href="config.html">← Configuration screen</a><a href="index.html">Index</a>
+</div>
+<div id="root"></div>
+<script src="js/icons.js"></script><script src="js/overlay.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+const theme = q.get('theme') || 'dark', view = q.get('view') || 'stage', state = q.get('state') || 'answered', mode = q.get('mode') || 'panel';
+document.documentElement.dataset.theme = theme; if (q.get('motion') === 'off') document.documentElement.dataset.motion = 'off';
+const STATES = [['idle','Idle','Not started'],['listening','Listening','Waiting for a question'],['question','Question detected','Answer on demand or auto'],['answering','Answering','Streaming, first token ~1 s'],['answered','Answered','Card with proof + fact check'],['permission','Permission missing','System audio silent'],['error','Error','STT lost connection'],['stopped','Stopped','Kill switch / panic']];
+const root = document.getElementById('root');
+const mk = (st, o) => { const d = document.createElement('div'); renderOverlay(d, st, o); return d; };
+document.querySelectorAll('#views button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.v === view); b.onclick = () => { q.set('view', b.dataset.v); location.search = q; }; });
+document.querySelectorAll('#themes button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.t === theme); b.onclick = () => { q.set('theme', b.dataset.t); location.search = q; }; });
+if (view === 'gallery' || view === 'strips') {
+  const g = document.createElement('div'); g.className = view === 'gallery' ? 'gal' : 'strips';
+  STATES.forEach(([st, name, sub]) => { const c = document.createElement('div'); c.className = 'cell'; c.innerHTML = `<div class="cap"><b>${name}</b>${sub}</div>`; c.appendChild(mk(st, { mode: view === 'strips' ? 'strip' : 'panel' })); g.appendChild(c); });
+  if (view === 'strips') { const c = document.createElement('div'); c.className = 'cell'; c.innerHTML = `<div class="cap"><b>Click-through</b>Idle strip, passes clicks to the call until you hold ⌃⌥</div>`; c.appendChild(mk('listening', { mode: 'strip', passive: true })); g.appendChild(c); const p = document.createElement('div'); p.className = 'cell'; p.innerHTML = `<div class="cap"><b>Practice mode</b>Chip says Practice, nothing is sent to a call</div>`; p.appendChild(mk('question', { mode: 'strip', practice: true })); g.appendChild(p); const d = document.createElement('div'); d.className = 'cell'; d.innerHTML = `<div class="cap"><b>Privacy mode</b>Small-dot indicator (menu bar icon stays on)</div>`; d.appendChild(mk('question', { mode: 'strip', indicator: 'dot' })); g.appendChild(d); }
+  root.appendChild(g);
+} else {
+  root.innerHTML = `<div class="stage"><div class="tiles"><div class="tl big">AR</div><div class="tl">You</div><div class="tl">MK</div><div class="tl">JS</div><div class="tl">+2</div></div><div class="bar"><i></i><i></i><i></i><i></i></div><div class="ovw ${mode}" id="slot"></div><span class="hintp">${icon('info', 12)}Overlay sits above the call. It never takes keyboard focus.</span></div><div class="demo" id="demo"></div>`;
+  const slot = document.getElementById('slot');
+  const draw = st => { slot.innerHTML = ''; slot.appendChild(mk(st, { mode, passive: q.get('passive') === '1', star: q.get('star') === '1' })); document.querySelectorAll('#demo button').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === st)); };
+  const demo = document.getElementById('demo');
+  demo.innerHTML = `<div class="seg">${STATES.map(([s, n]) => `<button data-s="${s}">${n}</button>`).join('')}</div><div class="seg"><button data-m="panel">Panel</button><button data-m="strip">Strip</button></div>`;
+  demo.querySelectorAll('[data-s]').forEach(b => b.onclick = () => draw(b.dataset.s));
+  demo.querySelectorAll('[data-m]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.m === mode); b.onclick = () => { q.set('mode', b.dataset.m); location.search = q; }; });
+  draw(state);
+}
+</script>
+</body>
+</html>

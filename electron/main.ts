@@ -1,17 +1,32 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, session, shell, type MenuItemConstructorOptions } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 
 import { checkRoot, listReports, readPipeline, readReport, readTracker } from './careerops'
-import { broadcast, dataRoot, launch, setSkillContext, readApiKey, readOpencodeKey, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSecret, writeSettings, type Handler } from './context'
+import { broadcast, dataRoot, deleteRunRecords, launch, setSkillContext, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSettings, type Handler } from './context'
 import { chatHandlers } from './chat'
 import { onboardingHandlers } from './onboarding'
+import { bootstrapHandlers, onBootstrapIdle, runBootstrap } from './runtime/bootstrap'
 import { prescreenHandlers, stopPrescreen } from './prescreen'
 import { integrationsHandlers } from './integrations'
 import { jobsHandlers } from './jobs'
 import { firecrawlReady, firecrawlScrape } from './integrations/firecrawl'
 import { readRegistry } from './integrations/registry'
 import { metricsHandlers } from './metrics'
+import { atsHandlers } from './ats/handlers'
+import { jobViewHandlers } from './job-view/handlers'
+import { docsHandlers } from './docs-gen/handlers'
+import { copilotHandlers } from './copilot/handlers'
+import { kbHandlers } from './kb/handlers'
+import { onTtsPlayback } from './kb/voice'
+import { redactLog } from './log-redact'
+import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
+import { setKey } from './settings/keys'
+import { isAllowedPermission } from './copilot/audio-perms'
+import { copilotSupported } from './copilot/capabilities'
+import { clearCopilotShots, copilotAudioIn, sweepCopilotShots } from './copilot/defaults'
+import { startFakeOverlayIfRequested } from './copilot/overlay-runtime'
+import { killSttSidecars } from './copilot/stt/moonshine'
 import { resumeHandlers } from './resume'
 import { trackerHandlers } from './tracker-actions'
 import { checkReadiness, pickReadyRunner, type Readiness } from './readiness'
@@ -46,15 +61,8 @@ async function refreshReadiness(): Promise<Readiness | null> {
   return readiness
 }
 
-function writeApiKey(key: string | null, provider: unknown = 'openrouter'): void {
-  if (provider === 'opencode') {
-    if (key && !/^[\w.-]{16,200}$/.test(key.trim())) throw new Error('That does not look like an OpenCode Zen API key')
-    writeSecret('opencode', key)
-    return
-  }
-  if (key && !/^sk-or-[\w-]{10,}$/.test(key.trim())) throw new Error('That does not look like an OpenRouter key (sk-or-…)')
-  writeSecret('openrouter', key)
-}
+// After every bootstrap pass the agent CLIs may have appeared (opencode) or the root may have been set.
+onBootstrapIdle(() => void refreshReadiness().catch(err => console.error('readiness check failed:', err)))
 
 let opencodeModels: Array<{ id: string; label: string }> | null = null
 /** `opencode models` prints one provider/model id per line. */
@@ -63,7 +71,8 @@ function listOpencodeModels(): Promise<Array<{ id: string; label: string }>> {
   const bin = resolveBin('opencode')
   if (!bin) return Promise.resolve([])
   return new Promise(resolve => {
-    execFile(bin, ['models'], { timeout: 30_000, env: spawnSpec('opencode', []).env }, (err, stdout) => {
+    const spec = spawnSpec('opencode', ['models'])
+    execFile(spec.bin, spec.args, { timeout: 30_000, env: spec.env, windowsHide: true, windowsVerbatimArguments: spec.verbatim }, (err, stdout) => {
       if (err) return resolve([])
       opencodeModels = stdout.split('\n').map(l => l.trim()).filter(id => id.includes('/') && isModelId(id)).map(id => ({ id, label: id }))
       resolve(opencodeModels)
@@ -99,7 +108,8 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
   const bin = resolveBin('agy')
   if (!bin) return Promise.resolve([])
   return new Promise(resolve => {
-    execFile(bin, ['models'], { timeout: 15_000, env: spawnSpec('agy', []).env }, (err, stdout) => {
+    const spec = spawnSpec('agy', ['models'])
+    execFile(spec.bin, spec.args, { timeout: 15_000, env: spec.env, windowsHide: true, windowsVerbatimArguments: spec.verbatim }, (err, stdout) => {
       if (err) return resolve([])
       agyModels = stdout.split('\n').map(l => l.split('\t')).filter(([id]) => isModelId(id?.trim())).map(([id, label]) => ({ id: id!.trim(), label: (label ?? id!).trim() }))
       resolve(agyModels)
@@ -108,15 +118,14 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
 } // stays under promptFor's 20k input ceiling
 
 // Feature modules own their handlers; names must not collide (checked at registration).
-const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, prescreenHandlers]
+const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, kbHandlers, settingsHandlers]
 
 /** Folders returned by the native picker this session; setRoot accepts only these. */
 const pickedDirs = new Set<string>()
 
 const handlers: Record<string, Handler> = {
   getSettings: () => {
-    const s = readSettings()
-    return { ...s, hasApiKey: readApiKey() !== null, hasOpencodeKey: readOpencodeKey() !== null, rootCheck: s.root ? checkRoot(s.root) : null }
+    return publicSettings()
   },
   setRoot: (root: unknown) => {
     // Only folders the user picked in the native dialog (or the current one) — never a raw renderer path.
@@ -149,8 +158,7 @@ const handlers: Record<string, Handler> = {
     throw new Error('Unknown runner')
   },
   setApiKey: (key: unknown, provider: unknown) => {
-    writeApiKey(key === null ? null : str(key, 'key'), provider)
-    return (provider === 'opencode' ? readOpencodeKey() : readApiKey()) !== null
+    return setKey(provider === 'opencode' ? 'opencode' : 'openrouter', key === null ? null : str(key, 'key')).hasKey
   },
   chooseDirectory: async () => {
     const res = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
@@ -178,13 +186,25 @@ const handlers: Record<string, Handler> = {
   getPipeline: () => readPipeline(dataRoot()),
   listReports: () => listReports(dataRoot()),
   readReport: (rel: unknown) => readReport(dataRoot(), str(rel, 'report')),
-  getUpdateStatus: () => updateChecker?.getStatus() ?? { currentVersion: app.getVersion(), latestVersion: null, updateAvailable: false, tag: null },
+  // Switched off in Settings → never touch the network on the renderer's behalf; "Check now" is explicit and still works.
+  getUpdateStatus: () => (readSettings().prefs.updates.enabled ? updateChecker?.getStatus() : updateChecker?.peek()) ?? { currentVersion: app.getVersion(), latestVersion: null, updateAvailable: false, tag: null },
+  checkForUpdates: async () => {
+    const status = (await updateChecker?.check()) ?? { currentVersion: app.getVersion(), latestVersion: null, updateAvailable: false, tag: null }
+    broadcast('careerloom:update', status)
+    return status
+  },
   listRuns: () => {
     const live = [...runs.values()].map(summary)
     const ids = new Set(live.map(r => r.id))
     return [...readRunHistory().filter(r => !ids.has(r.id)), ...live].reverse()
   },
-  getRunLog: (id: unknown) => runLog(str(id, 'id')),
+  /** Credential-looking lines are hidden here, so the log viewer never receives them. */
+  getRunLog: (id: unknown) => redactLog(runLog(str(id, 'id'))),
+  /** Forget finished runs (history, saved log, memory); running ones are skipped. Returns how many went. */
+  deleteRuns: (ids: unknown) => {
+    if (!Array.isArray(ids) || ids.length > 5000 || ids.some(i => typeof i !== 'string')) throw new Error('ids must be a list of run ids')
+    return deleteRunRecords(ids as string[])
+  },
   cancelRun: (id: unknown) => {
     const run = runs.get(str(id, 'id'))
     if (!run || run.status !== 'running') return false
@@ -260,6 +280,12 @@ function registerHandlers(): void {
       }
     })
   }
+  if (copilotSupported()) sweepCopilotShots() // frames a crashed run left behind
+  if (copilotSupported()) ipcMain.on('careerloom:copilotAudio', (_event, msg: unknown) => copilotAudioIn(msg)) // high-rate mic frames: send, not invoke
+  ipcMain.on('careerloom:ttsPlayback', (_event, msg: unknown) => { // overlay → echo gate: send, not invoke
+    const m = msg as { phase?: unknown; utteranceId?: unknown } | null
+    if (m && typeof m.utteranceId === 'string' && (m.phase === 'started' || m.phase === 'ended' || m.phase === 'cancelled')) onTtsPlayback({ phase: m.phase, utteranceId: m.utteranceId })
+  })
   ipcMain.handle('open-external', async (_event, url: unknown) => {
     const target = typeof url === 'string' ? externalUrlToOpen(url) : null
     if (target) await shell.openExternal(target)
@@ -324,19 +350,26 @@ function bootstrap(): void {
     if (win?.isMinimized()) win.restore()
     win?.focus()
   })
-  app.on('before-quit', () => { cancelAll(); stopPrescreen() })
+  app.on('before-quit', () => { cancelAll(); stopPrescreen(); killSttSidecars(); clearCopilotShots() })
   void app.whenReady().then(() => {
     sweepCookieTemp() // plaintext cookie copies a crashed browser scan left behind
     registerHandlers()
+    // Only our own pages may ask for the microphone; every other permission keeps Electron's default (allowed).
+    session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) => cb(permission === 'media' ? isAllowedPermission(permission, details.requestingUrl, 'mediaTypes' in details ? details.mediaTypes : undefined) : true))
+    // Same rule for the synchronous check (device labels, enumerateDevices): without it Chromium answers from the request handler's absence.
+    session.defaultSession.setPermissionCheckHandler((_wc, permission, origin, details) => permission === 'media' ? isAllowedPermission(permission, origin, details.mediaType === 'video' ? ['video'] : undefined) : true)
     void refreshReadiness().catch(err => console.error('readiness check failed:', err))
+    void runBootstrap() // installs every missing dependency itself; never blocks the UI (CAREERLOOM_NO_BOOTSTRAP skips it)
     Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate()))
     createWindow()
+    startFakeOverlayIfRequested() // dev only: CL_COPILOT_FAKE=cycle|<state>
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
     // Update availability (from codeburn): at launch, then daily. Notifies only — never installs.
     updateChecker = createUpdateChecker({ currentVersion: app.getVersion() })
-    const runUpdateCheck = () => { void updateChecker?.check().then(status => broadcast('careerloom:update', status)) }
+    const runUpdateCheck = () => { if (readSettings().prefs.updates.enabled) void updateChecker?.check().then(status => broadcast('careerloom:update', status)) }
     runUpdateCheck()
     setInterval(runUpdateCheck, 24 * 60 * 60 * 1000)
+    try { pruneRunLogs() } catch (err) { console.error('run-log retention failed:', err) } // no-op while retention is 'forever'
   })
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
 }
