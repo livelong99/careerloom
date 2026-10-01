@@ -77,6 +77,7 @@ const displayUnderOverlay = (): Electron.Display => {
   return screen.getAllDisplays().find(d => d.id === id) ?? screen.getPrimaryDisplay()
 }
 
+let gated = 0
 let audioSink: ((m: AudioChunkMsg) => void) | null = null
 const probeHub = createProbeHub()
 /** `careerloom:copilotAudio` handler body: validated chunks reach the running session and any open audio test, everything else is dropped. */
@@ -86,6 +87,7 @@ export function copilotAudioIn(raw: unknown): void {
   probeHub.tap(m)
   const heard = gateAudioMsg(m, ttsRuntime().gate()) // mic frames are dropped while the interviewer speaks (half-duplex)
   if (heard) audioSink?.(heard)
+  else if (process.env.CL_KB_E2E === '1' && ++gated % 20 === 1) console.log('[kb-e2e] mic frame dropped while the interviewer speaks, total', gated) // QA evidence
 }
 
 export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {

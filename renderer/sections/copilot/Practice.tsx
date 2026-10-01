@@ -67,6 +67,8 @@ export function PracticePage() {
 function AiPractice({ jobId, kb }: { jobId: string; kb: KbSummary }) {
   const f = useInterviewForm()
   const voices = useAsync(loadVoices, []).data ?? []
+  // Settings > Interview prep holds the defaults for voice, speed and speakers/headphones; the form starts from them
+  useEffect(() => { let live = true; Promise.resolve(careerloom.interviewConfig()).then(c => { if (live && c) setInterviewForm({ speed: c.voice.speed, echo: c.voice.echo, voiceId: c.voice.voiceId }) }, () => undefined); return () => { live = false } }, [])
   const plan = useMemo<InterviewPlan>(() => toPlan(f, voices), [f, voices])
   const skills = useMemo(() => kb.coverage.map(c => ({ id: c.skillId, name: c.name, gap: !c.inCv })), [kb])
   const [preview, setPreview] = useState<{ value: PlanPreview | null; error: string | null; loading: boolean }>({ value: null, error: null, loading: true })

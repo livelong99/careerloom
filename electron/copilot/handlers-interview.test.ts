@@ -67,6 +67,15 @@ describe('copilotStart with an interview plan', () => {
     expect(fs.readdirSync(path.join(base, 'skill-signal'))).toHaveLength(1)
   })
 
+  it('records typed lines when speech recognition runs too (nothing else records them)', async () => {
+    const { c } = setup({ session: { start: async () => undefined, stop: async () => undefined } })
+    const { sessionId } = await c.handlers.copilotStart(START) as { sessionId: string }
+    await typed(c, 'hello'); await vi.waitFor(() => expect(questions()).toHaveLength(2))
+    await c.handlers.copilotStop('user')
+    expect(((await c.handlers.copilotGetSession(sessionId)) as SessionDetail).transcript.filter(l => l.speaker === 'you').map(l => l.text)).toEqual(['hello'])
+    expect(sent.some(s => s[0] === 'careerloom:copilotTranscript' && (s[1] as { text: string }).text === 'hello')).toBe(true)
+  })
+
   it('overlay controls reach the interviewer: hint reveals a rubric cue, skip moves on', async () => {
     const { c } = setup()
     await c.handlers.copilotStart(START)

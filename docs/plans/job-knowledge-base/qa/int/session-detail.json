@@ -1,0 +1,260 @@
+{
+ "id": "8a879cdb-de51-49db-84c9-4b59402b2c4b",
+ "mode": "practice",
+ "jobId": "https://www.google.com/about/careers/applications/jobs/results/121538506244661958-senior-software-engineer-core?q=Senior+Software+Engineer&location=India&hl=en-US",
+ "jobTitle": "Senior Software Engineer, Core",
+ "company": "Google",
+ "startedAt": 1790867722299,
+ "endedAt": 1790867752676,
+ "questions": 4,
+ "durationSec": 30,
+ "score": 3.6,
+ "transcript": [
+  {
+   "id": "ask-warmup",
+   "speaker": "interviewer",
+   "text": "Welcome. Before we dig in, what are you working on at the moment and what made you look at this job?",
+   "final": true,
+   "t0": 1790867722305,
+   "t1": 1790867722305
+  },
+  {
+   "id": "mic-8a879cdb-de51-49db-84c9-4b59402b2c4b-1",
+   "speaker": "you",
+   "text": "I led the migration of forty services to Kubernetes and kept releases weekly by staging the cut-over per team.",
+   "final": true,
+   "t0": 1790867730300,
+   "t1": 1790867734300
+  },
+  {
+   "id": "ask-4e575c78f74f73df35a1f97a32772cf1decbd3b6",
+   "speaker": "interviewer",
+   "text": "Explain how closures capture variables in JavaScript and where that goes wrong in loops?",
+   "final": true,
+   "t0": 1790867739943,
+   "t1": 1790867739943
+  },
+  {
+   "id": "ask-f6ae51ab88484c6418ca3711566495ad18715bbd",
+   "speaker": "interviewer",
+   "text": "Tell me about a time you led a migration with unclear requirements?",
+   "final": true,
+   "t0": 1790867746695,
+   "t1": 1790867746695
+  },
+  {
+   "id": "ask-85e78c67b8e93613efa9461d65ef4e369308bfd9",
+   "speaker": "interviewer",
+   "text": "How would you reduce the first render cost of a large React list screen?",
+   "final": true,
+   "t0": 1790867748654,
+   "t1": 1790867748654
+  }
+ ],
+ "questionsList": [
+  {
+   "id": "warmup",
+   "text": "Welcome. Before we dig in, what are you working on at the moment and what made you look at this job?",
+   "type": "other",
+   "confidence": 1,
+   "at": 1790867722305,
+   "auto": true,
+   "hint": {
+    "kind": "factual",
+    "complete": true,
+    "needsScreenshot": true,
+    "deep": false,
+    "source": "heuristic"
+   }
+  },
+  {
+   "id": "4e575c78f74f73df35a1f97a32772cf1decbd3b6",
+   "text": "Explain how closures capture variables in JavaScript and where that goes wrong in loops?",
+   "type": "technical",
+   "confidence": 1,
+   "at": 1790867739943,
+   "auto": true,
+   "hint": {
+    "kind": "factual",
+    "complete": true,
+    "needsScreenshot": false,
+    "deep": false,
+    "source": "heuristic"
+   }
+  },
+  {
+   "id": "f6ae51ab88484c6418ca3711566495ad18715bbd",
+   "text": "Tell me about a time you led a migration with unclear requirements?",
+   "type": "behavioural",
+   "confidence": 1,
+   "at": 1790867746695,
+   "auto": true,
+   "hint": {
+    "kind": "behavioural",
+    "complete": true,
+    "needsScreenshot": false,
+    "deep": false,
+    "source": "heuristic"
+   }
+  },
+  {
+   "id": "85e78c67b8e93613efa9461d65ef4e369308bfd9",
+   "text": "How would you reduce the first render cost of a large React list screen?",
+   "type": "technical",
+   "confidence": 1,
+   "at": 1790867748654,
+   "auto": true,
+   "hint": {
+    "kind": "factual",
+    "complete": true,
+    "needsScreenshot": false,
+    "deep": false,
+    "source": "heuristic"
+   }
+  }
+ ],
+ "suggestions": [
+  {
+   "questionId": "4e575c78f74f73df35a1f97a32772cf1decbd3b6",
+   "model": "cohere/north-mini-code:free",
+   "tier": "fast",
+   "say": "At Northwind I led the move of forty services to Kubernetes while keeping releases weekly.",
+   "bullets": [
+    "Situation: forty services on aging VMs, releases slowed to monthly",
+    "Action: staged the migration by service tier and automated the cut-over",
+    "Result: back to weekly releases with fewer incidents"
+   ],
+   "star": {
+    "s": "Forty services on aging VMs slowed releases.",
+    "t": "Move them without stopping delivery.",
+    "a": "Staged by tier, automated cut-over, paired with each team.",
+    "r": "Weekly releases again, fewer incidents."
+   },
+   "proof": [],
+   "flags": [
+    {
+     "kind": "unsupported-name",
+     "text": "Northwind"
+    },
+    {
+     "kind": "unsupported-name",
+     "text": "VMs"
+    }
+   ],
+   "done": true,
+   "firstTokenMs": 254,
+   "totalMs": 3528,
+   "costUsd": 0.0004,
+   "trace": {
+    "stt": null,
+    "detect": null,
+    "connect": 4,
+    "ttft": 254,
+    "firstSay": 290,
+    "endToSay": null,
+    "total": 3527,
+    "promptTokens": 900,
+    "cachedTokens": null,
+    "turn": {
+     "kind": "factual",
+     "tier": "fast",
+     "auto": true,
+     "spec": null,
+     "gate": "heuristic",
+     "gateMs": null
+    }
+   }
+  }
+ ],
+ "scorecard": {
+  "structure": 4,
+  "specifics": 3.5,
+  "evidence": 4,
+  "concision": 3,
+  "notes": [
+   {
+    "questionId": "warmup",
+    "tip": "Open with the result, then the steps.",
+    "suggestedLine": null
+   }
+  ]
+ },
+ "interview": {
+  "planHash": "21668f30edd4",
+  "itemIds": [
+   "4e575c78f74f73df35a1f97a32772cf1decbd3b6",
+   "f6ae51ab88484c6418ca3711566495ad18715bbd",
+   "85e78c67b8e93613efa9461d65ef4e369308bfd9"
+  ],
+  "perQuestion": [
+   {
+    "itemId": "4e575c78f74f73df35a1f97a32772cf1decbd3b6",
+    "score": 3.6,
+    "criteria": [
+     {
+      "criterion": "Clarity",
+      "score": 4,
+      "evidence": ""
+     },
+     {
+      "criterion": "Depth",
+      "score": 5,
+      "evidence": ""
+     },
+     {
+      "criterion": "Trade-offs",
+      "score": 2,
+      "evidence": ""
+     },
+     {
+      "criterion": "Structure",
+      "score": 3,
+      "evidence": ""
+     },
+     {
+      "criterion": "Specifics",
+      "score": 4,
+      "evidence": ""
+     },
+     {
+      "criterion": "Evidence",
+      "score": 5,
+      "evidence": ""
+     },
+     {
+      "criterion": "Concision",
+      "score": 2,
+      "evidence": ""
+     }
+    ],
+    "hintUsed": false,
+    "skipped": false
+   },
+   {
+    "itemId": "f6ae51ab88484c6418ca3711566495ad18715bbd",
+    "score": null,
+    "criteria": [],
+    "hintUsed": false,
+    "skipped": true
+   }
+  ]
+ },
+ "latency": {
+  "turns": 1,
+  "ttft": {
+   "p50": 254,
+   "p95": 254
+  },
+  "firstSay": {
+   "p50": 290,
+   "p95": 290
+  },
+  "endToSay": null,
+  "total": {
+   "p50": 3527,
+   "p95": 3527
+  },
+  "cacheHitRate": 0,
+  "speculation": null
+ }
+}
