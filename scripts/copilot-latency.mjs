@@ -1,8 +1,12 @@
 #!/usr/bin/env node
-// Interview Copilot latency harness (plan §12): first-token p50/p95 through the real engine + OpenRouter provider.
-//   npm run build:electron && OPENROUTER_API_KEY=... node scripts/copilot-latency.mjs --models a/b,c/d,e/f --runs 12 --max-usd 2
-// The app reads its key from safeStorage; a CLI cannot, so this dev-only harness takes the key from the environment.
-// Spend is capped by --max-usd (provider-billed cost when reported, otherwise the dated price table). Never run in CI.
+// Interview Copilot latency harness (plan §12, PERF-1). Two modes, both through the real engine + OpenRouter provider + trace:
+//   npm run build:electron && node scripts/copilot-latency.mjs [--runs 12] [--profile all|fast|balanced|slow-reasoner] [--no-warm]
+//     FAKE (default, no key, no spend): local SSE server with injected, SYNTHETIC latency profiles. It proves the instrumentation,
+//     pre-warm and prefix-cache plumbing; the millisecond values are the profile's, not any real model's.
+//   OPENROUTER_API_KEY=... node scripts/copilot-latency.mjs --live --models a/b,c/d --runs 12 --max-usd 2
+//     LIVE: real OpenRouter calls; prints the same stage table from measured timestamps. The app reads its key from safeStorage;
+//     a CLI cannot, so this dev-only harness takes the key from the environment. Spend is capped by --max-usd (provider-billed
+//     cost when reported, otherwise the dated price table). Never run in CI.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -15,8 +19,9 @@ const dist = join(root, 'dist/electron')
 const fx = join(root, 'electron/copilot/fixtures')
 
 const args = Object.fromEntries(process.argv.slice(2).flatMap((a, i, all) => (a.startsWith('--') ? [[a.slice(2), all[i + 1]?.startsWith('--') || all[i + 1] === undefined ? 'true' : all[i + 1]]] : [])))
+const live = args.live === 'true'
 const key = process.env.OPENROUTER_API_KEY
-if (!key) { console.error('Set OPENROUTER_API_KEY (dev harness only; the app itself uses safeStorage).'); process.exit(2) }
+if (live && !key) { console.error('--live needs OPENROUTER_API_KEY (dev harness only; the app itself uses safeStorage). Omit --live for the fake-server run.'); process.exit(2) }
 const models = (args.models ?? 'google/gemini-2.5-flash-lite,openai/gpt-4.1-nano,anthropic/claude-haiku-4.5').split(',')
 const runs = Number(args.runs ?? 12)
 const maxUsd = Number(args['max-usd'] ?? 2)
@@ -26,11 +31,13 @@ const { createOpenRouter, collectText } = require(join(dist, 'copilot/providers/
 const { createAnswerEngine, createLlmClassifier } = require(join(dist, 'copilot/engine.js'))
 const { buildGrounding } = require(join(dist, 'copilot/context.js'))
 const { createCostMeter } = require(join(dist, 'copilot/cost.js'))
+const { createTraceLog, summarizeTraces } = require(join(dist, 'copilot/trace.js'))
 const { classifyByRules, createDetector } = require(join(dist, 'copilot/detector.js'))
 const { REPORT } = require(join(dist, 'job-view/fixtures.js'))
 const { parseReport } = require(join(dist, 'job-view/reportParse.js'))
 
-const provider = createOpenRouter({ baseUrl: args['base-url'], getKey: () => key, config: () => ({ dataCollection: 'deny', zdr: false, sort: 'latency' }) })
+const orConfig = () => ({ dataCollection: 'deny', zdr: false, sort: 'latency' })
+const provider = live ? createOpenRouter({ baseUrl: args['base-url'], getKey: () => key, config: orConfig }) : null
 const cv = readFileSync(join(fx, 'harness-cv.md'), 'utf8')
 const questions = JSON.parse(readFileSync(join(fx, 'harness-questions.json'), 'utf8'))
 const report = parseReport(REPORT)
@@ -46,7 +53,9 @@ async function benchModel(model) {
   const cost = createCostMeter()
   const ttft = [], total = [], costs = [], errors = []
   let lastSample = null
-  const engine = createAnswerEngine({ provider, config: () => cfgFor(model), grounding: () => grounding, cost, partialEveryMs: 1e9 })
+  const trace = createTraceLog()
+  const engine = createAnswerEngine({ provider, config: () => cfgFor(model), grounding: () => grounding, cost, partialEveryMs: 1e9, trace, sessionId: () => 'harness' })
+  await engine.warm?.()
   for (let i = 0; i <= runs; i++) { // run 0 is a warm-up (connection + prompt cache), reported separately
     if (spent >= maxUsd) { errors.push(`stopped: spend cap $${maxUsd} reached`); break }
     const q = questions[i % questions.length]
@@ -60,7 +69,7 @@ async function benchModel(model) {
     } catch (e) { errors.push(String(e.code ?? '') + ' ' + String(e.message).slice(0, 120)) }
     await sleep(400)
   }
-  return { model, runs: ttft.length, ttftP50: pct(ttft, 0.5), ttftP95: pct(ttft, 0.95), ttftMin: ttft.length ? Math.min(...ttft) : null, totalP50: pct(total, 0.5), totalP95: pct(total, 0.95), costPerAnswerUsd: costs.length ? costs.reduce((a, b) => a + b, 0) / costs.length : null, unpriced: cost.unpriced(), errors, sample: lastSample }
+  return { model, stages: stageRow(trace.all().slice(1)), runs: ttft.length, ttftP50: pct(ttft, 0.5), ttftP95: pct(ttft, 0.95), ttftMin: ttft.length ? Math.min(...ttft) : null, totalP50: pct(total, 0.5), totalP95: pct(total, 0.95), costPerAnswerUsd: costs.length ? costs.reduce((a, b) => a + b, 0) / costs.length : null, unpriced: cost.unpriced(), errors, sample: lastSample }
 }
 
 async function benchDetector(model) {
@@ -79,6 +88,39 @@ async function benchDetector(model) {
   return out
 }
 
+const ms = v => (v == null ? '-' : `${Math.round(v)} ms`)
+const st = x => (x ? `${ms(x.p50)} / ${ms(x.p95)}` : '-')
+const stageRow = recs => { const sm = summarizeTraces(recs.map(r => r.ms)); const c = recs.map(r => r.ms.connect).filter(v => v != null); return { turns: sm.turns, connectP50: pct(c, 0.5), ttft: sm.ttft, firstSay: sm.firstSay, endToSay: sm.endToSay, total: sm.total, cacheHitRate: sm.cacheHitRate } }
+const stageTable = rows => ['| run | turns | connect p50 | first token p50/p95 | first visible line p50/p95 | speech end -> line p50 | done p50 | cache hit |', '|---|---|---|---|---|---|---|---|', ...rows.map(([name, r]) => `| ${name} | ${r.turns} | ${ms(r.connectP50)} | ${st(r.ttft)} | ${st(r.firstSay)} | ${ms(r.endToSay?.p50)} | ${ms(r.total?.p50)} | ${r.cacheHitRate == null ? '-' : `${Math.round(r.cacheHitRate * 100)}%`} |`)]
+
+async function runFake() {
+  const { startFakeServer, PROFILES } = await import('./copilot-fake-sse.mjs')
+  const names = args.profile && args.profile !== 'all' ? [args.profile] : Object.keys(PROFILES)
+  const warm = args['no-warm'] !== 'true'
+  const rows = []
+  for (const name of names) {
+    const fake = await startFakeServer(PROFILES[name])
+    const trace = createTraceLog()
+    const p = createOpenRouter({ baseUrl: fake.baseUrl, getKey: () => 'fake-key', config: orConfig })
+    const engine = createAnswerEngine({ provider: p, config: () => cfgFor(`fake/${name}`), grounding: () => grounding, trace, partialEveryMs: 1e9, sessionId: () => 'harness' })
+    if (warm) await engine.warm()
+    for (let i = 0; i < runs; i++) {
+      const q = questions[i % questions.length]
+      const t = Date.now()
+      // auto-ask turn: the interviewer stopped speaking 250 ms before the STT final, detector adds ~5 ms (simulated stage inputs)
+      const marks = { speechEndAt: t - 255, sttFinalAt: t - 5, detectedAt: t }
+      for await (const _ of engine.answer({ question: { id: `q${i}`, text: q.text, type: q.type, confidence: 1, at: 0, auto: true }, transcript: [], kind: 'answer', signal: new AbortController().signal, marks })) { /* drain */ }
+    }
+    rows.push([`fake/${name}${warm ? '' : ' (no warm-up)'}`, stageRow(trace.all())])
+    console.error(`${name}: ${fake.stats.warmups} warm-up, ${fake.stats.chats} chats`)
+    await fake.close()
+  }
+  console.log(`SYNTHETIC latency profiles (fake server): the table validates the instrumentation, not any real model.\ngrounding ~ ${grounding.tokens} tokens; ${runs} auto-ask turns per profile; warm-up ${warm ? 'on' : 'off'}\n`)
+  console.log(stageTable(rows).join('\n'))
+}
+
+if (!live) { await runFake(); process.exit(0) }
+
 console.error(`grounding ≈ ${grounding.tokens} tokens; models: ${models.join(', ')}; ${runs} runs each (+1 warm-up); cap $${maxUsd}`)
 const results = []
 for (const m of models) { console.error(`→ ${m}`); results.push(await benchModel(m)) }
@@ -90,5 +132,6 @@ const file = join(outDir, `copilot-latency-${report_.at.replace(/[:.]/g, '-')}.j
 writeFileSync(file, JSON.stringify(report_, null, 2) + '\n')
 console.log('| model | n | TTFT p50 | TTFT p95 | total p50 | $/answer | errors |\n|---|---|---|---|---|---|---|')
 for (const r of results) console.log(`| ${r.model} | ${r.runs} | ${r.ttftP50} ms | ${r.ttftP95} ms | ${r.totalP50} ms | ${r.costPerAnswerUsd?.toFixed(5)} | ${r.errors.length} |`)
+console.log('\n' + stageTable(results.map(r => [r.model, r.stages])).join('\n'))
 if (detector) console.log('\ndetector with LLM classify:', JSON.stringify(detector))
 console.error(`spent $${spent.toFixed(4)}; wrote ${file}`)

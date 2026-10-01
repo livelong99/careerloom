@@ -1,6 +1,7 @@
 // SSE streaming client for OpenRouter (plan §3.4). Main process only; the key comes from safeStorage via the caller.
-import type { AnswerProvider, ProviderPrompt, StreamItem } from '../engine'
+import type { AnswerProvider, ProviderPrompt, StreamItem, StreamUsage } from '../engine'
 import type { CopilotConfig, LlmModelInfo } from '../types'
+import { initialReasoning, isReasoningRejection, nextReasoning, type ReasoningShape } from './reasoning'
 
 export type LlmErrorCode = 'no_key' | 'auth' | 'credits' | 'rate_limit' | 'timeout' | 'aborted' | 'server' | 'bad_request' | 'stream' | 'budget' | 'policy' | 'model_unavailable'
 const RETRYABLE: ReadonlySet<LlmErrorCode> = new Set(['rate_limit', 'timeout', 'server'])
@@ -57,7 +58,7 @@ export async function* parseSse(body: AsyncIterable<Uint8Array | string>): Async
 type Chunk = {
   choices?: Array<{ delta?: { content?: unknown }; finish_reason?: string | null }>
   error?: { code?: number | string; message?: string }
-  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number }
+  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number; prompt_tokens_details?: { cached_tokens?: number } }
 }
 
 /** Data payloads -> deltas and the usage chunk. Stops at `[DONE]`; mid-stream errors (HTTP stayed 200) throw. */
@@ -71,7 +72,10 @@ export async function* decodeStream(payloads: AsyncIterable<string>): AsyncGener
     if (choice?.finish_reason === 'error') throw new LlmError('stream', 'The model stream ended with an error')
     const text = choice?.delta?.content
     if (typeof text === 'string' && text) yield { delta: text }
-    if (c.usage) yield { usage: { promptTokens: c.usage.prompt_tokens ?? 0, completionTokens: c.usage.completion_tokens ?? 0, costUsd: typeof c.usage.cost === 'number' ? c.usage.cost : null } }
+    if (c.usage) {
+      const cached = c.usage.prompt_tokens_details?.cached_tokens
+      yield { usage: { promptTokens: c.usage.prompt_tokens ?? 0, completionTokens: c.usage.completion_tokens ?? 0, costUsd: typeof c.usage.cost === 'number' ? c.usage.cost : null, ...(typeof cached === 'number' ? { cachedTokens: cached } : {}) } }
+    }
   }
 }
 
@@ -84,6 +88,7 @@ export type OpenRouterOptions = {
   idleTimeoutMs?: number
 }
 const BASE = 'https://openrouter.ai/api/v1'
+const EXPLICIT_CACHE = /^(anthropic|qwen)\//
 
 function bodyStream(res: Response): AsyncIterable<Uint8Array> {
   const reader = res.body!.getReader()
@@ -98,20 +103,30 @@ export function createOpenRouter(opts: OpenRouterOptions): AnswerProvider {
   const base = opts.baseUrl ?? BASE
   const firstByte = opts.firstByteTimeoutMs ?? 15_000
   const idle = opts.idleTimeoutMs ?? 20_000
+  const learned = new Map<string, ReasoningShape>() // reasoning shape each model accepted
   return {
     id: 'openrouter',
+    /** Zero-token request to the same host: opens DNS + TLS (and the keep-alive socket) before the first real answer. Never throws. */
+    async warm() {
+      const key = opts.getKey()
+      if (!key) return
+      try { const r = await doFetch(`${base}/key`, { method: 'GET', headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(5000) }); await r.arrayBuffer().catch(() => undefined) } catch { /* best effort */ }
+    },
     async *stream(p: ProviderPrompt): AsyncGenerator<StreamItem> {
       const key = opts.getKey()
       if (!key) throw new LlmError('no_key', 'Add your OpenRouter key in Settings first')
       const or = opts.config()
       // Anthropic models cache the stable prefix when it is marked; other providers ignore the field, so only send it where it matters.
-      const system = p.model.startsWith('anthropic/') ? [{ type: 'text', text: p.system, cache_control: { type: 'ephemeral' } }] : p.system
-      const body = {
+      // Docs (openrouter.ai/docs/features/prompt-caching): Anthropic and Qwen need an explicit cache_control block; OpenAI, Gemini 2.5+, DeepSeek, Grok cache a stable prefix implicitly (>=1024 tokens), so the prefix ordering in prompts.ts is what matters there.
+      const system = EXPLICIT_CACHE.test(p.model) ? [{ type: 'text', text: p.system, cache_control: { type: 'ephemeral' } }] : p.system
+      const makeBody = (reasoning: ReasoningShape) => ({
         model: p.model, stream: true, usage: { include: true }, temperature: 0.3, max_tokens: p.maxTokens ?? 700,
-        reasoning: { enabled: false },
+        ...(reasoning ? { reasoning } : {}),
+        // sticky routing: one session id keeps follow-up turns on the endpoint that holds the warm cache
+        ...(p.sessionId ? { session_id: p.sessionId } : {}),
         provider: { data_collection: or.dataCollection, sort: or.sort, ...(or.zdr ? { zdr: true } : {}) },
         messages: [{ role: 'system', content: system }, ...p.messages],
-      }
+      })
       // One controller cancels the request for the caller's abort, a stalled connect, or a stalled stream.
       const ac = new AbortController()
       let timedOut = false
@@ -129,14 +144,22 @@ export function createOpenRouter(opts: OpenRouterOptions): AnswerProvider {
       try {
         arm(firstByte)
         let res: Response
-        try {
-          res = await doFetch(`${base}/chat/completions`, { method: 'POST', signal: ac.signal, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-Title': 'Careerloom' }, body: JSON.stringify(body) })
-        } catch (e) { return fail(e) }
-        if (!res.ok || !res.body) {
+        const tried: ReasoningShape[] = []
+        let shape = learned.has(p.model) ? learned.get(p.model)! : initialReasoning(p.model)
+        for (;;) {
+          tried.push(shape)
+          p.onMark?.('request-sent')
+          try {
+            res = await doFetch(`${base}/chat/completions`, { method: 'POST', signal: ac.signal, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-Title': 'Careerloom' }, body: JSON.stringify(makeBody(shape)) })
+          } catch (e) { return fail(e) }
+          if (res.ok && res.body) { learned.set(p.model, shape); break }
           const j = await res.json().catch(() => null) as { error?: { message?: string } } | null
-          throw new LlmError(codeForStatus(res.status, j?.error?.message), j?.error?.message ?? `OpenRouter returned ${res.status}`)
+          const msg = j?.error?.message
+          const next = isReasoningRejection(res.status, msg ?? '') ? nextReasoning(tried) : undefined
+          if (next === undefined) throw new LlmError(codeForStatus(res.status, msg), msg ?? `OpenRouter returned ${res.status}`)
+          shape = next // this model refuses that reasoning shape: retry with the next one (no tokens were generated)
         }
-        const beat = async function* (src: AsyncIterable<Uint8Array>) { for await (const c of src) { arm(idle); yield c } }
+        const beat = async function* (src: AsyncIterable<Uint8Array>) { let first = true; for await (const c of src) { arm(idle); if (first) { first = false; p.onMark?.('first-byte') } yield c } }
         try {
           for await (const item of decodeStream(parseSse(beat(bodyStream(res))))) yield item
         } catch (e) { fail(e) }
@@ -150,9 +173,9 @@ export function createOpenRouter(opts: OpenRouterOptions): AnswerProvider {
 }
 
 /** Whole answer as text (classify calls, model test). */
-export async function collectText(provider: AnswerProvider, prompt: ProviderPrompt): Promise<{ text: string; usage: { promptTokens: number; completionTokens: number; costUsd?: number | null } | null }> {
+export async function collectText(provider: AnswerProvider, prompt: ProviderPrompt): Promise<{ text: string; usage: StreamUsage | null }> {
   let text = ''
-  let usage = null as { promptTokens: number; completionTokens: number; costUsd?: number | null } | null
+  let usage = null as StreamUsage | null
   for await (const it of provider.stream(prompt)) { if ('delta' in it) text += it.delta; else usage = it.usage }
   return { text, usage }
 }

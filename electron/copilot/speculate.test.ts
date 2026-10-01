@@ -56,8 +56,8 @@ describe('speculative start', () => {
     const s = createSpeculator({ engine: f.engine, transcript: lines, config: cfg })
     s.onPartial(partial('Why do you want to work here?'))
     await tick()
-    const run = s.take('system-S-0', 'Why do you want to work here', 'qF')
-    expect(run).not.toBeNull()
+    const { run, outcome } = s.take('system-S-0', 'Why do you want to work here', 'qF')
+    expect(run).not.toBeNull(); expect(outcome).toBe('hit')
     f.release()
     const out = await drain(run!.stream)
     expect(out.map(x => x.questionId)).toEqual(['qF', 'qF'])
@@ -71,7 +71,7 @@ describe('speculative start', () => {
     const s = createSpeculator({ engine: f.engine, transcript: lines, config: cfg })
     s.onPartial(partial('Tell me about a time.'))
     await tick()
-    expect(s.take('system-S-0', 'Tell me about a time you led a migration across three teams', 'qF')).toBeNull()
+    expect(s.take('system-S-0', 'Tell me about a time you led a migration across three teams', 'qF')).toEqual({ run: null, outcome: 'miss' })
     expect(f.aborted[0]).toBe(true)
     expect(s.stats()).toMatchObject({ started: 1, hits: 0, misses: 1, hitRate: 0 })
     expect(s.stats().wastedTokens).toBeGreaterThan(0)
@@ -79,7 +79,7 @@ describe('speculative start', () => {
 
   it('take without a speculative run for that line is null and costs nothing', () => {
     const s = createSpeculator({ engine: fakeEngine().engine, transcript: lines, config: cfg })
-    expect(s.take('nope', 'Why?', 'qF')).toBeNull()
+    expect(s.take('nope', 'Why?', 'qF')).toEqual({ run: null, outcome: null })
     expect(s.stats().started).toBe(0)
   })
 
@@ -97,6 +97,25 @@ describe('speculative start', () => {
     const s = createSpeculator({ engine, transcript: lines, config: cfg })
     s.onPartial(partial('Why do you want to work here?'))
     await tick()
-    expect(s.take('system-S-0', 'Why do you want to work here?', 'qF')).toBeNull()
+    expect(s.take('system-S-0', 'Why do you want to work here?', 'qF').run).toBeNull()
+  })
+
+  it('hands the engine shared marks/info and a release promise; releasing stamps the release time and restates held traces', async () => {
+    let seen: AnswerRequest | null = null
+    const engine: AnswerEngine = { cancelAll() {}, answer: req => { seen = req; return (async function* () { yield { ...sug(req.question.id, 'Hi', true), trace: { stt: null, detect: null, connect: 5, ttft: 10, firstSay: 20, endToSay: null, total: 30, promptTokens: 100, cachedTokens: 50 } } })() } }
+    const s = createSpeculator({ engine, transcript: lines, config: cfg, now: () => 700 })
+    s.onPartial(partial('Why do you want to work here?'))
+    await tick()
+    const { run } = s.take('system-S-0', 'Why do you want to work here?', 'qF')
+    expect(seen!.info).toMatchObject({ kind: 'behavioural', auto: true, spec: 'hit' })
+    let afterRelease = false; void seen!.afterRelease!.then(() => { afterRelease = true })
+    run!.marks.speechEndAt = 400; run!.marks.requestSentAt = 300; run!.marks.firstSayAt = 350
+    expect(afterRelease).toBe(false)
+    run!.release()
+    await tick()
+    expect(afterRelease).toBe(true)
+    expect(run!.marks.releasedAt).toBe(700)
+    const out = await drain(run!.stream)
+    expect(out[0]!.trace).toMatchObject({ endToSay: 300, firstSay: 50, promptTokens: 100, cachedTokens: 50, turn: { spec: 'hit' } }) // visible at release (700): 300 after speech end
   })
 })

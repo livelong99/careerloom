@@ -100,3 +100,24 @@ R: Zero downtime
     expect(parseSuggestion('Sure! here you go', true)).toEqual({ say: '', bullets: [], star: null, proof: [] })
   })
 })
+
+describe('prefix-stable ordering and headline-first (PERF-1)', () => {
+  const a = buildPrompt(base({ question: { ...base({}).question, text: 'Tell me about a conflict.' } }))
+  const b = buildPrompt(base({ question: { ...base({}).question, text: 'Design a rate limiter.', type: 'system-design' }, transcript: [{ id: 'x', speaker: 'interviewer', text: 'new line', final: true, t0: 0, t1: 1 }] }))
+  it('system prompt (rules + persona + grounding) is byte-identical across turns', () => {
+    expect(a.system).toBe(b.system)
+    expect(a.system.startsWith(SYSTEM_RULES)).toBe(true)
+    expect(a.system.endsWith(base({}).grounding)).toBe(true)
+  })
+  it('per-turn parts (transcript, question) come last in the user message', () => {
+    const u = a.messages[0]!.content
+    expect(u.indexOf('FORMAT')).toBeLessThan(u.indexOf('Answer this question'))
+    expect(u.indexOf('Answer this question')).toBeLessThan(u.indexOf('QUESTION:'))
+    expect(u.trimEnd().endsWith('TRANSCRIPT_DATA>>>')).toBe(true)
+  })
+  it('asks for a short headline as the first SAY sentence, in both shapes', () => {
+    expect(a.messages[0]!.content).toMatch(/at most 15 words/)
+    const script = buildPrompt(base({ coaching: { ...base({}).coaching, shape: 'script' } }))
+    expect(script.messages[0]!.content).toMatch(/Headline first.*at most 15 words/)
+  })
+})

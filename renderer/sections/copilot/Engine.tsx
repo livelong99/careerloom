@@ -13,6 +13,8 @@ import { careerloom } from '@/lib/ipc'
 import type { LlmModelInfo } from '@/lib/types'
 import { Page } from '../resume/PageStub'
 
+import { defaultPrices } from '../../../electron/copilot/cost'
+
 export function EnginePage() {
   const { config, save, error } = useCopilotConfig()
   // null = the list is unavailable (not wired, offline): the picker then takes a typed id.
@@ -23,7 +25,7 @@ export function EnginePage() {
   const e = config.engine
   const prices = Object.fromEntries(TIERS.map(t => {
     const m = models?.find(x => x.id === e.models[t.id])
-    return [t.id, m && m.promptUsdPerM !== null && m.completionUsdPerM !== null ? { prompt: m.promptUsdPerM, completion: m.completionUsdPerM } : null]
+    return [t.id, m && m.promptUsdPerM !== null && m.completionUsdPerM !== null ? { prompt: m.promptUsdPerM, completion: m.completionUsdPerM, cached: defaultPrices.models[m.id]?.cachedUsdPerM ?? null } : null]
   })) as Record<TierId, TierPrice>
   const patch = (engine: Partial<typeof e>) => { void save({ engine }) }
 
@@ -32,7 +34,7 @@ export function EnginePage() {
       {list.error && <Note tone="warn">{errorText(list.error)}</Note>}
       <Group title="Speed and cost">
         <TierCards tier={e.tier} onTier={tier => patch({ tier })} prices={prices} />
-        <p className="m-0 mt-3 text-xs text-muted-foreground">Estimates assume 15 answers in 45 minutes, before speech-to-text (which runs on this computer). Your real cost shows in the overlay.</p>
+        <p className="m-0 mt-3 text-xs text-muted-foreground">Estimates assume 15 answers in 45 minutes (with prompt caching where the model supports it), before speech-to-text (which runs on this computer). Your real cost shows in the overlay.</p>
         <div className="mt-3"><Row label="Use Deep for design and coding questions" hint="Switches per question. The overlay shows which model answered.">
           <ToggleSwitch aria-label="Escalate to Deep" checked={e.escalateForDesignCoding} onCheckedChange={v => patch({ escalateForDesignCoding: v })} />
         </Row></div>
