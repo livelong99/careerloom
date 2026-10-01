@@ -80,7 +80,7 @@ export function RunnersPage({ settings, onChanged }: PageProps) {
         return (
           <section key={r.id} data-focus={`runner:${r.id}`} aria-label={r.label} className="flex flex-col gap-3 rounded-xl border bg-card/40 p-4" style={{ borderColor: isActive ? 'var(--accent)' : 'var(--border)' }}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1 basis-80">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="m-0 text-sm font-semibold">{r.label}</h3>
                   {isActive && <ReadinessBadge state="ready" label="Active" />}
@@ -99,7 +99,7 @@ export function RunnersPage({ settings, onChanged }: PageProps) {
               <div className="flex flex-col gap-2 text-xs text-muted-foreground">
                 {!check.path && <>{engine.install && <Command cmd={engine.install} />}<Download label={`Get ${engine.label}`} url={engine.url} /></>}
                 {check.path && check.signedIn === false && <><span>Open Terminal, run this and follow the sign-in prompt, then press Check again:</span><Command cmd={engine.signIn} /></>}
-                {check.problems.map(p => <span key={p}>{p}</span>)}
+                {check.problems.filter(p => p !== tests[r.id]?.detail).map(p => <span key={p}>{p}</span>)}
               </div>
             )}
             {(r.id === 'zen' || r.id === 'api') && st.state === 'needs-setup' && <div><Button size="sm" variant="outline" onClick={() => goToSettings('keys', r.id === 'zen' ? 'key:opencode' : 'key:openrouter')}>Add the key →</Button></div>}

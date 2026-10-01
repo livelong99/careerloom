@@ -7,6 +7,7 @@
 - [agy headless permissions](reference_agy_headless_permissions.md) — agy project grants + --project/--mode accept-edits; Careerloom's scoped 'careerloom' project
 
 ## Session history (newest first; "Next steps" in older files are superseded by the overview)
+- [20261001 Settings C AI pages](session_20261001_settings-c-ai.md) — Runners & models, API keys manager, Local models pages; shared KeyField; revealPath + runLogTail IPC
 - [20261001 Settings WP-A](session_20261001_settings-wpa.md) — contract, atomic migration-safe settings.json, key manager + no-token tests, prefs, data/retention, reset, diagnostics
 - [20261001 Settings B shell](session_20261001_settings-b-shell.md) — settings shell/nav/search/deep links, General/Data/Advanced, providers, Integrations nav removed
 - [20261001 Copilot WP3b](session_20261001_copilot-wp3b-whisper.md) — Whisper MLX adapter + VAD/chunker, Whisper small default per S2, benchmark + audio-probe backends; live p50 772 ms on synthetic speech

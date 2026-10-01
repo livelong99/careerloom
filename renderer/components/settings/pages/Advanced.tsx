@@ -63,13 +63,15 @@ export function AdvancedPage(_props: PageProps) {
       <Group title="Recent runs & logs" focus="run-history" action={<Button size="sm" variant="outline" onClick={() => openRuns()}>Open Runs</Button>}>
         {runs.length === 0 && <p className="m-0 text-xs text-muted-foreground">No runs yet.</p>}
         {runs.slice(0, 8).map(r => (
-          <Row key={r.id} label={r.label} hint={`${r.runner} · ${new Date(r.startedAt).toLocaleString()}`}>
-            <ReadinessBadge state={r.status === 'done' ? 'ready' : r.status === 'running' ? 'checking' : r.status === 'failed' ? 'error' : 'off'} label={r.status} />
-            <Button size="sm" variant="outline" onClick={() => openRuns(r.id)}>Log</Button>
-            <Button size="sm" variant="outline" aria-expanded={tail?.id === r.id} onClick={() => void toggleTail(r.id)}>{tail?.id === r.id ? 'Hide tail' : 'Last lines'}</Button>
-          </Row>
+          <div key={r.id}>
+            <Row label={r.label} hint={`${r.runner} · ${new Date(r.startedAt).toLocaleString()}`}>
+              <ReadinessBadge state={r.status === 'done' ? 'ready' : r.status === 'running' ? 'checking' : r.status === 'failed' ? 'error' : 'off'} label={r.status} />
+              <Button size="sm" variant="outline" onClick={() => openRuns(r.id)}>Log</Button>
+              <Button size="sm" variant="outline" aria-expanded={tail?.id === r.id} onClick={() => void toggleTail(r.id)}>{tail?.id === r.id ? 'Hide tail' : 'Last lines'}</Button>
+            </Row>
+            {tail?.id === r.id && <pre aria-label="Last log lines" className="m-0 mb-2 max-h-48 overflow-auto rounded-lg border border-border bg-muted/40 p-2 text-xs">{tail.text || 'No log saved for this run (only scan logs are kept after a restart).'}</pre>}
+          </div>
         ))}
-        {tail && <pre aria-label="Last log lines" className="m-0 mt-2 max-h-48 overflow-auto rounded-lg border border-border bg-muted/40 p-2 text-xs">{tail.text || 'No log saved for this run (only scan logs are kept after a restart).'}</pre>}
       </Group>
 
       <Group title="Limits" focus="limits">
