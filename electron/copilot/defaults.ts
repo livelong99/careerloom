@@ -1,6 +1,7 @@
 // Default (Electron + career-ops) bindings for createCopilot's slots: the real overlay host (WP1), engine/context/detector (WP2)
 // and session controller + local STT (WP3). Everything is built lazily on first use, so importing this never touches Electron.
 import fs from 'node:fs'
+import path from 'node:path'
 
 import { BrowserWindow, shell, systemPreferences } from 'electron'
 
@@ -11,6 +12,7 @@ import { asPermStatus, ensureMic } from './audio-perms'
 import { readCopilotConfig, writeCopilotConfig } from './config'
 import { createContextBuilder, defaultContextDeps, type GroundingContext } from './context'
 import { createCostMeter } from './cost'
+import { createTraceLog } from './trace'
 import { createDetector } from './detector'
 import { e2eHooks } from './e2e-hooks'
 import { createAnswerEngine, createLlmClassifier, defaultModelFor, type AnswerEngine } from './engine'
@@ -64,11 +66,14 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
   let engine: AnswerEngine | null = null
   let nextId = ''
   let starting = false
+  // Metrics log: one JSON line of stage numbers per answer (no text), next to the session files.
+  const traceLog = () => createTraceLog(200, line => { try { fs.appendFileSync(path.join(userFile('copilot'), 'latency.jsonl'), `${line}\n`) } catch { /* metrics are best effort */ } })
 
   // One engine per session (fresh cost meter, so the ceiling is per session); the wiring holds this proxy.
   const engineProxy: AnswerEngine = {
     answer: req => { if (!engine) throw new Error('No session is running'); return engine.answer(req) },
     cancelAll: () => engine?.cancelAll(),
+    warm: async () => { await engine?.warm?.() },
   }
 
   const live = lazy(() => {
@@ -116,7 +121,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
         starting = true
         try {
           jobId = req.jobId; grounding = null; nextId = sessionId
-          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD })
+          engine = createAnswerEngine({ provider: provider(), config: readCopilotConfig, redactNames: names, grounding: () => (grounding ??= context().build(jobId)), cost: createCostMeter(), ceilingUsd: SESSION_CEILING_USD, trace: traceLog(), sessionId: () => nextId })
           await ctl.start(req)
         } finally { starting = false }
       },

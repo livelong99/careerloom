@@ -10,20 +10,33 @@ import { estimateTokens, windowLines, type GroundingContext } from './context'
 import { buildPrompt, parseSuggestion, type PromptKind } from './prompts'
 import { collectText, LlmError } from './providers/openrouter'
 import { createRedactor } from './redact'
+import { stageMs, type TraceLog, type TraceMarks } from './trace'
 import type { CopilotConfig, DetectedQuestion, Suggestion, TranscriptLine } from './types'
 
-export type AnswerRequest = { question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind; signal: AbortSignal }
-export type ProviderPrompt = { system: string; messages: Array<{ role: 'user' | 'assistant'; content: string }>; model: string; signal: AbortSignal; maxTokens?: number }
-export type StreamItem = { delta: string } | { usage: { promptTokens: number; completionTokens: number; costUsd?: number | null } }
+/** `marks` carries the stages before the request (speech end, STT final, detector) so the trace spans the whole turn. */
+export type AnswerRequest = { question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind; signal: AbortSignal; marks?: TraceMarks }
+export type ProviderPrompt = {
+  system: string; messages: Array<{ role: 'user' | 'assistant'; content: string }>; model: string; signal: AbortSignal; maxTokens?: number
+  /** Sticky-routing key (one per session) so follow-up turns land on the endpoint that holds the prompt cache. */
+  sessionId?: string
+  /** Latency trace hooks: the request left / the first response byte arrived. */
+  onMark?: (m: 'request-sent' | 'first-byte') => void
+}
+export type StreamUsage = { promptTokens: number; completionTokens: number; costUsd?: number | null; cachedTokens?: number }
+export type StreamItem = { delta: string } | { usage: StreamUsage }
 /** Streaming provider (OpenRouter in M1); the interface keeps other providers possible. */
 export interface AnswerProvider {
   readonly id: CopilotConfig['engine']['provider']
   stream(prompt: ProviderPrompt): AsyncIterable<StreamItem>
+  /** Optional connection pre-warm (no tokens). */
+  warm?(): Promise<void>
 }
 /** Emits partial Suggestions (done:false) then a final one; abortable. */
 export interface AnswerEngine {
   answer(req: AnswerRequest): AsyncIterable<Suggestion>
   cancelAll(): void
+  /** Open the connection ahead of the first answer (no tokens). */
+  warm?(): Promise<void>
 }
 
 type Tier = Suggestion['tier']
@@ -52,11 +65,18 @@ export type EngineDeps = {
   onRetry?: (info: { attempt: number; from: string; to: string; code: string }) => void
   /** Names to mask when redaction is on (the user, the interviewer). */
   redactNames?: () => string[]
+  /** Per-turn latency trace sink (ring buffer + metrics log). */
+  trace?: TraceLog
+  /** Sticky-routing key: one per session keeps follow-up turns on the endpoint holding the prompt cache. */
+  sessionId?: () => string | undefined
 }
 
-const MAX_TOKENS: Record<Tier, number> = { fast: 450, balanced: 550, deep: 900 }
-const WINDOW_TOKENS = 1200
-const WINDOW_LINES = 8
+// Headline-first answers are short: fast/balanced fit the longest format (script x 5-6 sentences + 5 bullets + STAR) in about 300/400 tokens.
+const MAX_TOKENS: Record<Tier, number> = { fast: 320, balanced: 420, deep: 800 }
+const WINDOW_TOKENS = 800
+const WINDOW_LINES = 6
+/** The SAY section has started and its first line has content: the user can read the headline. */
+const SAY_VISIBLE = /\[SAY\][ \t]*\r?\n[ \t]*\S/
 
 export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
   const now = deps.now ?? Date.now
@@ -85,16 +105,19 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       const promptChars = prompt.system.length + prompt.messages.reduce((n, m) => n + m.content.length, 0)
 
       const start = now()
+      const turn = deps.trace?.start(req.question.id, req.marks ?? {}, start)
+      const marks: TraceMarks = { ...req.marks }
+      const mark = (k: keyof TraceMarks): void => { marks[k] ??= now(); turn?.mark(k, marks[k]!) }
       let text = ''
       let firstTokenMs: number | null = null
-      let usage: { promptTokens: number; completionTokens: number; costUsd?: number | null } | null = null
+      let usage: StreamUsage | null = null
       let usedModel = model
       const base: Suggestion = { questionId: req.question.id, model, tier, say: '', bullets: [], star: null, proof: [], flags: [], done: false, firstTokenMs: null, totalMs: null, costUsd: null }
-      const snapshot = (done: boolean): Suggestion => ({ ...base, model: usedModel, ...parseSuggestion(text, done), done, firstTokenMs, totalMs: done ? now() - start : null })
+      const snapshot = (done: boolean): Suggestion => ({ ...base, model: usedModel, ...parseSuggestion(text, done), done, firstTokenMs, totalMs: done ? now() - start : null, trace: stageMs(marks, { promptTokens: usage?.promptTokens, cachedTokens: usage?.cachedTokens }) })
 
       const stream = withFailover(modelOrder(model, fallbacksFor(tier, model)), m => {
         usedModel = m
-        return deps.provider.stream({ system: prompt.system, messages: prompt.messages, model: m, signal: ac.signal, maxTokens: MAX_TOKENS[tier] })
+        return deps.provider.stream({ system: prompt.system, messages: prompt.messages, model: m, signal: ac.signal, maxTokens: MAX_TOKENS[tier], sessionId: deps.sessionId?.(), onMark: k => mark(k === 'first-byte' ? 'firstByteAt' : 'requestSentAt') })
       }, { signal: ac.signal, sleep: deps.sleep, onRetry: deps.onRetry })
 
       let lastYield = -Infinity
@@ -102,7 +125,9 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
         for await (const item of stream) {
           if ('usage' in item) { usage = item.usage; continue }
           firstTokenMs ??= now() - start
+          mark('firstTokenAt')
           text += item.delta
+          if (marks.firstSayAt === undefined && SAY_VISIBLE.test(text)) mark('firstSayAt')
           if (now() - lastYield >= gap) { lastYield = now(); yield snapshot(false) }
         }
       } catch (e) {
@@ -116,7 +141,9 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
 
       const promptTokens = usage?.promptTokens ?? Math.ceil(promptChars / 4)
       const completionTokens = usage?.completionTokens ?? estimateTokens(text)
-      const costUsd = cost.add(usedModel, promptTokens, completionTokens, usage?.costUsd ?? null)
+      const costUsd = cost.add(usedModel, promptTokens, completionTokens, usage?.costUsd ?? null, usage?.cachedTokens)
+      mark('doneAt')
+      turn?.finish({ promptTokens, cachedTokens: usage?.cachedTokens ?? null })
       const final = snapshot(true)
       const guarded = guardSuggestion({ cv: g.cv, stories: g.storiesText, known: [...g.known, req.question.text] }, final, { factCheck: cfg.engine.factCheck })
       yield { ...guarded, costUsd }
@@ -126,7 +153,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
     }
   }
 
-  return { answer, cancelAll() { for (const c of active) c.abort() } }
+  return { answer, cancelAll() { for (const c of active) c.abort() }, warm: async () => { await deps.provider.warm?.() } }
 }
 
 /** The optional tiny classify call for ambiguous interviewer lines (plan §3.3). Fails closed: null means "not a question". */

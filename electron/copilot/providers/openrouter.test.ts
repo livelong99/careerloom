@@ -143,3 +143,86 @@ describe('toModelInfo', () => {
     expect(toModelInfo({ id: 'x', name: 'x', pricing: {} })).toMatchObject({ contextTokens: null, promptUsdPerM: null })
   })
 })
+
+describe('reasoning parameter (PERF-1)', () => {
+  const body = (c: { init: RequestInit }) => JSON.parse(c.init.body as string)
+  const stream = (model: string, f: typeof fetch) => all(createOpenRouter({ getKey: () => 'k', fetch: f, config: () => cfg }).stream({ ...prompt(), model }))
+  /** Rejects any request whose body fails `ok`, with the 400 OpenRouter sends for mandatory-reasoning models. */
+  function picky(ok: (b: Record<string, unknown>) => boolean) {
+    const calls: Array<Record<string, unknown>> = []
+    const f = (async (_u: string, req: RequestInit) => {
+      const b = JSON.parse(req.body as string) as Record<string, unknown>
+      calls.push(b)
+      if (!ok(b)) return new Response(JSON.stringify({ error: { message: 'Reasoning is mandatory for this endpoint and cannot be disabled.' } }), { status: 400 })
+      return new Response(new ReadableStream({ start(c) { c.enqueue(enc.encode(delta('ok') + 'data: [DONE]\n\n')); c.close() } }), { status: 200 })
+    }) as unknown as typeof fetch
+    return { f, calls }
+  }
+  it('never sends reasoning:{enabled:false} to a non-reasoning model (field omitted)', async () => {
+    const { f, calls } = fakeFetch(['data: [DONE]\n\n'])
+    await stream('openai/gpt-4.1-nano', f)
+    expect('reasoning' in body(calls[0]!)).toBe(false)
+  })
+  it('asks mandatory-reasoning families for minimal effort, not "disabled"', async () => {
+    const { f, calls } = fakeFetch(['data: [DONE]\n\n'])
+    await stream('openai/gpt-5.4-mini', f)
+    expect(body(calls[0]!).reasoning).toEqual({ effort: 'minimal' })
+  })
+  it('on a reasoning 400 walks the ladder, then remembers what the model accepted', async () => {
+    const { f, calls } = picky(b => JSON.stringify(b.reasoning) === JSON.stringify({ effort: 'low' }))
+    const p = createOpenRouter({ getKey: () => 'k', fetch: f, config: () => cfg })
+    await all(p.stream({ ...prompt(), model: 'acme/thinker-9' }))
+    expect(calls.map(c => c.reasoning)).toEqual([undefined, { effort: 'minimal' }, { effort: 'low' }])
+    await all(p.stream({ ...prompt(), model: 'acme/thinker-9' }))
+    expect(calls[3]!.reasoning).toEqual({ effort: 'low' }) // learned: a single request next time
+    expect(calls).toHaveLength(4)
+  })
+  it('stops after the ladder is exhausted and surfaces the error', async () => {
+    const { f, calls } = picky(() => false)
+    await expect(stream('acme/never', f)).rejects.toMatchObject({ code: 'bad_request' })
+    expect(calls).toHaveLength(4)
+  })
+  it('does not retry unrelated 400s', async () => {
+    const { f, calls } = fakeFetch([], { status: 400, json: { error: { message: 'max_tokens too large' } } })
+    await expect(stream('openai/gpt-5.4-mini', f)).rejects.toMatchObject({ code: 'bad_request' })
+    expect(calls).toHaveLength(1)
+  })
+})
+
+describe('prompt caching, sticky routing, warm-up, marks (PERF-1)', () => {
+  it('marks explicit-cache providers (anthropic, qwen) only', async () => {
+    for (const [model, marked] of [['qwen/qwen3-30b-a3b-instruct-2507', true], ['google/gemini-3.6-flash', false], ['openai/gpt-4.1-mini', false]] as const) {
+      const { f, calls } = fakeFetch(['data: [DONE]\n\n'])
+      await all(createOpenRouter({ getKey: () => 'k', fetch: f, config: () => cfg }).stream({ ...prompt(), model }))
+      expect(Array.isArray(JSON.parse(calls[0]!.init.body as string).messages[0].content)).toBe(marked)
+    }
+  })
+  it('sends session_id for sticky routing only when given', async () => {
+    const a = fakeFetch(['data: [DONE]\n\n']); const b = fakeFetch(['data: [DONE]\n\n'])
+    await all(createOpenRouter({ getKey: () => 'k', fetch: a.f, config: () => cfg }).stream({ ...prompt(), sessionId: 's-1' }))
+    await all(createOpenRouter({ getKey: () => 'k', fetch: b.f, config: () => cfg }).stream(prompt()))
+    expect(JSON.parse(a.calls[0]!.init.body as string).session_id).toBe('s-1')
+    expect('session_id' in JSON.parse(b.calls[0]!.init.body as string)).toBe(false)
+  })
+  it('reports cached prompt tokens from usage.prompt_tokens_details', async () => {
+    const { f } = fakeFetch([data({ choices: [], usage: { prompt_tokens: 6000, completion_tokens: 80, prompt_tokens_details: { cached_tokens: 5400 } } }), 'data: [DONE]\n\n'])
+    const out = await all(createOpenRouter({ getKey: () => 'k', fetch: f, config: () => cfg }).stream(prompt()))
+    expect(out[0]).toMatchObject({ usage: { promptTokens: 6000, cachedTokens: 5400 } })
+  })
+  it('fires request-sent then first-byte marks', async () => {
+    const { f } = fakeFetch([delta('a'), 'data: [DONE]\n\n'])
+    const marks: string[] = []
+    await all(createOpenRouter({ getKey: () => 'k', fetch: f, config: () => cfg }).stream({ ...prompt(), onMark: m => marks.push(m) }))
+    expect(marks).toEqual(['request-sent', 'first-byte'])
+  })
+  it('warm() makes one tokenless GET to the same host and never throws', async () => {
+    const calls: Array<{ url: string; method?: string }> = []
+    const f = (async (url: string, init: RequestInit) => { calls.push({ url, method: init.method }); return new Response('{}', { status: 200 }) }) as unknown as typeof fetch
+    await createOpenRouter({ getKey: () => 'k', fetch: f, config: () => cfg, baseUrl: 'https://x.test/api/v1' }).warm!()
+    expect(calls).toEqual([{ url: 'https://x.test/api/v1/key', method: 'GET' }])
+    const boom = (async () => { throw new Error('offline') }) as unknown as typeof fetch
+    await expect(createOpenRouter({ getKey: () => 'k', fetch: boom, config: () => cfg }).warm!()).resolves.toBeUndefined()
+    const none = createOpenRouter({ getKey: () => null, fetch: f, config: () => cfg })
+    await none.warm!(); expect(calls).toHaveLength(1) // no key, no request
+  })
+})
