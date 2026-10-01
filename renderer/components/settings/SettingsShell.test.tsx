@@ -78,9 +78,9 @@ describe('SettingsShell', () => {
     expect(screen.getByRole('combobox', { name: 'Search settings' })).toHaveFocus()
   })
 
-  it('leaves slots for the pages other packages own', async () => {
+  it('has a real page behind every tab (no stubs left)', async () => {
     shell()
     await userEvent.click(screen.getByRole('tab', { name: 'Jobs & boards' }))
-    expect(screen.getByRole('note')).toHaveTextContent(/arrives with/)
+    expect(screen.queryByText(/arrives with/)).toBeNull()
   })
 })
