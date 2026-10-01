@@ -150,7 +150,7 @@ export function runScript(args: string[], opts: { timeoutMs?: number; env?: Node
 export type RunStatus = 'running' | 'done' | 'failed' | 'cancelled'
 export type RunRecord = {
   id: string
-  runner: RunnerId | 'setup' | 'script'
+  runner: RunnerId | 'setup' | 'script' | 'research'
   mode: string
   label: string
   input: string | null

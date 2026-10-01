@@ -33,6 +33,21 @@ export const KEY_DEFS: Record<KeyId, KeyDef> = {
     helpUrl: null, formatHint: '8–200 characters, no spaces. Only needed if your own stack enforces auth',
     validate: must(/^\S{8,200}$/, 'A Firecrawl API key is 8–200 characters with no spaces'),
   },
+  brave: {
+    label: 'Brave Search', usedBy: ['Job knowledge base research'], neededByRunners: [], optional: true,
+    helpUrl: 'https://api-dashboard.search.brave.com/', formatHint: 'Starts with BSA, 20–80 letters, digits, - or _',
+    validate: must(/^BSA[\w-]{17,77}$/, 'That does not look like a Brave Search key (BSA…)'),
+  },
+  exa: {
+    label: 'Exa', usedBy: ['Job knowledge base research (fallback)'], neededByRunners: [], optional: true,
+    helpUrl: 'https://dashboard.exa.ai/api-keys', formatHint: '16–100 characters: letters, digits, - or _',
+    validate: must(/^[\w-]{16,100}$/, 'That does not look like an Exa API key'),
+  },
+  serper: {
+    label: 'Serper', usedBy: ['Job knowledge base research (fallback)'], neededByRunners: [], optional: true,
+    helpUrl: 'https://serper.dev/api-key', formatHint: '16–100 characters: letters, digits',
+    validate: must(/^[A-Za-z0-9]{16,100}$/, 'That does not look like a Serper API key'),
+  },
 }
 
 /** Secret file name per key (kept stable: existing installs already have these files). */

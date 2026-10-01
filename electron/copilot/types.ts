@@ -1,5 +1,6 @@
 // Interview Copilot contract (plan.md §4–§7). FROZEN at gate G-A: changes go through the WP0 owner only.
 // Types only, so both the main process and the renderer can import it.
+import type { InterviewPlan, InterviewRecord } from '../interviewer/types'
 
 export type CopilotMode = 'practice' | 'live'
 export type Speaker = 'interviewer' | 'you'
@@ -40,10 +41,12 @@ export type SessionSummary = { id: string; startedAt: number; endedAt: number | 
 export type Scorecard = { structure: number; specifics: number; evidence: number; concision: number; notes: Array<{ questionId: string; tip: string; suggestedLine: string | null }> }
 export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; questionsList: DetectedQuestion[]; suggestions: Suggestion[]; scorecard: Scorecard | null
   /** p50/p95 stage latencies over this session's answers, derived on read from `suggestions[].trace`. */
-  latency?: TraceSummary }
+  latency?: TraceSummary
+  /** Practice with the AI interviewer: per-question results. Additive. */
+  interview?: InterviewRecord }
 
 /** `questionIds`/`custom` (practice only): the chosen report questions and the user's own. Additive to the frozen contract. */
-export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[] }
+export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[]; /** practice only: AI-interviewer plan from the job knowledge base; absent = the report-question path. Additive. */ interview?: InterviewPlan }
 /** `start` restarts the last practice session, `retry` reopens speech recognition for the running one, `debrief` opens the last session in Careerloom (overlay buttons). Additive. */
 export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean; debrief?: boolean }
 export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper'

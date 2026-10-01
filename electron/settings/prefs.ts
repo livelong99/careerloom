@@ -2,7 +2,7 @@
 // missing or malformed value falls back to its default, so loading never fails and never loses data.
 import type { DocsDefaults, KeyId, KeyTest, Prefs, PrefsPatch } from './types'
 
-export const KEY_IDS: readonly KeyId[] = ['openrouter', 'opencode', 'firecrawl']
+export const KEY_IDS: readonly KeyId[] = ['openrouter', 'opencode', 'firecrawl', 'brave', 'exa', 'serper']
 export const MAX_RETENTION_DAYS = 3650
 
 export const defaultPrefs = (): Prefs => ({

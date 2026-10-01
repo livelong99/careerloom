@@ -23,12 +23,20 @@ const shell = (props: Partial<React.ComponentProps<typeof SettingsShell>> = {}) 
   render(<WithRuns><SettingsShell settings={settingsFixture()} onChanged={() => {}} {...props} /></WithRuns>)
 
 describe('SettingsShell', () => {
-  it('lists 12 pages in 5 groups and starts on General', () => {
+  it('lists 13 pages in 5 groups and starts on General', () => {
     shell()
-    expect(within(screen.getByRole('tablist', { name: 'Settings pages' })).getAllByRole('tab')).toHaveLength(12)
+    expect(within(screen.getByRole('tablist', { name: 'Settings pages' })).getAllByRole('tab')).toHaveLength(13)
     expect(PAGE_GROUPS.map(g => g.label)).toEqual(['Basics', 'AI', 'Connections', 'Workflows', 'System'])
     expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('heading', { name: 'General', level: 2 })).toBeInTheDocument()
+  })
+
+  it('has an Interview prep page right after Copilot (stub until WP6)', async () => {
+    shell()
+    const tabs = within(screen.getByRole('tablist', { name: 'Settings pages' })).getAllByRole('tab').map(t => t.textContent)
+    expect(tabs.indexOf('Interview prep')).toBe(tabs.indexOf('Copilot') + 1)
+    await userEvent.click(screen.getByRole('tab', { name: 'Interview prep' }))
+    expect(screen.getByRole('heading', { name: 'Interview prep', level: 2 })).toBeInTheDocument()
   })
 
   it('remembers the last page', async () => {
