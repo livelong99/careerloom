@@ -66,6 +66,10 @@ export type CopilotDeps = {
   ackNotice?(version: string): { ok: boolean }
   checkHotkey?(accel: string): { ok: boolean; reason?: 'in-use' | 'reserved' | 'invalid' }
   currentNotice?: string
+  /** M3: answer the current question with the screen (capture, then the engine with the image). Progress and failures go out as `copilotScreen` events. */
+  screenshot?(): Promise<void> | void
+  /** Deletes held screenshot frames (session deleted, quit, panic). */
+  clearScreenshots?(): void
 }
 
 const notImplemented = (method: string): NotImplemented => ({ status: 'not-implemented', method })
@@ -279,7 +283,8 @@ export function createCopilot(deps: CopilotDeps) {
     },
     copilotSessionsForJob: (jobId: unknown) => { const id = jobIdOf(jobId); return { sessions: store.list({ jobId: id }), trend: store.trend(id) } },
     copilotGetSession: (id: unknown) => getSession(sessionIdOf(id)),
-    copilotDeleteSession: (id: unknown) => store.remove(id === 'all' ? 'all' : sessionIdOf(id)),
+    copilotDeleteSession: (id: unknown) => { const n = store.remove(id === 'all' ? 'all' : sessionIdOf(id)); deps.clearScreenshots?.(); return n },
+    copilotScreenshot: () => deps.screenshot ? void Promise.resolve().then(deps.screenshot).catch(() => undefined) : notImplemented('copilotScreenshot'),
     copilotExportConsents: () => {
       const dir = deps.dir()
       mkdirSync(dir, { recursive: true, mode: 0o700 })
@@ -304,10 +309,6 @@ export function createCopilot(deps: CopilotDeps) {
     copilotApplyDebrief: (sessionId: unknown, questionId: unknown, action: unknown) =>
       applyDebrief({ store: store, cv: deps.cv, dir: deps.dir() }, sessionIdOf(sessionId), sessionIdOf(questionId, 'question id'), oneOf(action, DEBRIEF_ACTIONS, 'debrief action')),
   }
-
-  /** Untouched WP0 stubs (M3 screenshot) keep their typed not-implemented result. */
-  const STUBS = ['copilotScreenshot'] as const
-  for (const m of STUBS) impl[m] = () => notImplemented(m)
 
   const handlers: Record<string, Handler> = Object.fromEntries(Object.entries(impl).map(([name, fn]) => [name, async (...args: unknown[]): Promise<unknown> => {
     if (!copilotSupported()) throw new Error('Interview Copilot is available on macOS only')

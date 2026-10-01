@@ -52,7 +52,7 @@ export type SttBenchmark = { at: number; p50FinalMs: number; realTimeFactor: num
 export type SttModelInfo = { engine: SttEngineId; model: string; sizeMb: number | null; installed: boolean; devices: Array<'cpu' | 'coreml' | 'cuda'>; lastBenchmark: SttBenchmark | null; recommended: boolean }
 /** What the user can do about a model/provider error (rendered as buttons). */
 export type ErrorAction = 'change-model' | 'privacy-settings' | 'manage-key'
-export type LlmModelInfo = { id: string; name: string; contextTokens: number | null; promptUsdPerM: number | null; completionUsdPerM: number | null; dataPolicy: 'unknown' | 'no-collect' | 'may-collect'; supportsStreaming: boolean }
+export type LlmModelInfo = { id: string; name: string; contextTokens: number | null; promptUsdPerM: number | null; completionUsdPerM: number | null; dataPolicy: 'unknown' | 'no-collect' | 'may-collect'; supportsStreaming: boolean; /** accepts image input (OpenRouter architecture.input_modalities) */ vision?: boolean }
 export type PracticeQuestion = { id: string; text: string; type: QuestionType; source: 'report' | 'custom'; lastScore: number | null }
 /** What the grounding prefix is built from; counts are for the Setup tiles. */
 export type ContextSummary = { jobId: string; title: string; company: string; hasPosting: boolean; hasReport: boolean; hasCv: boolean; stories: number }
@@ -69,6 +69,8 @@ export type CopilotConfig = {
     openrouter: { dataCollection: 'deny' | 'allow'; zdr: boolean; sort: 'latency' | 'price'; policyMigrated: boolean }
     models: Record<'fast' | 'balanced' | 'deep', string | null>
     factCheck: boolean; vision: 'vision' | 'ocr'; autoAnswer: boolean
+    /** Screen reading (screenshots sent to a vision model). Off until the user opts in; Screen Recording permission is asked for separately. */
+    screenshots: boolean
     /** Start the answer on a stable end-of-turn partial; aborted and restarted if the final differs (PERF-2, default off). */
     speculativeStart: boolean
     /** Ambiguous interviewer lines: local rules only, or also ask the Jev decision model (PERF-2, default rules only). */
@@ -126,6 +128,8 @@ export type CopilotEvents = {
   copilotSuggestion: Suggestion                 // repeated, `done:false` while streaming; throttle ≤ 12/s
   copilotHealth: SourceHealth
   copilotError: { kind: 'stt' | 'engine' | 'capture' | 'hotkey'; message: string; retrying: boolean; attempt?: number; actions?: ErrorAction[]; suggestion?: string }
+  /** Screenshot action state for the overlay button; `idle` clears it. */
+  copilotScreen: { state: 'idle' | 'capturing' | 'sent' | 'ready' | 'blocked'; reason?: 'permission' | 'off' | 'ocr' | 'no-vision' | 'budget' | 'failed'; /** shown under the actions (not an error panel: capture and answers keep running) */ message?: string; /** a vision model to offer */ suggestion?: string }
   copilotLevel: { source: SourceId; level: number }     // 0..1, ≤ 15/s
 }
 

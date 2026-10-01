@@ -1,8 +1,8 @@
-import { mkdtempSync, readdirSync, writeFileSync, existsSync, statSync } from 'node:fs'
+import { mkdtempSync, readdirSync, writeFileSync, existsSync, statSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { createScreenshotPipeline, ScreenshotError, type ImageLike } from './screenshots'
+import { createScreenshotPipeline, ScreenshotError, sweepShotDir, type ImageLike } from './screenshots'
 
 /** Synthetic image: records resize calls; JPEG bytes are width*height/1000 long so size scales with pixels. */
 const img = (width: number, height: number): ImageLike => ({
@@ -88,5 +88,25 @@ describe('screenshot pipeline', () => {
     const grab = vi.fn(async () => img(10, 10))
     setup({ grab })
     expect(grab).not.toHaveBeenCalled()
+  })
+  it('sweepShotDir removes only strictly named frames: no look-alikes, no symlinks, nothing outside the directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shots-'))
+    const outside = join(mkdtempSync(join(tmpdir(), 'outside-')), 'precious.jpg')
+    writeFileSync(outside, 'keep me')
+    writeFileSync(join(dir, 'shot-12-3.jpg'), 'x')
+    writeFileSync(join(dir, 'shot-evil.jpg'), 'x')
+    writeFileSync(join(dir, 'shot-1-1.jpg.bak'), 'x')
+    symlinkSync(outside, join(dir, 'shot-9-9.jpg'))
+    expect(sweepShotDir(dir)).toBe(1)
+    expect(readdirSync(dir).sort()).toEqual(['shot-1-1.jpg.bak', 'shot-9-9.jpg', 'shot-evil.jpg'])
+    expect(existsSync(outside)).toBe(true)
+    expect(sweepShotDir(join(dir, 'missing'))).toBe(0)
+  })
+  it('clear() resets the in-memory frames even if a file is already gone', async () => {
+    const { p } = setup()
+    const s = await p.capture()
+    sweepShotDir(join(s.path, '..'))
+    expect(() => p.clear()).not.toThrow()
+    expect(p.latest(1e9)).toBeNull()
   })
 })
