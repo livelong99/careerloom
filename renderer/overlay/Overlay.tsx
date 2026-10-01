@@ -12,6 +12,7 @@ import { buildOverlayData } from './buildData'
 import type { OverlayActions } from './types'
 import { clampWidth, ResizeGrip } from './ResizeGrip'
 import { useCopilotEvents } from './useCopilotEvents'
+import { useTtsPlayer } from './playback/useTtsPlayer'
 import { useInterviewer } from './useInterviewer'
 import { useMicCapture } from './useMicCapture'
 
@@ -49,6 +50,7 @@ function useTheme(pref: CopilotConfig['overlay']['theme'] | undefined): 'dark' |
 export function Overlay() {
   const model = useCopilotEvents()
   const iv = useInterviewer()
+  useTtsPlayer(iv.active)
   const [cfg, reloadConfig] = useConfig(model.session?.state)
   const theme = useTheme(cfg?.overlay.theme)
   const [wiped, setWiped] = useState(false)
@@ -100,7 +102,7 @@ export function Overlay() {
   return (
     <div className="ov-win" style={{ alignItems: VERTICAL[cfg.overlay.anchor], justifyContent: HORIZONTAL[cfg.overlay.anchor] }}>
       <div style={{ position: 'relative' }} onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}>
-        <OverlayView data={data} on={on} theme={theme} interview={iv.active ? { top: <><InterviewerRow state={iv.state} voice={iv.voice} /><Caption text={iv.question?.text ?? null} /></>, bottom: <InterviewControls onControl={c => { b.copilotOverlay({ interviewer: c }).catch(() => undefined) }} /> } : undefined} fontPx={cfg.overlay.fontPx} widthPx={layout === 'panel' ? (dragWidth ?? clampWidth(cfg.overlay.width)) : undefined} opacity={cfg.overlay.opacity} />
+        <OverlayView data={data} on={on} theme={theme} interview={iv.active ? { top: <><InterviewerRow state={iv.state} voice={iv.voice} micPaused={iv.micPaused} notice={iv.notice} /><Caption text={iv.question?.text ?? null} /></>, bottom: <InterviewControls onControl={c => { b.copilotOverlay({ interviewer: c }).catch(() => undefined) }} /> } : undefined} fontPx={cfg.overlay.fontPx} widthPx={layout === 'panel' ? (dragWidth ?? clampWidth(cfg.overlay.width)) : undefined} opacity={cfg.overlay.opacity} />
         {layout === 'panel' ? <ResizeGrip width={dragWidth ?? clampWidth(cfg.overlay.width)} onPreview={setDragWidth} onCommit={w => { setDragWidth(null); bridge().copilotSetConfig({ overlay: { width: w } }).then(reloadConfig).catch(() => undefined) }} /> : null}
       </div>
     </div>

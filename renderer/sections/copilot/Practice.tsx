@@ -19,6 +19,7 @@ import type { InterviewPlan, KbSummary, PlanPreview, PracticeQuestion, VoiceInfo
 import { errorText, orNull, useAsync, useCopilotConfig } from '@/components/copilot/api'
 import { setPracticePick, useSelection } from '@/components/copilot/selection'
 import { startPractice } from '@/components/copilot/startActions'
+import { takeKbPracticeSeed } from '@/components/kb/practice'
 import { Page } from '../resume/PageStub'
 
 /** Own questions are listed after the report's; ids carry `own-` so the list can label them (main derives its own ids for them). */
@@ -35,6 +36,8 @@ export function PracticePage() {
   const [source, setSource] = useState<'ai' | 'report'>('ai')
   const ai = ready && source === 'ai'
   useEffect(() => { setInterviewForm({ enabledFor: ai ? jobId : null }) }, [ai, jobId])
+  useEffect(() => { setInterviewForm({ itemIds: null }) }, [jobId])
+  useEffect(() => { const s = takeKbPracticeSeed(); if (s) { setSource('ai'); setInterviewForm({ itemIds: s.itemIds }) } }, []) // 'Practise this job' / 'this question' from the KB tab
   useEffect(() => () => setInterviewForm({ enabledFor: null }), [])
 
   const note = ready ? (
@@ -85,6 +88,7 @@ function AiPractice({ jobId, kb }: { jobId: string; kb: KbSummary }) {
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_17rem]">
       <div className="grid gap-4">
         <Group title="Interview">
+          {f.itemIds?.length ? <div className="mb-3 flex items-center justify-between gap-2"><Note>Practising {f.itemIds.length === 1 ? 'one chosen question' : `${f.itemIds.length} chosen questions`}.</Note><Button size="sm" variant="outline" onClick={() => setInterviewForm({ itemIds: null })}>Use the whole base</Button></div> : null}
           <ModePicker value={f.mode} onChange={mode => setInterviewForm({ mode })} />
           <div className="mt-4">
             <Row label="Length" hint="The interviewer paces questions to fit. It never cuts you off.">

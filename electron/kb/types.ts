@@ -65,6 +65,8 @@ export type ResearchProgress = { runId: string; phase: ResearchPhase; done: numb
 export type ResearchPlan = { jobId: string; skills: SkillNode[]; queries: string[]; backend: SearchBackendId | 'none' }
 
 export type VoiceInfo = { engine: TtsEngineId; id: string; name: string; lang: string; offline: boolean; installed: boolean; sizeMb: number | null; note: string | null }
+/** contract v2: mean score (0..5) per KB skill id over a job's scored practice answers (Skill-up reads it). */
+export type KbSkillSignal = { jobId: string; at: number; skills: Record<string, { avg: number; n: number }> }
 /** contract v2 */
 export type KokoroStatus = { supported: boolean; installed: boolean; installing: boolean; downloadMb: number }
 export type PlanPreview = { questions: number; sourced: number; usd: number; minutes: number }
@@ -97,6 +99,8 @@ export interface KbApi {
   interviewInstallVoice(engine: 'kokoro'): { runId: string }
   /** contract v2: Settings > Local models row (install state of the Kokoro voice). */
   interviewKokoroStatus(): KokoroStatus
+  /** contract v2: null until a scored AI-interviewer session exists for the job. */
+  interviewSkillSignal(jobId: string): KbSkillSignal | null
   interviewPlanPreview(jobId: string, plan: InterviewPlan): PlanPreview
 }
 
@@ -104,7 +108,7 @@ export interface KbApi {
 export type KbEvents = {
   kbProgress: ResearchProgress
   kbChanged: { jobId: string }
-  interviewerState: { state: 'speaking' | 'thinking' | 'listening' | 'idle'; questionId: string | null; voice: string | null }
+  interviewerState: { state: 'speaking' | 'thinking' | 'listening' | 'idle'; questionId: string | null; voice: string | null; /** contract v2: speakers mode, the mic is paused while the voice plays. */ micPaused?: boolean }
   ttsPlayback: { phase: 'started' | 'ended' | 'cancelled'; utteranceId: string }
   /** contract v2: one short line for the overlay ("Kokoro is unavailable, using the system voice"). */
   interviewerNotice: { text: string }

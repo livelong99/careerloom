@@ -62,5 +62,7 @@ export function interviewSpeaker(plan: InterviewPlan): Speaker {
     cancel: () => { rtm.cancel(); for (const id of [...pending]) release(id) },
   }
 }
+/** Speakers mode pauses the mic while the interviewer talks (the badge in the overlay). */
+export const micPausesWhileSpeaking = (): boolean => voiceConfig().echo === 'speakers'
 /** The interview is over: back to the configured voice. */
 export const endInterviewVoice = (): void => { session = null }

@@ -1,11 +1,11 @@
 // Glue between Copilot practice and the interviewer engine: builds the runner from the job's question base and records what
 // happened (SessionDetail.interview, KbItem stats, skill signal). The KB store, the voice and the overlay events are injected (WP1/WP5).
 import { createHash } from 'node:crypto'
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { PracticeSink } from '../copilot/practice'
-import type { KbItem, SkillNode } from '../kb/types'
+import type { KbItem, KbSkillSignal, SkillNode } from '../kb/types'
 import { planHash, previewPlan } from './plan'
 import { createInterviewerRunner, type InterviewerRunner, type SpeakState, type Speaker } from './runner'
 import type { InterviewPlan, InterviewRecord, QuestionResult } from './types'
@@ -26,7 +26,7 @@ export type InterviewDeps = {
 }
 export type Interview = { runner: InterviewerRunner; record(): InterviewRecord; control(c: 'replay' | 'skip' | 'hint'): void; skillSignal(): SkillSignal }
 /** Mean score per skill from this session's scored questions, for the Skill-up ordering. */
-export type SkillSignal = { jobId: string; at: number; skills: Record<string, { avg: number; n: number }> }
+export type SkillSignal = KbSkillSignal
 
 export const NO_BASE = 'This job has no question base yet: research it in the Knowledge base tab, or practise with the report questions'
 
@@ -56,12 +56,17 @@ export function createInterview(o: {
   }
 }
 
+const signalFile = (dir: string, jobId: string): string => join(dir, 'skill-signal', `${createHash('sha256').update(jobId).digest('hex').slice(0, 24)}.json`)
+/** Null when there is none (or it is unreadable): the signal only reorders Skill-up, never gates it. */
+export function readSkillSignal(dir: string, jobId: string): SkillSignal | null {
+  try { const s = JSON.parse(readFileSync(signalFile(dir, jobId), 'utf8')) as SkillSignal; return s && typeof s.skills === 'object' && s.skills !== null ? s : null } catch { return null }
+}
 /** One small file per job under `<dir>/skill-signal/`; the Skill-up tab reads it when an IPC for it exists (deferred: contract is frozen). */
 export function writeSkillSignal(dir: string, s: SkillSignal): void {
   if (Object.keys(s.skills).length === 0) return
   const folder = join(dir, 'skill-signal')
   mkdirSync(folder, { recursive: true, mode: 0o700 })
-  const file = join(folder, `${createHash('sha256').update(s.jobId).digest('hex').slice(0, 24)}.json`)
+  const file = signalFile(dir, s.jobId)
   const tmp = `${file}.${process.pid}.tmp`
   writeFileSync(tmp, JSON.stringify(s), { mode: 0o600 })
   renameSync(tmp, file)
