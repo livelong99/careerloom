@@ -209,7 +209,7 @@ export const killSidecars = () => { for (const c of live) c.kill('SIGKILL') }
 /** Spawn `bin args` (argv only, no shell), send `input` as JSON, resolve the JSON it prints. `{error}` bodies throw. */
 export function runSidecar<T>(bin: string, args: string[], input: unknown, timeoutMs = 180_000): Promise<T> {
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn(bin, args, { shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' } }) // Windows pipes default to the ANSI code page
     live.add(child)
     let out = ''
     let err = ''

@@ -153,6 +153,8 @@ export async function mergeTracker(): Promise<void> {
 /** One worker run for `job`; resolves when it has been launched. `next` fires after it ends. */
 async function launchWorker(job: JobListing, index: number, total: number, env: NodeJS.ProcessEnv, next: (run: RunRecord) => void): Promise<RunSummary> {
   const root = careerOpsRoot()
+  const template = read(path.join(root, 'batch', 'batch-prompt.md'))
+  if (!template) throw new Error('batch/batch-prompt.md is missing from career-ops — update or repair it in Integrations')
   const reserved = await runScript(['reserve-report-num.mjs'])
   const reportNum = reserved.stdout.trim()
   if (reserved.code !== 0 || !/^\d{1,5}$/.test(reportNum)) throw new Error(`Couldn't reserve a report number: ${reserved.stderr.split('\n')[0] || reserved.stdout}`)
@@ -161,13 +163,11 @@ async function launchWorker(job: JobListing, index: number, total: number, env: 
   fs.mkdirSync(dir, { recursive: true })
   const jdFile = path.join(dir, `${id}.jd.md`)
   const promptFile = path.join(dir, `${id}.worker.md`)
-  fs.writeFileSync(jdFile, await prefetchJd(job.url))
-  const template = read(path.join(root, 'batch', 'batch-prompt.md'))
-  if (!template) throw new Error('batch/batch-prompt.md is missing from career-ops — update or repair it in Integrations')
+  const release = () => runScript(['reserve-report-num.mjs', '--release', reportNum]).catch(() => undefined)
+  try { fs.writeFileSync(jdFile, await prefetchJd(job.url)) } catch (err) { await release(); throw err }
   const date = new Date().toISOString().slice(0, 10)
   fs.writeFileSync(promptFile, workerPrompt(template, { url: job.url, jdFile: path.relative(root, jdFile), reportNum, date, id }))
   const startedAt = new Date().toISOString()
-  const release = () => runScript(['reserve-report-num.mjs', '--release', reportNum]).catch(() => undefined)
 
   // The instructions live in a file: batch-prompt.md is far larger than a safe command line.
   const prompt = `# career-ops Batch Worker\n\nYou are running headless from Careerloom — nobody can answer questions. `
@@ -178,15 +178,20 @@ async function launchWorker(job: JobListing, index: number, total: number, env: 
     jobId: job.id,
     onExit: run => {
       void (async () => {
-        const result = parseWorkerResult(run.log)
-        const ok = run.status === 'done' && result?.status === 'completed'
-        if (ok) await mergeTracker().catch(err => console.error('merge-tracker failed:', err))
-        else await release()
-        appendBatchState(root, { id, url: job.url, status: ok ? 'completed' : result?.status || 'failed', startedAt, reportNum: ok ? reportNum : '-', score: result?.score ?? null, error: ok ? null : result?.error ?? `run ${run.status}` })
-        await runScript(['reconcile-pipeline.mjs']).catch(err => console.error('reconcile-pipeline failed:', err))
-        fs.rmSync(promptFile, { force: true })
-        fs.rmSync(jdFile, { force: true })
-        next(run)
+        try {
+          const result = parseWorkerResult(run.log)
+          const ok = run.status === 'done' && result?.status === 'completed'
+          if (ok) await mergeTracker().catch(err => console.error('merge-tracker failed:', err))
+          else await release()
+          appendBatchState(root, { id, url: job.url, status: ok ? 'completed' : result?.status || 'failed', startedAt, reportNum: ok ? reportNum : '-', score: result?.score ?? null, error: ok ? null : result?.error ?? `run ${run.status}` })
+          await runScript(['reconcile-pipeline.mjs']).catch(err => console.error('reconcile-pipeline failed:', err))
+        } catch (err) {
+          console.error('batch worker cleanup failed:', err)
+        } finally {
+          fs.rmSync(promptFile, { force: true })
+          fs.rmSync(jdFile, { force: true })
+          next(run)
+        }
       })()
     },
   })

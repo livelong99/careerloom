@@ -160,7 +160,9 @@ export function readTrackedCompanies(portalsPath: string): TrackedCompany[] {
 
 export function writeDoc(portalsPath: string, doc: Document.Parsed): void {
   fs.mkdirSync(path.dirname(portalsPath), { recursive: true })
-  fs.writeFileSync(portalsPath, String(doc))
+  const tmp = `${portalsPath}.${process.pid}.tmp` // temp + rename: a crash never truncates the user's portals.yml
+  fs.writeFileSync(tmp, String(doc))
+  fs.renameSync(tmp, portalsPath)
 }
 
 /** Appends one company entry, preserving the rest of the file's comments/formatting. */

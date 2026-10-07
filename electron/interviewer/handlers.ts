@@ -4,7 +4,7 @@ import { copilotSupported } from '../copilot/capabilities'
 import { parsePlan, previewPlan } from './plan'
 import { interviewPool } from './pool'
 
-const JOB_ID = /^.{1,500}$/s
+const JOB_ID = /^.{1,2000}$/s
 
 export const interviewPlanPreview: Handler = async (jobId: unknown, plan: unknown) => {
   if (!copilotSupported()) throw new Error('The AI interviewer is available on macOS and Windows only')

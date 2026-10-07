@@ -91,11 +91,16 @@ async function agentEnv(): Promise<NodeJS.ProcessEnv> {
   return (await firecrawlReady()) ? { FIRECRAWL_URL: readRegistry().firecrawl.url } : {}
 }
 
+/** Jobs with an evaluate run still going — a second Evaluate click must not start a duplicate worker. */
+export const evaluatingJobIds = (all: Iterable<{ mode: string; status: string; jobId?: string | null }>): Set<string> =>
+  new Set([...all].filter(r => r.mode === 'evaluate' && r.status === 'running' && r.jobId).map(r => r.jobId as string))
+
 export const jobsHandlers: Record<string, Handler> = {
   listJobs,
   listPortals,
   /** Empty ids = every enabled portal; otherwise scan.mjs against a temp portals.yml holding just those. */
   scanPortals: async (raw: unknown) => {
+    if ([...runs.values()].some(r => r.mode === 'scan' && r.status === 'running')) throw new Error('A scan is already running — wait for it to finish or cancel it in Runs')
     const picked = new Set(ids(raw, 'ids'))
     const cwd = careerOpsRoot()
     const all = sources()
@@ -131,8 +136,9 @@ export const jobsHandlers: Record<string, Handler> = {
     const staged = readSettings().prefs.evalPipeline.enabled
     const wanted = new Set(ids(raw, 'ids', staged ? MAX_STAGED_IDS : MAX_IDS))
     if (!wanted.size) throw new Error('Select at least one job to evaluate')
-    const jobs = listJobs().filter(j => wanted.has(j.id) && /^https?:\/\//i.test(j.url) && (force === true || j.reportNum === null))
-    if (!jobs.length) throw new Error('Those jobs are already evaluated — use Re-evaluate to run them again')
+    const busy = evaluatingJobIds(runs.values())
+    const jobs = listJobs().filter(j => wanted.has(j.id) && !busy.has(j.id) && /^https?:\/\//i.test(j.url) && (force === true || j.reportNum === null))
+    if (!jobs.length) throw new Error('Those jobs are already evaluated or being evaluated — use Re-evaluate to run them again')
     const env = await agentEnv()
     return staged && jobs.length > 1 && jobs.every(j => j.reportNum === null) ? evaluateStaged(jobs, env) : evaluateSelected(jobs, env)
   },

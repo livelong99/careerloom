@@ -55,7 +55,9 @@ export function BoardEditor({ id, portal, onClose, onSaved }: Props) {
   useEffect(() => {
     setDetail(null); setDraft(null); setError(null); setUrlErrors({})
     if (!id) return
-    careerloom.getPortal(id).then(d => { setDetail(d); setDraft(draftOf(d)) }).catch(err => setError(normalizeCliError(err).message))
+    let live = true // a slow response for the previously opened board must not overwrite this one
+    careerloom.getPortal(id).then(d => { if (live) { setDetail(d); setDraft(draftOf(d)) } }).catch(err => { if (live) setError(normalizeCliError(err).message) })
+    return () => { live = false }
   }, [id])
   useEffect(() => {
     if (draft?.fetch !== 'browser' || !id) return

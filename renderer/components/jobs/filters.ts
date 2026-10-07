@@ -45,6 +45,12 @@ const locationKey = (j: JobListing) => j.location?.trim() || NO_LOCATION
 /** Posted date, falling back to when the scanner first saw it. */
 export const postedOf = (j: JobListing) => (j.postedAt ?? j.firstSeen ?? '').slice(0, 10)
 
+/** Drops portal filters whose portal was removed (e.g. after switching starter packs): they match nothing and show as raw ids. */
+export function pruneStalePortals(f: JobFilters, known: Set<string>): JobFilters {
+  const portals = f.portals.filter(p => p === NO_PORTAL || known.has(p))
+  return portals.length === f.portals.length ? f : { ...f, portals }
+}
+
 export function applyJobFilters<T extends ScreenedJob>(jobs: T[], f: JobFilters): T[] {
   const q = f.query.trim().toLowerCase()
   return jobs.filter(j => {

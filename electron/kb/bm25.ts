@@ -3,7 +3,7 @@ const K1 = 1.2
 const B = 0.75
 const STOP = new Set(('a an and are as at be but by do does did for from had has have how i if in into is it its me my of on or our so than that the their them then there these they this to us was we were what when where which who why will with would you your').split(' '))
 // Keeps c++, c#, .net, node.js, v1.2; a bare leading dot is dropped (sentence punctuation), ".net" survives.
-const TOKEN = /\.?[a-z0-9]+(?:\.[a-z0-9]+)*(?:\+\+|#)?/g
+const TOKEN = /\.?[\p{L}\p{N}]+(?:\.[\p{L}\p{N}]+)*(?:\+\+|#)?/gu
 
 const stem = (t: string): string => {
   if (!/^[a-z]+$/.test(t)) return t // c++, node.js, .net, v1.2: never touched

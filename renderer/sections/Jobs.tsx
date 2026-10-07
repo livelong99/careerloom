@@ -3,7 +3,7 @@ import { LayoutGrid, Radar } from 'lucide-react'
 
 import { EmptyNote } from '../components/EmptyState'
 import { BulkBar, useEvaluateJobs } from '../components/jobs/BulkBar'
-import { applyJobFilters, loadPersistedFilters, persistFilters, toApplication, type JobFilters, type ScreenedJob } from '../components/jobs/filters'
+import { applyJobFilters, loadPersistedFilters, pruneStalePortals, persistFilters, toApplication, type JobFilters, type ScreenedJob } from '../components/jobs/filters'
 import { JobsTable } from '../components/jobs/JobsTable'
 import { JobsToolbar, type JobsView } from '../components/jobs/JobsToolbar'
 import { PrescreenControls, usePrescreen } from '../components/jobs/prescreen'
@@ -30,6 +30,7 @@ export function Jobs() {
   const [view, setView] = useState<JobsView>('table')
   const [selected, setSelected] = useState<string[]>(() => loadJobsUi().selected)
   const rootRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef(loadJobsUi().scroll) // refs are detached before unmount cleanups run, so track the position as it changes
   const open = (j: ScreenedJob) => openJob(j.id)
   const prescreen = usePrescreen(generation)
   const evaluateJobs = useEvaluateJobs()
@@ -54,13 +55,20 @@ export function Jobs() {
   const screens = prescreen.map
   const all = useMemo((): ScreenedJob[] => (jobs.data ?? []).map(j => (screens[j.id] ? { ...j, screen: screens[j.id] } : j)), [jobs.data, screens])
   const portalList = portals.data ?? []
+  useEffect(() => {
+    if (!portals.data || !jobs.data) return
+    const known = new Set([...portals.data.map(p => p.id), ...jobs.data.flatMap(j => (j.portalId ? [j.portalId] : []))])
+    const next = pruneStalePortals(filters, known)
+    if (next !== filters) setFilters(next)
+  }, [portals.data, jobs.data]) // eslint-disable-line react-hooks/exhaustive-deps
   const shown = useMemo(() => applyJobFilters(all, filters), [all, filters])
   useEffect(() => setJobList(shown.map(j => j.id)), [shown])
   // Back from a job page: selection and table scroll come back as they were.
   const scroller = () => rootRef.current?.querySelector<HTMLElement>('.fill-scroll') ?? null
   useEffect(() => { const el = scroller(); if (el) el.scrollTop = loadJobsUi().scroll }, [jobs.data === undefined]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => saveJobsUi({ selected: selectedRef.current, scroll: scroller()?.scrollTop ?? 0 }), []) // eslint-disable-line react-hooks/exhaustive-deps
-  const selectedJobs = useMemo(() => all.filter(j => selected.includes(j.id)), [all, selected])
+  useEffect(() => () => saveJobsUi({ selected: selectedRef.current, scroll: scrollRef.current }), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Only rows the user can see: a filter change must not leave hidden rows in a bulk action.
+  const selectedJobs = useMemo(() => { const ids = new Set(selected); return shown.filter(j => ids.has(j.id)) }, [shown, selected])
 
   const shortcuts = useMemo((): Shortcut[] => {
     const count = (states: JobState[]) => all.filter(j => states.includes(j.state)).length
@@ -83,6 +91,7 @@ export function Jobs() {
     return <SectionSkeleton label="Jobs" rows={6} />
   }
 
+  if (jobs.error && !jobs.data) return <Panel title="Jobs"><EmptyNote>{jobs.error.message}</EmptyNote></Panel>
   if (all.length === 0) {
     return (
       <Panel title="Jobs" className="workspace">
@@ -96,7 +105,7 @@ export function Jobs() {
   const boardApps = shown.flatMap(j => { const a = toApplication(j, portalList); return a ? [a] : [] })
 
   return (
-    <div ref={rootRef} className="workspace workspace-fill flex flex-col gap-3">
+    <div ref={rootRef} onScrollCapture={e => { if ((e.target as HTMLElement).classList.contains('fill-scroll')) scrollRef.current = (e.target as HTMLElement).scrollTop }} className="workspace workspace-fill flex flex-col gap-3">
       <div className="flex shrink-0 flex-wrap gap-2" role="group" aria-label="Jobs by state">
         {shortcuts.map(s => (
           <button

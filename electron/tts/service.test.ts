@@ -17,6 +17,17 @@ const setup = (engines = [createFakeTts({ latencyMs: 100 })], extra: Partial<Par
   return { svc, sent, fallbacks, engines }
 }
 
+describe('tts service voice ownership', () => {
+  it('uses the selected voice id only on the engine that owns it', async () => {
+    const used: string[] = []
+    const mk = (id: string) => ({ ...createFakeTts({ latencyMs: 1 }), id, voices: async () => [{ id: `${id}-default`, installed: true }], synth: async function* (_t: string, v: string) { used.push(`${id}:${v}`); yield { pcm16: new Int16Array(4), sampleRate: 24000 as const } } }) as never
+    const { svc } = setup([mk('system')], { voice: () => ({ voiceId: 'af_heart', speed: 1, engine: 'kokoro' }) })
+    svc.speak('u', 'Hello there.'); svc.end('u')
+    await vi.runAllTimersAsync()
+    expect(used).toEqual(['system:system-default'])
+  })
+})
+
 describe('tts service', () => {
   it('renders sentences in order with increasing seq; end() emits one last marker after all audio', async () => {
     const { svc, sent, engines } = setup()

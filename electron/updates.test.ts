@@ -84,10 +84,12 @@ describe('createUpdateChecker', () => {
     expect(status).toMatchObject({ updateAvailable: false, latestVersion: '0.9.15' })
   })
 
-  it('is a silent no-op on a fetch error and retries on the next cycle', async () => {
+  it('is a silent no-op on a fetch error, backs off, then retries', async () => {
+    let clock = 1_000
     let calls = 0
     const check = createUpdateChecker({
       currentVersion: CURRENT,
+      now: () => clock,
       fetchReleasesImpl: async () => {
         calls += 1
         if (calls === 1) throw new Error('offline')
@@ -96,9 +98,16 @@ describe('createUpdateChecker', () => {
     })
     const first = await check.getStatus()
     expect(first).toMatchObject({ updateAvailable: false, latestVersion: null }) // error: no crash, no update
-    const second = await check.getStatus() // retries because the error did not stamp lastCheckedAt
-    expect(second).toMatchObject({ updateAvailable: true, latestVersion: '0.9.17' })
+    await check.getStatus() // polled again right away: backoff, no second request
+    expect(calls).toBe(1)
+    clock += 6 * 60_000
+    expect(await check.getStatus()).toMatchObject({ updateAvailable: true, latestVersion: '0.9.17' })
     expect(calls).toBe(2)
+  })
+
+  it('compares prerelease-suffixed patch numbers numerically', () => {
+    expect(compareSemver('0.4.0-beta.1', '0.4.0')).toBe(0)
+    expect(compareSemver('0.10.0', '0.9.0')).toBe(1)
   })
 
   it('serves the cached status within the 24h interval, then re-checks after it', async () => {

@@ -12,7 +12,8 @@ export interface TtsService {
 export type TtsServiceOpts = {
   /** Engines to try, selected first (see buildChain). Read per sentence so settings changes apply immediately. */
   chain: () => TtsEngine[]
-  voice: () => { voiceId: string | null; speed: number }
+  /** `engine` names who `voiceId` belongs to; another engine (after a fallback or an uninstall) picks its own default voice. */
+  voice: () => { voiceId: string | null; speed: number; engine?: string }
   send: (m: TtsAudioMsg) => void
   onFallback?: (from: TtsEngineId, to: TtsEngineId, err: unknown) => void
   onError?: (err: unknown) => void
@@ -50,7 +51,7 @@ export function createTtsService(o: TtsServiceOpts): TtsService {
       let emitted = false
       try {
         const sel = o.voice()
-        const voiceId = i === 0 ? sel.voiceId : null
+        const voiceId = sel.voiceId && (sel.engine === undefined ? i === 0 : sel.engine === eng.id) ? sel.voiceId : null
         const v = voiceId ?? (await eng.voices()).find(x => x.installed)?.id
         if (!v) throw new Error(`${eng.id}: no voice available`)
         for await (const c of eng.synth(text, v, sel.speed, signal)) {

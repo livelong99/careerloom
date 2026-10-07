@@ -12,6 +12,7 @@ const BASE_WPM = 175
 const clampRate = (speed: number) => Math.round(Math.min(350, Math.max(90, BASE_WPM * speed)))
 
 /** `Aman (English (India)) en_IN    # sample` → English voices only, en_IN first then by name. */
+const q = (s: string) => s.replace(/['\u2018\u2019\u201A\u201B]/g, m => m + m) // PowerShell treats curly quotes as quotes too
 export function parseSayVoices(out: string): VoiceInfo[] {
   const voices: VoiceInfo[] = []
   for (const line of out.split('\n')) {
@@ -121,7 +122,7 @@ function createSapiEngine(d: Deps): TtsEngine {
       const textFile = join(out, '..', 'in.txt')
       try {
         writeText(textFile, text)
-        await ps(['-Command', `& { ${PS_SYNTH} } -Voice '${voiceId.replace(/'/g, "''")}' -Rate ${sapiRate(speed)} -Out '${out.replace(/'/g, "''")}' -TextFile '${textFile.replace(/'/g, "''")}'`], signal)
+        await ps(['-Command', `& { ${PS_SYNTH} } -Voice '${q(voiceId)}' -Rate ${sapiRate(speed)} -Out '${q(out)}' -TextFile '${q(textFile)}'`], signal)
         if (signal.aborted) return
         yield { pcm16: wavToPcm(await readWav(out)), sampleRate: 24000 as const }
       } catch (e) {

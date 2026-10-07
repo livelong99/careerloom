@@ -204,6 +204,7 @@ export async function runResearch(jobId: string, opts: ResearchOptions, deps: Pi
     const trust = it.sources.reduce<0 | 1 | 2>((m, s) => Math.max(m, trustOf.get(s.sourceId) ?? 0) as 0 | 1 | 2, 0)
     return { ...it, seen: it.sources.length, confidence: confidenceOf('sourced', it.sources.length, trust) }
   })
+  signal.throwIfAborted()
   emit('dedupe', 1, 1, `${raw.length} distinct`)
 
   // keep what the user already curated: their own items and anything pinned, hidden or edited
@@ -218,6 +219,7 @@ export async function runResearch(jobId: string, opts: ResearchOptions, deps: Pi
   emit('generate', 1, 2)
   try { items = await fillGaps(items, skills, ask, deps.job.title) } catch (err) { if (err instanceof BudgetStop) stopped = true; else if (signal.aborted) throw err }
   emit('generate', 2, 2)
+  signal.throwIfAborted() // classify/enrich/fillGaps swallow the abort error; a stopped run must not commit a "complete" KB
   items = items.sort((a, b) => Number(b.provenance !== 'generated') - Number(a.provenance !== 'generated') || b.confidence - a.confidence).slice(0, MAX_ITEMS)
   itemsFound = items.length
 

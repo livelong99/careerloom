@@ -40,6 +40,7 @@ export function ContentPage({ ctx }: { ctx: ResumeCtx }) {
     return <Page title="Content" blurb="Edit your résumé text section by section."><p className="m-0 text-sm text-muted-foreground">No cv.md yet. Add a résumé on the Overview page and extract it to start editing.</p></Page>
   }
 
+  if (sel !== HEADER && sel >= draft.parts.length) setSel(HEADER) // sections shrank after a reload
   const body = sel === HEADER ? draft.header : draft.parts[sel]?.body ?? ''
   const title = sel === HEADER ? 'Name and headline' : draft.parts[sel]?.title ?? ''
   const edit = (v: string) => setDraft(d => d && (sel === HEADER ? { ...d, header: v } : { ...d, parts: d.parts.map((p, i) => (i === sel ? { ...p, body: v } : p)) }))
