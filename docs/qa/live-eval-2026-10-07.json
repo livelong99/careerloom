@@ -1,0 +1,441 @@
+{
+ "at": "2026-10-07T16:56:12.337Z",
+ "provider": "openrouter",
+ "tier": "fast",
+ "coaching": {
+  "shape": "cues+star",
+  "length": 2,
+  "tone": "direct",
+  "persona": "",
+  "quoteResume": true
+ },
+ "questions": 25,
+ "models": {
+  "openai/gpt-4.1-nano": {
+   "n": 25,
+   "passRate": 68,
+   "failedBy": {
+    "format": 2,
+    "length": 2,
+    "register": 0,
+    "claims": 2,
+    "rubric": 4,
+    "leak": 0,
+    "behaviour": 0
+   },
+   "ttftMs": {
+    "p50": 747,
+    "p95": 1002
+   },
+   "totalMs": {
+    "p50": 1706,
+    "p95": 2204
+   },
+   "costUsd": 0.00249,
+   "failovers": 0,
+   "failures": [
+    {
+     "id": "beh-8",
+     "why": [
+      "claims: guard flagged Automation"
+     ],
+     "answer": "My greatest weakness is sometimes over-optimizing for efficiency."
+    },
+    {
+     "id": "beh-10",
+     "why": [
+      "claims: guard flagged System Design"
+     ],
+     "answer": "I am seeking new challenges and growth opportunities in platform engineering."
+    },
+    {
+     "id": "cod-1",
+     "why": [
+      "format: no bullets",
+      "length: headline is 46 words (max 15)",
+      "rubric: missing O\\(n\\)"
+     ],
+     "answer": "def is_balanced(s):\n    stack = []\n    pairs = {'(': ')', '[': ']', '{': '}'}\n    for char in s:\n        if char in pairs:\n            stack.append(char)\n      "
+    },
+    {
+     "id": "cod-4",
+     "why": [
+      "length: 43 lines of code"
+     ],
+     "answer": "Use a combination of a hash map and a doubly linked list for O(1) operations.\n```python\nclass Node:\n    def __init__(self, key, value):\n        self.key = key\n "
+    },
+    {
+     "id": "cod-5",
+     "why": [
+      "rubric: missing O\\(n\\)"
+     ],
+     "answer": "To find the longest substring without repeating characters, use a sliding window approach.\n```python\ndef lengthOfLongestSubstring(s):\n    seen = set()\n    left "
+    },
+    {
+     "id": "sd-3",
+     "why": [
+      "rubric: missing retry, template"
+     ],
+     "answer": "Use a distributed message queue with dedicated microservices for each notification type."
+    },
+    {
+     "id": "sd-4",
+     "why": [
+      "rubric: missing cache"
+     ],
+     "answer": "Use a centralized CI/CD system with scalable runners and repository-specific configurations."
+    },
+    {
+     "id": "sd-5",
+     "why": [
+      "format: 6 bullets"
+     ],
+     "answer": "Use a scalable time-series database with a flexible alerting engine."
+    }
+   ]
+  },
+  "qwen/qwen3-30b-a3b-instruct-2507": {
+   "n": 25,
+   "passRate": 48,
+   "failedBy": {
+    "format": 2,
+    "length": 5,
+    "register": 0,
+    "claims": 5,
+    "rubric": 2,
+    "leak": 0,
+    "behaviour": 0
+   },
+   "ttftMs": {
+    "p50": 526,
+    "p95": 933
+   },
+   "totalMs": {
+    "p50": 2041,
+    "p95": 4271
+   },
+   "costUsd": 0.00459,
+   "failovers": 0,
+   "failures": [
+    {
+     "id": "beh-1",
+     "why": [
+      "length: headline is 20 words (max 15)"
+     ],
+     "answer": "Led a Kubernetes migration of 40 services from VMs, reducing deploy time by 60% with phased rollouts and rollback plans."
+    },
+    {
+     "id": "beh-3",
+     "why": [
+      "length: headline is 19 words (max 15)",
+      "claims: guard flagged 45000000, 6000000"
+     ],
+     "answer": "I led the incident response for a Kubernetes outage caused by a misconfigured rollout, restoring service in 45 minutes."
+    },
+    {
+     "id": "beh-4",
+     "why": [
+      "claims: guard flagged 18000000"
+     ],
+     "answer": "I mentored three engineers, two of whom were promoted to senior roles."
+    },
+    {
+     "id": "beh-6",
+     "why": [
+      "claims: guard flagged 4, 30, Helm"
+     ],
+     "answer": "I once underestimated the complexity of a Kubernetes migration, causing a weekend outage."
+    },
+    {
+     "id": "beh-8",
+     "why": [
+      "claims: guard flagged MVP"
+     ],
+     "answer": "I used to over-optimize early in projects, but now I focus on shipping fast and iterating."
+    },
+    {
+     "id": "beh-9",
+     "why": [
+      "claims: guard flagged 6, 5"
+     ],
+     "answer": "Led a Kubernetes migration under a 6-week deadline with zero downtime."
+    },
+    {
+     "id": "cod-1",
+     "why": [
+      "length: headline is 19 words (max 15)"
+     ],
+     "answer": "A string of brackets is balanced if every opening bracket has a matching closing bracket in the correct order.\n```go\nfunc isBalanced(s string) bool {\n    var st"
+    },
+    {
+     "id": "cod-4",
+     "why": [
+      "length: headline is 19 words (max 15)"
+     ],
+     "answer": "An LRU cache uses a hash map and a doubly linked list to achieve O(1) get and put operations.\n```go\ntype LRUCache struct {\n    capacity int\n    cache    map[int"
+    },
+    {
+     "id": "cod-6",
+     "why": [
+      "format: no bullets"
+     ],
+     "answer": "Sort intervals by start time, then merge overlapping ones in a single pass.\n```go\nfunc merge(intervals [][]int) [][]int {\n    if len(intervals) <= 1 {\n        r"
+    },
+    {
+     "id": "cod-8",
+     "why": [
+      "length: 32 lines of code"
+     ],
+     "answer": "Retries an HTTP GET request with exponential backoff using context for cancellation.\n```go\nfunc retryHTTPGet(url string, maxRetries int, baseDelay time.Duration"
+    },
+    {
+     "id": "sd-1",
+     "why": [
+      "format: 4 bullets"
+     ],
+     "answer": "Use an in-memory token bucket with Redis for distributed coordination and Lua scripting for atomic updates."
+    },
+    {
+     "id": "sd-2",
+     "why": [
+      "rubric: missing redirect"
+     ],
+     "answer": "I’d design a scalable, low-latency URL shortener using a distributed key-value store and consistent hashing."
+    },
+    {
+     "id": "sd-4",
+     "why": [
+      "rubric: missing cache"
+     ],
+     "answer": "I’d build a scalable, standardized CI/CD platform using GitHub Actions, Terraform, and shared pipelines."
+    }
+   ]
+  },
+  "anthropic/claude-haiku-4.5": {
+   "n": 25,
+   "passRate": 28,
+   "failedBy": {
+    "format": 5,
+    "length": 15,
+    "register": 0,
+    "claims": 6,
+    "rubric": 0,
+    "leak": 0,
+    "behaviour": 0
+   },
+   "ttftMs": {
+    "p50": 749,
+    "p95": 1208
+   },
+   "totalMs": {
+    "p50": 2917,
+    "p95": 3855
+   },
+   "costUsd": 0.06408,
+   "failovers": 0,
+   "failures": [
+    {
+     "id": "beh-1",
+     "why": [
+      "length: headline is 20 words (max 15)",
+      "claims: \"VMs\" is not in the résumé or question"
+     ],
+     "answer": "I led the Kubernetes migration of 40 services from VMs at Northwind, managing risk through phased rollout and canary releases."
+    },
+    {
+     "id": "beh-2",
+     "why": [
+      "claims: guard flagged VM-based"
+     ],
+     "answer": "I disagreed with my team on whether to migrate to Kubernetes, and I made the case with data."
+    },
+    {
+     "id": "beh-3",
+     "why": [
+      "length: headline is 22 words (max 15)"
+     ],
+     "answer": "We had a metrics pipeline outage when I migrated from Graphite to Prometheus, and I built safeguards to prevent it happening again."
+    },
+    {
+     "id": "beh-6",
+     "why": [
+      "length: headline is 19 words (max 15)"
+     ],
+     "answer": "I deployed a Prometheus migration that broke alerting for six hours because I didn't test the alert rules thoroughly."
+    },
+    {
+     "id": "beh-7",
+     "why": [
+      "length: headline is 19 words (max 15)"
+     ],
+     "answer": "I led a metrics migration where I had to convince teams to adopt Prometheus without formal authority over them."
+    },
+    {
+     "id": "beh-8",
+     "why": [
+      "length: headline is 19 words (max 15)"
+     ],
+     "answer": "I sometimes over-engineer solutions when a simpler approach would work, but I've learned to push back on that instinct."
+    },
+    {
+     "id": "beh-9",
+     "why": [
+      "length: headline is 21 words (max 15)",
+      "claims: \"VMs\" is not in the résumé or question"
+     ],
+     "answer": "I led the Kubernetes migration at Northwind, moving 40 services off VMs in a compressed timeline to hit a business deadline."
+    },
+    {
+     "id": "beh-10",
+     "why": [
+      "length: headline is 22 words (max 15)",
+      "claims: guard flagged Mentoring"
+     ],
+     "answer": "I'm looking for a role where I can scale platform engineering across a larger organization and work on problems at greater complexity."
+    },
+    {
+     "id": "cod-4",
+     "why": [
+      "length: headline is 27 words (max 15)"
+     ],
+     "answer": "An LRU cache evicts the least recently used item when full, using a hash map for O(1) lookup and a doubly linked list to track access order.\n```go\ntype LRUCache"
+    },
+    {
+     "id": "cod-5",
+     "why": [
+      "length: headline is 22 words (max 15)"
+     ],
+     "answer": "Use a sliding window with a hash map to track character positions and move the left pointer when you see a repeat.\n```go\nfunc lengthOfLongestSubstring(s string)"
+    },
+    {
+     "id": "cod-7",
+     "why": [
+      "length: bullet of 16 words"
+     ],
+     "answer": "Select the second highest salary by ordering descending and using limit with offset.\n```sql\nSELECT salary\nFROM employees\nORDER BY salary DESC\nLIMIT 1 OFFSET 1;\n"
+    },
+    {
+     "id": "sd-1",
+     "why": [
+      "format: 5 bullets",
+      "claims: guard flagged Redis"
+     ],
+     "answer": "I'd use a distributed token bucket with Redis as the backing store for state."
+    },
+    {
+     "id": "sd-2",
+     "why": [
+      "format: 5 bullets",
+      "length: bullet of 18 words"
+     ],
+     "answer": "A URL shortener maps long URLs to short codes, stores them in a database, and redirects on lookup."
+    },
+    {
+     "id": "sd-3",
+     "why": [
+      "format: 6 bullets"
+     ],
+     "answer": "A notification service needs a queue, worker pool, provider abstraction, and retry logic for reliability at scale."
+    },
+    {
+     "id": "sd-4",
+     "why": [
+      "format: 5 bullets",
+      "length: bullet of 18 words"
+     ],
+     "answer": "I'd build a centralized pipeline-as-code system with GitHub Actions, shared Terraform modules, and progressive delivery gates."
+    },
+    {
+     "id": "sd-5",
+     "why": [
+      "length: bullet of 16 words",
+      "claims: guard flagged Alertmanager"
+     ],
+     "answer": "I'd build a pull-based system with Prometheus scraping exporters, Grafana for visualization, and Alertmanager for routing alerts."
+    },
+    {
+     "id": "sd-6",
+     "why": [
+      "format: 4 bullets",
+      "length: bullet of 19 words"
+     ],
+     "answer": "A multi-tenant feature flag service needs isolated storage, fast evaluation, and per-tenant control planes."
+    },
+    {
+     "id": "de-1",
+     "why": [
+      "length: bullet of 17 words"
+     ],
+     "answer": "ETL extracts, transforms, then loads data; ELT extracts, loads raw data first, then transforms it in the destination."
+    }
+   ]
+  },
+  "openai/gpt-4.1-mini": {
+   "n": 25,
+   "passRate": 76,
+   "failedBy": {
+    "format": 0,
+    "length": 0,
+    "register": 0,
+    "claims": 3,
+    "rubric": 3,
+    "leak": 0,
+    "behaviour": 0
+   },
+   "ttftMs": {
+    "p50": 1096,
+    "p95": 1490
+   },
+   "totalMs": {
+    "p50": 2541,
+    "p95": 3405
+   },
+   "costUsd": 0.00962,
+   "failovers": 0,
+   "failures": [
+    {
+     "id": "beh-2",
+     "why": [
+      "claims: guard flagged 5"
+     ],
+     "answer": "I disagreed on the approach to migrate services to Kubernetes for faster deployment."
+    },
+    {
+     "id": "beh-4",
+     "why": [
+      "claims: guard flagged Code Review"
+     ],
+     "answer": "I mentored junior engineers by providing guidance and supporting their skill growth."
+    },
+    {
+     "id": "beh-6",
+     "why": [
+      "claims: \"VMs\" is not in the résumé or question"
+     ],
+     "answer": "I failed when a deployment caused downtime during my Kubernetes migration project."
+    },
+    {
+     "id": "cod-1",
+     "why": [
+      "rubric: missing O\\(n\\)"
+     ],
+     "answer": "A balanced string has matching opening and closing brackets in correct order.\n```python\ndef is_balanced(s):\n    stack = []\n    pairs = {')': '(', ']': '[', '}':"
+    },
+    {
+     "id": "sd-4",
+     "why": [
+      "rubric: missing deploy"
+     ],
+     "answer": "I would design a scalable CI/CD platform using GitHub Actions with reusable workflows and monitoring."
+    },
+    {
+     "id": "sd-6",
+     "why": [
+      "rubric: missing cache"
+     ],
+     "answer": "A multi-tenant feature flag service isolates tenant data and enables flexible flag management per tenant."
+    }
+   ]
+  }
+ }
+}
