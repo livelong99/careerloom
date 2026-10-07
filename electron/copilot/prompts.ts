@@ -70,28 +70,35 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
 
 // ————— Incremental parser for the section markers —————
 type Parsed = Pick<Suggestion, 'say' | 'bullets' | 'star' | 'proof'>
-const MARKER = /^\[(SAY|BULLETS|STAR|PROOF)\][ \t]*$/
+const MARKER = /^\[(SAY|BULLETS|STAR|PROOF)\](?:[ \t]+(.*))?$/ // `[SAY] text` on one line is legal: the text after the marker is the section's first line
+// Reasoning a model writes into a section instead of the answer ("Okay, so the user is asking…", "Wait, let me reconsider"). Narrow on purpose: "Let me walk you through it" is a fine thing to say.
+const LEAK_LINE = /^(?:(?:okay|ok|hmm+|alright|so),?\s+(?:so\s+)?(?:the (?:user|question|interviewer)|i (?:need|should|think|have to)|let me|let's)|wait[,.!]|let me (?:think|reconsider|re-?read|analy[sz]e|check)\b|the (?:user|interviewer) (?:is asking|asks|wants|said)|i need to (?:answer|figure|provide|make sure|respond)|first,? (?:i|let me))/i
+const THINK = /<think>[\s\S]*?(?:<\/think>|$)/gi // a thinking model that puts its reasoning inline
 
 /** Parse the text streamed so far. Partial trailing lines are shown for say/bullets/star and held back for proof. */
 export function parseSuggestion(text: string, done: boolean): Parsed {
   const out: Parsed = { say: '', bullets: [], star: null, proof: [] }
-  const lines = text.replace(/\r/g, '').split('\n')
+  const lines = text.replace(THINK, '').replace(/\r/g, '').split('\n')
   const pending = done ? null : lines[lines.length - 1]!
   let section: string | null = null
   const say: string[] = []
   const star: Record<string, string> = {}
   let starKey: string | null = null
-  lines.forEach((raw, i) => {
+  let blank = false // BULLETS: text after a blank line is not a wrapped bullet (models append second thoughts there)
+  lines.forEach((line, i) => {
     const isLast = i === lines.length - 1
-    if (isLast && !done && /^\[[A-Z]*\]?$/.test(raw.trim())) return // marker still arriving
-    const m = MARKER.exec(raw.trim())
-    if (m) { section = m[1]!; starKey = null; return }
-    if (!section || !raw.trim()) return
+    if (isLast && !done && /^\[[A-Z]*\]?$/.test(line.trim())) return // marker still arriving
+    const m = MARKER.exec(line.trim())
+    if (m) { section = m[1]!; starKey = null; blank = false; if (!m[2]) return }
+    const raw = m ? m[2]! : line
+    if (!section) return
+    if (!raw.trim()) { blank = true; return }
+    if ((section === 'SAY' || section === 'BULLETS') && LEAK_LINE.test(raw.trim().replace(/^(?:[-*•]|\d+[.)])\s+/, ''))) return
     if (section === 'SAY') say.push(raw)
     else if (section === 'BULLETS') {
       const b = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(raw)
       if (b) out.bullets.push(b[1]!.trim())
-      else if (out.bullets.length) out.bullets[out.bullets.length - 1] += ` ${raw.trim()}`
+      else if (out.bullets.length && !blank) out.bullets[out.bullets.length - 1] += ` ${raw.trim()}`
     } else if (section === 'STAR') {
       const k = /^\s*([STAR])\s*[:.-]\s*(.*)$/i.exec(raw)
       if (k) { starKey = k[1]!.toLowerCase(); star[starKey] = k[2]!.trim() }
@@ -100,6 +107,7 @@ export function parseSuggestion(text: string, done: boolean): Parsed {
       const p = /^\s*(?:[-*•]\s*)?["“](.+?)["”]\s*[|–—-]\s*(.+)$/.exec(raw)
       if (p) out.proof.push({ quote: p[1]!.trim(), source: p[2]!.trim() })
     }
+    blank = false
   })
   out.say = say.join('\n').trim()
   if (Object.keys(star).length) out.star = { s: star.s ?? '', t: star.t ?? '', a: star.a ?? '', r: star.r ?? '' }

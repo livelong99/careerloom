@@ -24,6 +24,10 @@ export function createAutoAsk(o: { now?: () => number } = {}) {
       asks.push(t)
       return { ask: true, route }
     },
+    /** The last ask was a fragment that has since been merged into a longer question: give its slot back. */
+    unask(): void { asks.pop() },
+    /** Ms until the min-gap clears (0 when it already has, or when the per-minute cap is what blocks). */
+    gapMs(): number { const last = asks[asks.length - 1]; return last === undefined || asks.length >= MAX_PER_MINUTE ? 0 : Math.max(0, MIN_GAP_MS - (now() - last)) },
     reset(): void { asks = [] },
   }
 }
