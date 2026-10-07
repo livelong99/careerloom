@@ -18,8 +18,14 @@ const MODIFIERS = new Set(['command', 'cmd', 'control', 'ctrl', 'commandorcontro
 const NAMED_KEYS = new Set(['space', 'tab', 'enter', 'return', 'escape', 'esc', 'backspace', 'delete', 'insert', 'home', 'end', 'pageup', 'pagedown', 'up', 'down', 'left', 'right', 'plus'])
 const isKey = (k: string): boolean => /^[a-z0-9]$/i.test(k) || /^f([1-9]|1\d|2[0-4])$/i.test(k) || NAMED_KEYS.has(k.toLowerCase())
 // macOS system shortcuts we refuse to shadow (Electron would happily register some of them).
-const RESERVED = new Set(['command+q', 'command+w', 'command+tab', 'command+space', 'command+h', 'command+m', 'control+command+q', 'control+command+space', 'command+option+escape'])
-const norm = (accel: string): string => accel.split('+').map(p => p.trim().toLowerCase()).sort().join('+')
+const RESERVED = new Set(['command+q', 'command+w', 'command+tab', 'command+space', 'command+h', 'command+m', 'control+command+q', 'control+command+space', 'command+option+escape',
+  // ...and the Windows ones (Windows never lets an app have these, or they are the secure-attention / lock / task-manager keys).
+  'alt+f4', 'alt+tab', 'control+alt+delete', 'control+shift+escape', 'super+l'])
+const ALIAS: Record<string, string> = { ctrl: 'control', cmd: 'command', option: 'alt', meta: 'super' }
+/** Order/case/alias-insensitive form: `alt+control+x` and `Ctrl+Option+X` are the same shortcut. */
+const norm = (accel: string): string => accel.split('+').map(p => { const k = p.trim().toLowerCase(); return ALIAS[k] ?? k }).sort().join('+')
+/** Same shortcut, however it is spelled. */
+export const sameAccelerator = (a: string, b: string): boolean => norm(a) === norm(b)
 const RESERVED_NORM = new Set([...RESERVED].map(norm))
 
 /** Syntax + reserved check; does not touch the OS. */
@@ -34,21 +40,23 @@ export function validateAccelerator(accel: string): HotkeyCheck {
 
 export function createHotkeyService(gs: ShortcutApi) {
   let ours: string[] = []
+  const isOurs = (accel: string): boolean => ours.some(o => sameAccelerator(o, accel))
 
   function unregisterAll(): void {
     for (const acc of ours) gs.unregister(acc)
     ours = []
   }
 
-  function registerAll(hotkeys: CopilotConfig['hotkeys'], handler: (action: HotkeyAction) => void): HotkeyResult[] {
+  /** `only` limits the set (the idle overlay registers just Listen); default is every action. */
+  function registerAll(hotkeys: CopilotConfig['hotkeys'], handler: (action: HotkeyAction) => void, only?: readonly HotkeyAction[]): HotkeyResult[] {
     unregisterAll()
     // Panic first: it must win any accidental duplicate.
-    const order = (Object.keys(hotkeys) as HotkeyAction[]).sort((a, b) => Number(b === 'panic') - Number(a === 'panic'))
+    const order = (Object.keys(hotkeys) as HotkeyAction[]).filter(a => !only || only.includes(a)).sort((a, b) => Number(b === 'panic') - Number(a === 'panic'))
     const results = order.map((action): HotkeyResult => {
       const accelerator = hotkeys[action]
       const v = validateAccelerator(accelerator)
       if (!v.ok) return { action, accelerator, registered: false, reason: v.reason }
-      if (ours.includes(accelerator)) return { action, accelerator, registered: false, reason: 'in-use' }
+      if (isOurs(accelerator)) return { action, accelerator, registered: false, reason: 'in-use' }
       try {
         if (!gs.register(accelerator, () => handler(action))) return { action, accelerator, registered: false, reason: 'in-use' }
       } catch { return { action, accelerator, registered: false, reason: 'invalid' } }
@@ -62,7 +70,7 @@ export function createHotkeyService(gs: ShortcutApi) {
   function check(accel: string): HotkeyCheck {
     const v = validateAccelerator(accel)
     if (!v.ok) return v
-    if (ours.includes(accel)) return { ok: true }
+    if (isOurs(accel)) return { ok: true }
     try {
       if (!gs.register(accel, () => undefined)) return { ok: false, reason: 'in-use' }
       gs.unregister(accel)

@@ -85,6 +85,13 @@ describe('schema validation', () => {
     expect(c.coaching.length).toBe(DEFAULT_CONFIG.coaching.length)
     expect(c.coaching.shape).toBe('script')
   })
+  it('a saved accelerator that can never register (invalid or system-reserved) falls back to the default instead of failing every session', () => {
+    const hk = normalizeConfig({ hotkeys: { answer: 'nonsense', followup: 'Alt+F4', clarify: 'Control+Alt+Z' } }).hotkeys
+    expect(hk.answer).toBe(DEFAULT_CONFIG.hotkeys.answer)
+    expect(hk.followup).toBe(DEFAULT_CONFIG.hotkeys.followup)
+    expect(hk.clarify).toBe('Control+Alt+Z')
+  })
+
   it('the panic hotkey is fixed', () => {
     expect(normalizeConfig({ hotkeys: { panic: 'Control+Q', answer: 'Control+Alt+Z' } }).hotkeys).toMatchObject({ panic: 'Control+Alt+Shift+X', answer: 'Control+Alt+Z' })
   })

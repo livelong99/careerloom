@@ -1,11 +1,15 @@
 import { useState } from 'react'
 
+import { showToast } from '@/lib/toast'
+
 import { Note } from '@/components/copilot/Group'
 import { HotkeyRow } from '@/components/copilot/HotkeyRow'
 import { useCopilotConfig } from '@/components/copilot/api'
+import { kbdLabel } from '@/lib/copilot'
 import { isWindowsPlatform } from '@/lib/platform'
 import type { CopilotConfig } from '@/lib/types'
 import { defaultHotkeys } from '../../../electron/copilot/hotkey-defaults'
+import { sameAccelerator } from '../../../electron/copilot/hotkeys'
 import { Page } from '../resume/PageStub'
 
 type Key = Exclude<keyof CopilotConfig['hotkeys'], 'panic'>
@@ -16,25 +20,28 @@ const LABELS: ReadonlyArray<{ key: Key; label: string }> = [
   { key: 'screenshot', label: 'Screenshot and solve' },
   { key: 'summarise', label: 'Summarise so far' },
   { key: 'expand', label: 'Expand or collapse' },
-  { key: 'listen', label: 'Start or pause listening' },
+  { key: 'listen', label: 'Start listening' },
   { key: 'toggle', label: 'Show or hide overlay' },
   { key: 'quickHide', label: 'Quick hide overlay' },
   { key: 'clear', label: 'Clear the unanswered question' },
 ]
-const DEFAULTS = defaultHotkeys(isWindowsPlatform() ? 'win32' : 'darwin')
-const ROWS: ReadonlyArray<{ key: Key; label: string; def: string }> = LABELS.map(r => ({ ...r, def: DEFAULTS[r.key] }))
+const rows = (win: boolean): ReadonlyArray<{ key: Key; label: string; def: string }> => { const d = defaultHotkeys(win ? 'win32' : 'darwin'); return LABELS.map(r => ({ ...r, def: d[r.key] })) }
 
 export function HotkeysPage() {
   const { config, save } = useCopilotConfig()
   const [error, setError] = useState<string | null>(null)
   if (!config) return <Page title="Hotkeys" blurb="Loading…" />
   const keys = config.hotkeys
+  const win = isWindowsPlatform()
+  const ROWS = rows(win)
 
   function change(key: Key, accel: string): void {
-    const clash = [...ROWS.filter(r => r.key !== key).map(r => keys[r.key]), keys.panic].includes(accel)
-    if (clash) return setError(`${accel} is already used by another shortcut here. Choose a different one.`)
+    const owner = [...ROWS.filter(r => r.key !== key).map(r => ({ label: r.label, accel: keys[r.key] })), { label: 'Stop everything now', accel: keys.panic }].find(o => sameAccelerator(o.accel, accel))
+    const label = ROWS.find(r => r.key === key)?.label ?? key
+    const shown = kbdLabel(accel, win)
+    if (owner) return setError(`${shown} is already used by "${owner.label}". Choose a different shortcut for "${label}".`)
     setError(null)
-    void save({ hotkeys: { [key]: accel } })
+    void save({ hotkeys: { [key]: accel } }).then(next => { if (next) showToast(`${label}: ${shown}`, 'ok') })
   }
 
   return (
@@ -47,6 +54,7 @@ export function HotkeysPage() {
         <HotkeyRow label="Stop everything now" accel={keys.panic} defaultAccel={keys.panic} fixed danger onChange={() => {}} />
       </div>
       {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
+      <Note>Shortcuts work only while a session is running (Start listening also works from the stopped card).</Note>
       <Note>The stop shortcut turns off the microphone and system audio, cancels any request in progress and hides the overlay. {isWindowsPlatform() ? 'The tray icon has the same button.' : 'The menu bar icon has the same button.'}</Note>
     </Page>
   )

@@ -83,10 +83,11 @@ export function formatElapsed(ms: number): string {
 
 const GLYPH: Record<string, string> = { control: '⌃', ctrl: '⌃', alt: '⌥', option: '⌥', shift: '⇧', command: '⌘', cmd: '⌘', commandorcontrol: '⌘', cmdorctrl: '⌘', meta: '⌘', super: '⌘' }
 const WIN_KEYS: Record<string, string> = { control: 'Ctrl', ctrl: 'Ctrl', alt: 'Alt', option: 'Alt', shift: 'Shift', command: 'Win', cmd: 'Win', meta: 'Win', super: 'Win', commandorcontrol: 'Ctrl', cmdorctrl: 'Ctrl' }
+const key = (p: string): string => (p.length === 1 ? p.toUpperCase() : p) // `a` → A, but `Space` stays `Space`
 /** `Control+Alt+A` → `⌃⌥A` on macOS, `Ctrl+Alt+A` on Windows. */
 export function kbdLabel(accel: string, win: boolean = isWindowsPlatform()): string {
-  if (win) return accel.split('+').map(p => WIN_KEYS[p.toLowerCase()] ?? p.toUpperCase()).join('+')
-  return accel.split('+').map(p => GLYPH[p.toLowerCase()] ?? p.toUpperCase()).join('')
+  if (win) return accel.split('+').map(p => WIN_KEYS[p.toLowerCase()] ?? key(p)).join('+')
+  return accel.split('+').map(p => GLYPH[p.toLowerCase()] ?? key(p)).join('')
 }
 
 const MOD_KEYS = new Set(['Control', 'Alt', 'Shift', 'Meta'])

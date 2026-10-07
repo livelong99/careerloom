@@ -25,6 +25,9 @@ export function getOverlayHost(): OverlayHost {
     devUrl: process.env.VITE_DEV_SERVER_URL, htmlFile: path.join(__dirname, '..', '..', 'renderer', 'overlay.html'), preload: path.join(__dirname, '..', 'preload.js'),
     persist: patch => { writeCopilotConfig({ overlay: patch }) },
   })
+  // A monitor unplugged / resolution or Dock/taskbar change: re-anchor on the (possibly new) work area instead of leaving the card off-screen.
+  const reanchor = (): void => overlay.refresh()
+  screen.on('display-added', reanchor); screen.on('display-removed', reanchor); screen.on('display-metrics-changed', reanchor)
   const tray = createTrayController({
     createTray: image => new Tray(image as Electron.NativeImage),
     icon: kind => { const img = nativeImage.createFromBuffer(statusIconPng(kind, 36, idleRgb()), { scaleFactor: 2 }); img.setTemplateImage(kind === 'idle'); return img },

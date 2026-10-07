@@ -3,6 +3,7 @@ import fs from 'node:fs'
 
 import { userFile } from '../context'
 import { defaultHotkeys, migrateHotkey } from './hotkey-defaults'
+import { validateAccelerator } from './hotkeys'
 import { defaultEngine } from './stt/runtime'
 import type { Anchor, CopilotConfig, DeepPartial, SttBenchmark } from './types'
 
@@ -62,7 +63,7 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
   const r = obj(raw)
   const audio = obj(r.audio), stt = obj(r.stt), eng = obj(r.engine), or = obj(eng.openrouter), models = obj(eng.models), gt = obj(eng.gate)
   const co = obj(r.coaching), ov = obj(r.overlay), hk = obj(r.hotkeys), pr = obj(r.privacy), pm = obj(pr.mode), pc = obj(r.practice)
-  const accel = (k: keyof typeof d.hotkeys) => migrateHotkey(k, text(hk[k], d.hotkeys[k], 60) || d.hotkeys[k])
+  const accel = (k: keyof typeof d.hotkeys) => { const a = migrateHotkey(k, text(hk[k], d.hotkeys[k], 60) || d.hotkeys[k]); return validateAccelerator(a).ok ? a : d.hotkeys[k] }
   return {
     version: 1,
     audio: {

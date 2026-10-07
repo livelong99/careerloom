@@ -118,6 +118,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
 
   const live = lazy(() => {
     const host = getOverlayHost()
+    host.onAction(a => { if (a === 'listen' && !host.isLive()) void getInstance().handlers.copilotOverlay({ start: true }) }) // the idle card's "press Listen"
     // Ambiguous lines: the optional Jev gate when the setting is on (heuristic fallback inside), else the tiny LLM classify call.
     const jev = createConfiguredClassify({ config: readCopilotConfig, getKey: readApiKey })
     const detector = createDetector({ classify: text => (readCopilotConfig().engine.gate.engine === 'jev' ? jev(mask(text)) : createLlmClassifier(provider(), fastModel())(mask(text))) })

@@ -13,7 +13,7 @@ import type { CopilotApi, CopilotConfig, CopilotEvents, CopilotState, DeepPartia
 export type SessionHooks = { stopCapture(): Promise<void> | void; abortRequests(): void }
 export type HostDeps = {
   overlay: OverlayController
-  hotkeys: { registerAll(h: CopilotConfig['hotkeys'], cb: (a: HotkeyAction) => void): HotkeyResult[]; unregisterAll(): void; check(a: string): { ok: boolean; reason?: 'in-use' | 'reserved' | 'invalid' } }
+  hotkeys: { registerAll(h: CopilotConfig['hotkeys'], cb: (a: HotkeyAction) => void, only?: readonly HotkeyAction[]): HotkeyResult[]; unregisterAll(): void; check(a: string): { ok: boolean; reason?: 'in-use' | 'reserved' | 'invalid' } }
   tray: TrayController
   /** Broadcast a push event to every renderer (`careerloom:<name>`). */
   publish<K extends keyof CopilotEvents>(name: K, payload: CopilotEvents[K]): void
@@ -22,10 +22,14 @@ export type HostDeps = {
   restorePrivacy(): void
   app: { on(event: 'before-quit', cb: () => void): unknown }
   proc: { on(event: 'uncaughtExceptionMonitor', cb: () => void): unknown }
+  now?: () => number
 }
 
 type OverlayCmd = Parameters<CopilotApi['copilotOverlay']>[0]
 const ACTIONS = new Set<HotkeyAction>(['answer', 'followup', 'clarify', 'screenshot', 'summarise', 'listen', 'clear'])
+const REPEAT_MS = 400 // a held key auto-repeats (Windows especially): one press = one request
+const ACTION_NAME: Partial<Record<HotkeyAction, string>> = { answer: 'Answer', followup: 'Follow-up', clarify: 'Clarify', screenshot: 'Screenshot', summarise: 'Summarise', expand: 'Expand or collapse', listen: 'Listen', toggle: 'Show or hide', quickHide: 'Quick hide', clear: 'Clear', panic: 'Stop' }
+const REASON_TEXT = { 'in-use': 'is in use by another app', reserved: 'is reserved by the system', invalid: 'is not a valid shortcut' } as const
 const configKey = (c: CopilotConfig): string => JSON.stringify([c.overlay, c.privacy, c.hotkeys])
 
 export function createOverlayHost(deps: HostDeps) {
@@ -36,6 +40,8 @@ export function createOverlayHost(deps: HostDeps) {
   let capturing = false
   let replayOnBeat = false
   let lastKey = configKey(deps.getConfig())
+  const now = deps.now ?? Date.now
+  const lastPress = new Map<HotkeyAction, number>()
   const actionListeners: Array<(a: HotkeyAction) => void> = []
 
   const panic = createPanicController({
@@ -58,31 +64,50 @@ export function createOverlayHost(deps: HostDeps) {
 
   function onHotkey(action: HotkeyAction): void {
     debugLog('hotkey', 'pressed', { action })
+    if (ACTIONS.has(action)) {
+      const t = now()
+      if (t - (lastPress.get(action) ?? -Infinity) < REPEAT_MS) return
+      lastPress.set(action, t)
+    }
     if (action === 'panic') void panic.trigger('panic')
     else if (action === 'expand') deps.overlay.apply({ collapse: deps.getConfig().overlay.layout === 'panel' })
-    else if (action === 'toggle') deps.overlay.apply({ hide: deps.overlay.isVisible() })
+    else if (action === 'toggle') {
+      // Showing a quick-hidden overlay must also un-wipe it, or the next quick-hide would "show" instead of hide.
+      if (quickHidden) { quickHidden = false; deps.overlay.apply({ quickHide: false }) }
+      else deps.overlay.apply({ hide: deps.overlay.isVisible() })
+    }
     else if (action === 'quickHide') { quickHidden = !quickHidden; deps.overlay.apply({ quickHide: quickHidden }) }
+    else if (action === 'listen' && capturing) return // already listening: nothing to start (there is no pause)
     else if (ACTIONS.has(action)) for (const cb of actionListeners) cb(action)
   }
 
-  function registerHotkeys(): void {
-    for (const r of deps.hotkeys.registerAll(deps.getConfig().hotkeys, onHotkey)) {
-      debugLog('hotkey', r.registered ? 'registered' : 'NOT registered', r)
-      if (!r.registered) deps.publish('copilotError', { kind: 'hotkey', message: `${r.accelerator} could not be registered (${r.reason ?? 'unknown'})`, retrying: false })
-    }
+  /** `idle`: the overlay is open but not capturing: only Listen is registered (it starts a session), the other keys stay with other apps. */
+  function registerHotkeys(idle = false): void {
+    const only = idle ? ['listen' as const] : undefined
+    const results = only ? deps.hotkeys.registerAll(deps.getConfig().hotkeys, onHotkey, only) : deps.hotkeys.registerAll(deps.getConfig().hotkeys, onHotkey)
+    for (const r of results) debugLog('hotkey', r.registered ? 'registered' : 'NOT registered', r)
+    const failed = results.filter(r => !r.registered)
+    // One message per pass: which shortcut, why, and where to change it.
+    for (const r of failed) deps.publish('copilotError', { kind: 'hotkey', message: `${ACTION_NAME[r.action] ?? r.action} shortcut ${r.accelerator} ${REASON_TEXT[r.reason ?? 'invalid']}. Pick another in Copilot › Hotkeys.`, retrying: false })
   }
 
   /** Every capture-state change goes through here: window, tray, hotkeys and renderers stay in step. */
   function publishState(s: CopilotEvents['copilotState']): void {
     const wasLive = live
+    const wasCapturing = capturing
     capturing = s.state === 'listening' || s.state === 'armed'
     live = s.state === 'listening'
     if (capturing && !wasLive && lastState?.sessionId !== s.sessionId) { panic.reset(); quickHidden = false }
     lastState = s
     deps.tray.setState(s.state satisfies CopilotState)
     deps.overlay.setLive(live)
-    if (capturing) { deps.overlay.open(); registerHotkeys() }
-    else deps.hotkeys.unregisterAll() // the overlay may stay open on the stopped card; the keys go back to other apps
+    // Only the start of a session opens the window and claims the keys: later state changes (armed → listening) must not
+    // re-show an overlay the user hid, or re-report a shortcut that already failed.
+    if (capturing && !wasCapturing) { deps.overlay.open(); registerHotkeys() }
+    else if (!capturing) { // the overlay may stay open on the stopped card; the other keys go back to other apps
+      if (deps.overlay.isVisible() && s.state !== 'idle') registerHotkeys(true)
+      else deps.hotkeys.unregisterAll()
+    }
     deps.publish('copilotState', s)
   }
 
@@ -110,6 +135,7 @@ export function createOverlayHost(deps: HostDeps) {
         return
       }
       deps.overlay.apply(cmd)
+      if (!capturing && cmd.hide === true) deps.hotkeys.unregisterAll() // a hidden stopped card must not keep Listen
     },
     /** Privacy mode flags count only after the current notice is acknowledged here (main-side). */
     ackPrivacyNotice(version: string): { ok: boolean } {

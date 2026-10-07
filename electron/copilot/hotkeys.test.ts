@@ -97,3 +97,25 @@ describe('HotkeyService', () => {
     expect(gs.live.size).toBe(0)
   })
 })
+
+describe('round-2 hardening', () => {
+  it.each(['Alt+F4', 'Alt+Tab', 'Control+Alt+Delete', 'Control+Shift+Escape', 'Super+L'])('refuses the Windows system shortcut %s', a => {
+    expect(validateAccelerator(a)).toEqual({ ok: false, reason: 'reserved' })
+  })
+  it('a duplicate spelled differently (order, case, aliases) is still a duplicate, in registerAll and check', () => {
+    const gs = fakeShortcuts()
+    const svc = createHotkeyService(gs)
+    const results = svc.registerAll({ ...DEFAULT_CONFIG.hotkeys, answer: 'alt+control+x', followup: 'Control+Alt+X', panic: 'Control+Alt+Shift+Q' }, () => undefined)
+    expect(results.find(r => r.action === 'answer')).toMatchObject({ registered: true })
+    expect(results.find(r => r.action === 'followup')).toMatchObject({ registered: false, reason: 'in-use' })
+    expect(svc.check('Ctrl+Option+X')).toEqual({ ok: true }) // ours: not another app's
+  })
+  it('registerAll can be limited to some actions (the idle card only needs Listen)', () => {
+    const gs = fakeShortcuts()
+    const svc = createHotkeyService(gs)
+    const results = svc.registerAll(DEFAULT_CONFIG.hotkeys, () => undefined, ['listen'])
+    expect(results.map(r => r.action)).toEqual(['listen'])
+    expect(gs.live.size).toBe(1)
+  })
+})
+

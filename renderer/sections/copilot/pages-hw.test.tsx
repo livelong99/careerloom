@@ -232,6 +232,6 @@ describe('HotkeysPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Change Follow-up' }))
     fireEvent.keyDown(screen.getByRole('button', { name: /Press the new shortcut/ }), { key: 'a', code: 'KeyA', ctrlKey: true, altKey: true })
     expect(api.copilotSetConfig).not.toHaveBeenCalled()
-    expect(await screen.findByText(/already used by another shortcut/i)).toBeTruthy()
+    expect(await screen.findByText(/already used by "Answer the last question"/i)).toBeTruthy()
   })
 })

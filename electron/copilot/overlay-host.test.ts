@@ -5,7 +5,7 @@ import { createOverlayHost, type HostDeps } from './overlay-host'
 import { PRIVACY_NOTICE_VERSION } from './privacy-mode'
 import type { CopilotConfig } from './types'
 
-function setup(cfg: CopilotConfig = DEFAULT_CONFIG) {
+function setup(cfg: CopilotConfig = DEFAULT_CONFIG, now?: () => number) {
   let config = cfg
   const calls: string[] = []
   const overlay = {
@@ -20,7 +20,7 @@ function setup(cfg: CopilotConfig = DEFAULT_CONFIG) {
   const deps: HostDeps = {
     overlay, hotkeys, tray, publish: (n, p) => { published.push([n, p]) }, getConfig: () => config,
     writeConfig: patch => { writes.push(patch); config = { ...config, privacy: { ...config.privacy, mode: { ...config.privacy.mode, ...(patch.privacy?.mode ?? {}) } } } as CopilotConfig; return config },
-    restorePrivacy: vi.fn(), app: { on: vi.fn() }, proc: { on: vi.fn() },
+    restorePrivacy: vi.fn(), app: { on: vi.fn() }, proc: { on: vi.fn() }, now,
   }
   const host = createOverlayHost(deps)
   host.setSessionHooks(panicHooks)
@@ -138,15 +138,25 @@ describe('overlay host wiring', () => {
     expect(published.at(-1)).toEqual(['copilotState', expect.objectContaining({ state: 'stopped' })])
   })
 
-  it('a normal stop frees the global hotkeys, and a config change while stopped does not claim them again', async () => {
+  it('a normal stop frees every global hotkey but Listen (the stopped card\'s Start), and a config change while stopped claims nothing more', async () => {
     const { host, hotkeys, setConfig } = setup()
     host.publishState(listening)
     hotkeys.registerAll.mockClear()
     await host.stop('user')
-    expect(hotkeys.unregisterAll).toHaveBeenCalled()
+    expect(hotkeys.registerAll).toHaveBeenCalledTimes(1)
+    expect(hotkeys.registerAll).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), ['listen'])
     setConfig({ ...DEFAULT_CONFIG, overlay: { ...DEFAULT_CONFIG.overlay, width: 500 } })
     host.overlayCommand({})
-    expect(hotkeys.registerAll).not.toHaveBeenCalled()
+    expect(hotkeys.registerAll).toHaveBeenCalledTimes(1)
+  })
+
+  it('hiding the stopped card frees Listen too', async () => {
+    const { host, hotkeys } = setup()
+    host.publishState(listening)
+    await host.stop('user')
+    hotkeys.unregisterAll.mockClear()
+    host.overlayCommand({ hide: true })
+    expect(hotkeys.unregisterAll).toHaveBeenCalled()
   })
 
   it('copilotStop(panic|error) is the kill switch', async () => {
@@ -184,4 +194,64 @@ describe('overlay host wiring', () => {
       expect(tray.setState).toHaveBeenLastCalledWith('stopped')
     }
   })
+
+  it('a state change inside a running session does not re-show a hidden overlay or re-register (and re-report) hotkeys', () => {
+    const { host, overlay, hotkeys, hotkeyHandler } = setup()
+    host.publishState({ ...listening, state: 'armed' })
+    hotkeyHandler()('toggle')
+    host.publishState(listening)
+    expect(overlay.open).toHaveBeenCalledTimes(1)
+    expect(hotkeys.registerAll).toHaveBeenCalledTimes(1)
+  })
+
+  it('toggle while quick-hidden shows the window again and un-wipes it, so the next quick-hide hides', () => {
+    const { host, overlay, hotkeyHandler } = setup()
+    host.publishState(listening)
+    hotkeyHandler()('quickHide')
+    hotkeyHandler()('toggle')
+    expect(overlay.apply).toHaveBeenLastCalledWith({ quickHide: false })
+    hotkeyHandler()('quickHide')
+    expect(overlay.apply).toHaveBeenLastCalledWith({ quickHide: true })
+  })
+
+  it('auto-repeat of an answer key (held down) fires once per window; other keys and later presses still work', () => {
+    let t = 1000
+    const { host, hotkeyHandler } = setup(DEFAULT_CONFIG, () => t)
+    const seen: string[] = []
+    host.onAction(a => seen.push(a))
+    host.publishState(listening)
+    hotkeyHandler()('answer'); hotkeyHandler()('answer'); hotkeyHandler()('followup')
+    t += 100; hotkeyHandler()('answer')
+    t += 1000; hotkeyHandler()('answer')
+    expect(seen).toEqual(['answer', 'followup', 'answer'])
+  })
+
+  it('panic is never debounced', async () => {
+    const { host, hotkeyHandler, panicHooks } = setup()
+    host.publishState(listening)
+    hotkeyHandler()('panic'); hotkeyHandler()('panic')
+    await vi.waitFor(() => expect(panicHooks.stopCapture).toHaveBeenCalledTimes(1)) // idempotent, not dropped
+  })
+
+  it('a failed registration names the action in words, once per pass', () => {
+    const { host, hotkeys, published } = setup()
+    hotkeys.registerAll.mockReturnValueOnce([{ action: 'screenshot', accelerator: 'Alt+Shift+S', registered: false, reason: 'in-use' }])
+    host.publishState(listening)
+    const errs = published.filter(([n]) => n === 'copilotError')
+    expect(errs).toHaveLength(1)
+    expect((errs[0]![1] as { message: string }).message).toMatch(/Screenshot.*Alt\+Shift\+S.*another app/i)
+  })
+
+  it('idle/stopped with the overlay open: only Listen is registered, and it starts a session; while listening it is ignored', () => {
+    const { host, hotkeys, hotkeyHandler } = setup()
+    const seen: string[] = []
+    host.onAction(a => seen.push(a))
+    host.publishState({ ...listening, state: 'stopped' })
+    expect(hotkeys.registerAll).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), ['listen'])
+    hotkeyHandler()('listen')
+    expect(seen).toEqual(['listen'])
+    host.publishState(listening)
+    expect(hotkeys.registerAll).toHaveBeenLastCalledWith(expect.anything(), expect.anything())
+  })
 })
+
