@@ -46,6 +46,21 @@ export function classifyByRules(text: string): RuleVerdict {
   return { verdict: 'no', confidence: 0.85 }
 }
 
+// ————— A question the STT cut in two —————
+const DANGLING = /\b(?:and|or|but|of|to|in|on|for|with|across|between|that|which|the|a|an|how|what|why|when|where|if|so|then|than|about|from|by|as|at|its|their|your|our)[\s,]*$/i
+const CONTINUES = /^(?:and|also|then|plus|or|but|so|including|specifically|particularly)\b/i
+const MERGE_MS = 4000
+const MERGE_FAST_MS = 1500
+
+/** Is `next` (an interviewer final `gapMs` after `prev`) the rest of the question `prev` started? Cut mid-phrase ("…work across") always
+ *  joins; an unpunctuated cut joins unless `next` opens a fresh question of its own; a complete sentence only joins on an "and …" in the same breath. */
+export function continuesQuestion(prev: string, next: string, gapMs: number): boolean {
+  const n = next.trim()
+  if (gapMs <= MERGE_FAST_MS && CONTINUES.test(n)) return true
+  if (gapMs > MERGE_MS || isSentenceFinal(prev)) return false
+  return DANGLING.test(prev.trim()) || /^[a-z]/.test(n) || classifyByRules(n).verdict !== 'question'
+}
+
 const CODING = /\b(?:write (?:a|an|the|me)\b|implement|code (?:a|an|the|up)|function|algorithm|array|linked list|binary tree|palindrome|complexity|big[- ]o|given (?:an?|the)|leetcode|recursion|return the)\b/i
 const DESIGN = /\b(?:design (?:a|an|the)|architect|scal(?:e|ing)|throughput|load balanc|shard|cache|distributed|high availability|millions? of|billions? of|ten million|users?, what changes)\b/i
 const BEHAVIOURAL = /\b(?:tell me about (?:a time|yourself)|about a time|describe a (?:time|situation)|give me an example|walk me through your|conflict|disagree|weakness|strength|proud|challenge you|deadline|teammate|manager|lead(?:ing|ership)?|why (?:do you want|are you leaving|us|this)|your (?:career|background|approach)|how many (?:people|engineers)|ever (?:led|had|worked))\b/i

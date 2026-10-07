@@ -4,7 +4,7 @@ import type { CopilotConfig, LlmModelInfo } from '../types'
 import { initialReasoning, isReasoningRejection, nextReasoning, type ReasoningShape } from './reasoning'
 
 export type LlmErrorCode = 'no_vision' | 'no_key' | 'auth' | 'credits' | 'rate_limit' | 'timeout' | 'aborted' | 'server' | 'bad_request' | 'stream' | 'budget' | 'policy' | 'model_unavailable'
-const RETRYABLE: ReadonlySet<LlmErrorCode> = new Set(['rate_limit', 'timeout', 'server'])
+const RETRYABLE: ReadonlySet<LlmErrorCode> = new Set(['rate_limit', 'timeout', 'server', 'stream']) // 'stream' (malformed chunk): failover only retries before any output, so a replay can never duplicate text
 
 /** Typed so failover never matches on message substrings. `message` is safe to show (keys scrubbed). */
 export class LlmError extends Error {

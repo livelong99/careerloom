@@ -1,7 +1,7 @@
 // Glue between the session controller (capture + STT), the overlay host, the question detector, the answer engine and the
 // session recorder (plan §3). Pure: every collaborator is injected, so the whole live flow is unit-testable with fakes.
 import { createAutoAsk } from './auto-ask'
-import { heuristicHint, questionType, type QuestionDetector } from './detector'
+import { continuesQuestion, heuristicHint, questionType, type QuestionDetector } from './detector'
 import { checkVision, defaultModelFor, type AnswerEngine } from './engine'
 import type { PromptKind } from './prompts'
 import { friendlyLlmError } from './providers/errors'
@@ -41,6 +41,9 @@ const BLOCK_TEXT: Record<Exclude<Blocked, 'no-vision'>, string> = {
 }
 const PRE_MAX_AGE_MS = 30_000
 const SENT_MS = 2500
+/** The same question asked again inside this window (impatient hotkey presses, an STT re-emit) never restarts a good answer. */
+const DEDUPE_MS = 15_000
+const norm = (t: string): string => t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
 
 export type WiringDeps = {
   host: WiringHost
@@ -81,6 +84,10 @@ export function createLiveWiring(d: WiringDeps) {
   let manual = 0
   const answeredLines = new Set<string>() // transcript lines already answered on demand: their final is not a new question
   let current: AbortController | null = null
+  let tail: { q: DetectedQuestion; text: string; at: number } | null = null // the last interviewer final that became a question
+  let gen = 0 // bumped by reset/Clear: a detection that was already awaiting the detector when it happened is dropped
+  let deferred: ReturnType<typeof setTimeout> | null = null // an auto-ask waiting out the min gap
+  let lastAsk: { key: string; at: number; live: boolean; failed: boolean } | null = null // the answer most recently started, for the same-question dedupe
   const auto = createAutoAsk({ now })
   const spec = createSpeculator({ engine: d.engine, transcript: () => lines, config: d.config, now })
 
@@ -145,7 +152,8 @@ export function createLiveWiring(d: WiringDeps) {
     grab().catch(() => undefined)
   }
 
-  const reset = (): void => { dropScreen(); lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; d.detector.reset(); auto.reset(); spec.cancel() }
+  const undefer = (): void => { gen++; if (deferred) clearTimeout(deferred); deferred = null }
+  const reset = (): void => { dropScreen(); lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; tail = null; lastAsk = null; undefer(); d.detector.reset(); auto.reset(); spec.cancel() }
   const error = (message: string, extra: { actions?: CopilotEvents['copilotError']['actions']; suggestion?: string } = {}): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false, ...extra })
   const engineError = (e: unknown): void => {
     if (!(e instanceof LlmError)) return error(msg(e))
@@ -157,16 +165,41 @@ export function createLiveWiring(d: WiringDeps) {
   /** Mic-only live has no interviewer channel: the mic hears both sides, so its finals are candidates too (rules filter chatter). */
   const detectable = (l: TranscriptLine): boolean => mode === 'live' && l.final && !answeredLines.has(l.id) && (l.speaker === 'interviewer' || !sources.includes('system'))
 
-  async function detect(l: TranscriptLine, sttFinalAt: number): Promise<void> {
-    const q = await d.detector.feed({ ...l, speaker: 'interviewer' })
+  async function detect(line: TranscriptLine, sttFinalAt: number): Promise<void> {
+    // A cut-off question and its continuation are one question: re-detect the joined text under the first one's id so the overlay and the session keep a single entry.
+    const prev = tail
+    const gap = prev ? sttFinalAt - prev.at : Infinity
+    const merged = prev !== null && continuesQuestion(prev.text, line.text, gap)
+    const l = merged ? { ...line, text: `${prev.text} ${line.text.trim()}` } : line
+    const g = gen
+    let q = await d.detector.feed({ ...l, speaker: 'interviewer' })
+    if (g !== gen) return spec.take(l.id, '', '').run?.abort()
     const taken = spec.take(l.id, l.text, q?.id ?? '') // an early request for this line: adopted if the final matches, aborted otherwise
     if (!q) return taken.run?.abort()
+    if (merged) { q = { ...q, id: prev.q.id }; auto.unask(); debugLog('copilot', 'question merged', { id: q.id, text: q.text }) }
+    tail = { q, text: l.text, at: sttFinalAt }
     addQuestion(q)
     prefetch(q)
     const cfg = d.config()
     const decision = cfg.engine.autoAnswer ? auto.decide(q, l, sources, cfg.engine) : null
     debugLog('copilot', 'question detected', { id: q.id, text: q.text, type: q.type, hint: q.hint, autoAnswer: cfg.engine.autoAnswer, sources, decision: decision ? (decision.ask ? 'ask' : decision.reason) : 'auto-answer off' })
-    if (!decision?.ask) return taken.run?.abort()
+    if (!decision?.ask) {
+      taken.run?.abort()
+      // A clarification right behind the question hit the min gap: ask once it clears if nothing newer was said (the overlay already shows it).
+      const wait = decision?.reason === 'rate' ? auto.gapMs() : 0
+      if (wait > 0) { undefer(); deferred = setTimeout(() => { deferred = null; if (lastQuestion?.id === q.id) void askLater(q, l, sttFinalAt) }, wait); deferred.unref?.() }
+      return
+    }
+    return startAuto(q, l, sttFinalAt, decision, taken)
+  }
+
+  /** The deferred ask: decide again now that the gap has passed. */
+  async function askLater(q: DetectedQuestion, l: TranscriptLine, sttFinalAt: number): Promise<void> {
+    const decision = auto.decide(q, l, sources, d.config().engine)
+    if (decision.ask) await startAuto(q, l, sttFinalAt, decision, { run: null, outcome: null })
+  }
+
+  async function startAuto(q: DetectedQuestion, l: TranscriptLine, sttFinalAt: number, decision: Extract<ReturnType<typeof auto.decide>, { ask: true }>, taken: { run: SpecRun | null; outcome: TurnInfo['spec'] }): Promise<void> {
     const screenTurn = decision.route.needsScreenshot && d.screen !== undefined && screenGate(decision.route.tier) === null
     if (screenTurn) taken.run?.abort() // an early text-only request can't carry the frame
     // speech end = the line's audio end; STT-final and detector times come from the wall clock (PERF-1 trace).
@@ -186,6 +219,13 @@ export function createLiveWiring(d: WiringDeps) {
       q = { id: `qm${++manual}`, text, type: questionType(text), confidence: 0.5, at: now(), auto: false }
       addQuestion(q)
     }
+    const key = `${kind}|${norm(q.text)}`
+    if (!extra.press && lastAsk?.key === key && !lastAsk.failed && (lastAsk.live || now() - lastAsk.at < DEDUPE_MS)) { // a good answer still streaming is never restarted, however long it takes
+      debugLog('copilot', 'answer deduped', { kind, questionId: q.id })
+      return extra.run?.abort()
+    }
+    const ask: NonNullable<typeof lastAsk> = { key, at: now(), live: true, failed: false }
+    lastAsk = ask
     current?.abort()
     const ac = new AbortController()
     current = ac
@@ -211,9 +251,13 @@ export function createLiveWiring(d: WiringDeps) {
       }
       debugLog('copilot', shown ? 'answer end' : 'answer ended with nothing shown (superseded or stopped)', { kind, questionId: q.id, suggestions: shown, aborted: ac.signal.aborted })
     } catch (e) {
+      ask.failed = true
       debugLog('copilot', 'answer failed', { kind, questionId: q.id, error: e, code: e instanceof LlmError ? e.code : undefined })
       if (e instanceof LlmError && e.code === 'no_vision') block('no-vision', { message: noVisionText("This model can't read images.", e.suggestion), suggestion: e.suggestion })
       else engineError(e)
+    } finally {
+      ask.live = false
+      if (!shown) ask.failed = true // nothing reached the user (blocked, empty, stopped): the next press may try again
     }
   }
 
@@ -222,7 +266,7 @@ export function createLiveWiring(d: WiringDeps) {
     current?.abort(); current = null
     d.engine.cancelAll(); spec.cancel(); dropScreen()
     for (const l of lines) if (l.final) answeredLines.add(l.id)
-    questions = new Map(); lastQuestion = null
+    questions = new Map(); lastQuestion = null; tail = null; lastAsk = null; undefer()
     debugLog('copilot', 'cleared')
     d.host.publish('copilotCleared', { at: now() })
   }
@@ -250,7 +294,7 @@ export function createLiveWiring(d: WiringDeps) {
     if (ev === 'copilotState') {
       const s = payload as CopilotEvents['copilotState']
       if (s.state === 'armed') { reset(); startWarm() }
-      if (s.state === 'stopped') { stopWarm(); dropScreen() }
+      if (s.state === 'stopped') { stopWarm(); dropScreen(); undefer() }
       mode = s.mode; sources = s.sources.length ? s.sources : sources
       d.host.publishState(s)
       if (s.state === 'stopped') d.onStopped()
@@ -282,7 +326,7 @@ export function createLiveWiring(d: WiringDeps) {
     metrics: () => ({ speculation: spec.stats() }),
     /** The session controller arrives after the wiring (it needs `emit`): the kill switch closes over it. */
     bindSession(ctl: { stop(reason: StopReason): Promise<void> }): void {
-      d.host.setSessionHooks({ stopCapture: () => ctl.stop('panic'), abortRequests: () => { d.engine.cancelAll(); current?.abort(); dropScreen() } })
+      d.host.setSessionHooks({ stopCapture: () => ctl.stop('panic'), abortRequests: () => { d.engine.cancelAll(); current?.abort(); dropScreen(); undefer() } })
     },
   }
 }

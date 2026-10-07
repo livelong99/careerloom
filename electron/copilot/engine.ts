@@ -5,7 +5,7 @@ import { debugLog } from '../debug-log'
 import recommended from './recommended-models.json'
 import { createCostMeter, type CostMeter } from './cost'
 import { parseClassification, CLASSIFY_MAX_TOKENS, CLASSIFY_SYSTEM, type Classify } from './detector'
-import { modelOrder, withFailover } from './failover'
+import { modelOrder, withFailover, withHedge } from './failover'
 import { guardSuggestion } from './guard'
 import { estimateTokens, windowLines, type GroundingContext } from './context'
 import { buildPrompt, parseSuggestion, type KbMatch, type PromptKind } from './prompts'
@@ -92,14 +92,22 @@ export type EngineDeps = {
   isVision?: (modelId: string) => boolean
   /** Top question-base matches for the detected question (WP7); synchronous and fast (BM25 in memory). Absent/empty: no KB section. */
   kbMatch?: (jobId: string, question: string) => KbMatch[]
+  /** No usable first token after this long: ask a second model too and keep whichever answers first (default 4000; 0 turns it off). */
+  hedgeAfterMs?: number
 }
 
 // Headline-first answers are short: fast/balanced fit the longest format (script x 5-6 sentences + 5 bullets + STAR) in about 300/400 tokens.
 const MAX_TOKENS: Record<Tier, number> = { fast: 320, balanced: 420, deep: 800 }
+const HEDGE_AFTER_MS = 4000
 const WINDOW_TOKENS = 800
 const WINDOW_LINES = 6
 /** The SAY section has started and its first line has content: the user can read the headline. */
-const SAY_VISIBLE = /\[SAY\][ \t]*\r?\n[ \t]*\S/
+const SAY_VISIBLE = /\[SAY\][ \t]*\r?\n?[ \t]*\S/
+
+/** [PROOF] is a behavioural-answer section (the prompt only asks for it there); a model adding it elsewhere gets it dropped. */
+const onlyBehaviouralProof = <T extends { proof: unknown[] }>(p: T, type: DetectedQuestion['type']): T => (type === 'behavioural' ? p : { ...p, proof: [] })
+/** The raw model reply as logged: the start of it, never the whole thing. */
+const clip = (t: string, n = 1500): string => (t.length > n ? `${t.slice(0, n)}…[+${t.length - n} chars]` : t)
 
 /** A broken or unbound question base must never cost an answer. */
 const safeKb = (f: NonNullable<EngineDeps['kbMatch']>, jobId: string, q: string): KbMatch[] => { try { return f(jobId, q) } catch { return [] } }
@@ -116,6 +124,7 @@ async function* requireFormat(src: AsyncIterable<StreamItem>, model: string): As
     if ('delta' in item) text += item.delta
     if (/\[SAY\]/i.test(text)) { ok = true; yield* held; held.length = 0 }
   }
+  if (!ok) debugLog('engine', 'bad reply', { model, chars: text.length, raw: clip(text) })
   if (!ok) throw new LlmError('server', text.trim() ? `${model} did not answer in the required format` : `${model} returned an empty answer`)
 }
 
@@ -166,11 +175,14 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       let usage: StreamUsage | null = null
       let usedModel = model
       const base: Suggestion = { questionId: req.question.id, model, tier, say: '', bullets: [], star: null, proof: [], flags: [], done: false, firstTokenMs: null, totalMs: null, costUsd: null }
-      const snapshot = (done: boolean): Suggestion => ({ ...base, ...(kbRefs.length ? { kb: kbRefs } : {}), model: usedModel, ...parseSuggestion(text, done), done, firstTokenMs, totalMs: done ? now() - start : null, trace: stageMs(marks, { promptTokens: usage?.promptTokens, cachedTokens: usage?.cachedTokens }, turnInfo()) })
+      const snapshot = (done: boolean): Suggestion => ({ ...base, ...(kbRefs.length ? { kb: kbRefs } : {}), model: usedModel, ...onlyBehaviouralProof(parseSuggestion(text, done), req.question.type), done, firstTokenMs, totalMs: done ? now() - start : null, trace: stageMs(marks, { promptTokens: usage?.promptTokens, cachedTokens: usage?.cachedTokens }, turnInfo()) })
 
-      const stream = withFailover(modelOrder(model, fallbacksFor(tier, model, req.image ? isVision : undefined)), m => {
+      const maxTokens = Math.round(MAX_TOKENS[tier] * (req.route?.maxTokensScale ?? 1))
+      const call = (m: string, signal: AbortSignal): AsyncGenerator<StreamItem> => requireFormat(deps.provider.stream({ system: prompt.system, messages, model: m, signal, maxTokens, sessionId: deps.sessionId?.(), onMark: k => { debugLog('engine', k, { model: m }); mark(k === 'first-byte' ? 'firstByteAt' : 'requestSentAt') } }), m)
+      const hedgeAfterMs = deps.hedgeAfterMs ?? HEDGE_AFTER_MS
+      const stream = withFailover(modelOrder(model, fallbacksFor(tier, model, req.image ? isVision : undefined)), (m, others) => {
         usedModel = m
-        return requireFormat(deps.provider.stream({ system: prompt.system, messages, model: m, signal: ac.signal, maxTokens: Math.round(MAX_TOKENS[tier] * (req.route?.maxTokensScale ?? 1)), sessionId: deps.sessionId?.(), onMark: k => { debugLog('engine', k, { model: m }); mark(k === 'first-byte' ? 'firstByteAt' : 'requestSentAt') } }), m)
+        return withHedge(m, others.find(o => o !== m), call, { afterMs: hedgeAfterMs, signal: ac.signal, onWin: w => { usedModel = w }, onHedge: b => debugLog('engine', 'hedge', { slow: m, backup: b }) })
       }, { signal: ac.signal, sleep: deps.sleep, onRetry: i => { debugLog('engine', 'retry', i); deps.onRetry?.(i) } })
 
       let lastYield = -Infinity
@@ -196,6 +208,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       const completionTokens = usage?.completionTokens ?? estimateTokens(text)
       const costUsd = cost.add(usedModel, promptTokens, completionTokens, usage?.costUsd ?? null, usage?.cachedTokens)
       mark('doneAt')
+      debugLog('engine', 'reply', { question: req.question.id, model: usedModel, chars: text.length, ms: now() - start, raw: clip(text) })
       const record = (): void => {
         if (!turn) return
         for (const k of Object.keys(marks) as Array<keyof TraceMarks>) turn.mark(k, marks[k]!) // late marks (speech end, release)

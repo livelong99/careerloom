@@ -35,8 +35,11 @@ describe('withFailover', () => {
   it('does not retry plain errors, backs off exponentially, and stops when aborted', async () => {
     await expect(all(withFailover(['a', 'b'], async function* () { throw new Error('bug'); yield 1 }, { sleep: noSleep }))).rejects.toThrow('bug')
     const waits: number[] = []
-    await all(withFailover(['a', 'b', 'c'], async function* (m) { if (m !== 'c') throw new LlmError('timeout', 't'); yield 1 }, { baseDelayMs: 100, sleep: async ms => { waits.push(ms) } }))
+    await all(withFailover(['a', 'b', 'c'], async function* (m) { if (m !== 'c') throw new LlmError('rate_limit', 't'); yield 1 }, { baseDelayMs: 100, sleep: async ms => { waits.push(ms) } }))
     expect(waits).toEqual([100, 200])
+    const other: number[] = [] // a different model after a timeout/server/empty reply goes out at once
+    await all(withFailover(['a', 'b'], async function* (m) { if (m === 'a') throw new LlmError('timeout', 't'); yield 1 }, { sleep: async ms => { other.push(ms) } }))
+    expect(other).toEqual([])
     const ac = new AbortController(); ac.abort()
     await expect(all(withFailover(['a', 'b'], async function* () { throw new LlmError('timeout', 't'); yield 1 }, { sleep: noSleep, signal: ac.signal }))).rejects.toMatchObject({ code: 'timeout' })
   })
