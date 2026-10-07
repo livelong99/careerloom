@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { SttEvent } from './adapter'
 import { createChunkedAdapter, type Decoder } from './buffer'
-import { CONT_EXTRA_MS } from './endpoint'
-import { concat, frames, silence, tone } from './pcm-gen.test-util'
+import { CONT_EXTRA_MS, holdExtraMs } from './endpoint'
+import { concat, frames, hiss, silence, tone } from './pcm-gen.test-util'
 
 const OPTS = { source: 'mic' as const, language: 'en', vocab: [], endSilenceMs: 600 }
 
@@ -155,7 +155,7 @@ describe('adaptive endpoint (fastEndpoint)', () => {
     const finals: number[] = []
     const { a, seen } = setup({ decode: async (pcm, kind) => { if (kind === 'final') finals.push(pcm.length); return 'so tell me about' } })
     await a.start(FAST)
-    await feed(a, concat(silence(300), tone(1500), silence(2500)))
+    await feed(a, concat(silence(300), tone(1500), silence(4500))) // "…about" trails off, so the hold is the long one
     await settle()
     expect(finalAt(seen).t1).toBeGreaterThanOrEqual(SPEECH_END + 650)
     expect(finals).toHaveLength(1)
@@ -214,6 +214,58 @@ describe('adaptive endpoint (fastEndpoint)', () => {
     await feed(a, concat(silence(300), tone(1500), silence(1000)))
     await settle()
     expect(finalAt(seen).t1).toBeGreaterThanOrEqual(SPEECH_END + 650)
+    await a.stop()
+  })
+})
+
+describe('long pauses and steady noise', () => {
+  const FAST = { ...OPTS, endSilenceMs: 650, fastEndpoint: true }
+  const finals = (seen: Array<[string, SttEvent]>) => seen.filter(s => s[0] === 'final')
+
+  it('holds longer when the text so far trails off mid-thought', () => {
+    expect(holdExtraMs('so we had an outage and')).toBeGreaterThan(CONT_EXTRA_MS)
+    expect(holdExtraMs('Tell me about a time you led a team, um')).toBeGreaterThan(CONT_EXTRA_MS)
+    expect(holdExtraMs('We had an outage last quarter.')).toBe(CONT_EXTRA_MS)
+    expect(holdExtraMs(null)).toBe(CONT_EXTRA_MS)
+  })
+
+  it('a 2.8 s pause after a trailing "and" stays one question', async () => {
+    let n = 0
+    const { a, seen } = setup({ decode: async (_p, kind) => (kind === 'final' ? (++n === 1 ? 'Tell me about a time you led a migration and' : 'Tell me about a time you led a migration and how you handled the risks?') : 'x') })
+    await a.start(FAST)
+    await feed(a, concat(silence(300), tone(2500), silence(2800), tone(2500), silence(1500)))
+    await settle()
+    expect(finals(seen)).toHaveLength(1)
+    expect(finals(seen)[0]![1].text).toMatch(/how you handled the risks\?$/)
+    await a.stop()
+  })
+
+  it('a pause past the hold still ends the turn (the wait is bounded)', async () => {
+    const { a, seen } = setup({ decode: async () => 'Tell me about a time you led a migration and' })
+    await a.start(FAST)
+    await feed(a, concat(silence(300), tone(2500), silence(6000)))
+    await settle()
+    expect(finals(seen)).toHaveLength(1)
+    await a.stop()
+  })
+
+  it('steady loud noise that decodes to nothing is dropped, not kept as an endless utterance', async () => {
+    const { a, seen, calls } = setup({ decode: async () => '' })
+    await a.start(FAST)
+    await feed(a, concat(silence(300), hiss(12_000, 4000)))
+    await settle()
+    expect(finals(seen)).toHaveLength(0)
+    expect(calls.filter(c => c.kind === 'partial').length).toBeLessThanOrEqual(4) // it stops decoding noise after the first empty result
+    await a.stop()
+  })
+
+  it('speech louder than the dropped noise is still heard', async () => {
+    let n = 0
+    const { a, seen } = setup({ decode: async (_p, kind) => (kind === 'final' ? 'Why do you want this job?' : ++n < 3 ? '' : 'Why') })
+    await a.start(FAST)
+    await feed(a, concat(silence(300), hiss(6000, 4000), tone(2500, 14000), silence(1500)))
+    await settle()
+    expect(finals(seen)).toHaveLength(1)
     await a.stop()
   })
 })

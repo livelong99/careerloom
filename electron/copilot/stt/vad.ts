@@ -13,12 +13,22 @@ export const rmsOf = (pcm: Int16Array): number => {
   return pcm.length ? Math.sqrt(s / pcm.length) : 0
 }
 
+const GATE_MARGIN = 1.6 // speech must beat dropped noise by this much to open the gate
+const GATE_RELEASE_MS = 2000 // this long below the gate and it forgets the noise
+
 export function createVad() {
   const hist: Array<{ rms: number; ms: number }> = []
-  let histMs = 0
+  let histMs = 0, gate = 0, belowMs = 0
   return {
+    /** Audio that stayed "voiced" but decoded to nothing is steady noise above the loudness cap: only something clearly louder counts as speech until it goes quiet. */
+    gateAbove(rms: number): void { gate = rms * GATE_MARGIN; belowMs = 0 },
     isVoiced(frame: Int16Array): boolean {
       const rms = rmsOf(frame), ms = frame.length / 16
+      if (gate) {
+        if (rms >= gate) belowMs = 0
+        else if ((belowMs += ms) >= GATE_RELEASE_MS) gate = 0
+        if (gate && rms < gate) return false
+      }
       hist.push({ rms, ms }); histMs += ms
       while (hist.length > 1 && histMs - hist[0]!.ms >= HISTORY_MS) histMs -= hist.shift()!.ms
       const floor = percentile(hist.map(h => h.rms), 0.1)

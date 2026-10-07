@@ -16,7 +16,8 @@ if (live && !key) { console.error('--provider openrouter needs OPENROUTER_API_KE
 const models = (args.models ?? (live ? '' : 'fake')).split(',').filter(Boolean)
 if (!models.length) { console.error('--models a/b,c/d is required with --provider openrouter'); process.exit(2) }
 const free = models.find(m => /:free$/.test(m))
-if (live && free) { console.error(`Refusing free model ${free}: free endpoints may train on prompts.`); process.exit(2) }
+const allowFree = args['allow-free'] === 'true' // the fixture résumé is synthetic, so a free endpoint training on it costs nothing
+if (live && free && !allowFree) { console.error(`Refusing free model ${free}: free endpoints may train on prompts (pass --allow-free to run the synthetic fixture on them).`); process.exit(2) }
 const maxUsd = Number(args['max-usd'] ?? 0.3)
 const pct = (xs: number[], p: number): number | null => (xs.length ? [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.ceil(p * xs.length) - 1)]! : null)
 const r0 = (n: number | null): number | null => (n === null ? null : Math.round(n))
@@ -27,7 +28,7 @@ if (args.length) cfg.coaching.length = Number(args.length) as 1 | 2 | 3
 const tier = (args.tier ?? cfg.engine.tier) as typeof cfg.engine.tier
 cfg.engine.tier = tier
 cfg.engine.factCheck = true
-cfg.engine.openrouter = { ...cfg.engine.openrouter, dataCollection: 'deny', sort: 'latency' }
+cfg.engine.openrouter = { ...cfg.engine.openrouter, dataCollection: allowFree ? 'allow' : 'deny', sort: 'latency' }
 
 let spent = 0
 const report: Record<string, unknown> = { at: new Date().toISOString(), provider: live ? 'openrouter' : 'fake', tier, coaching: cfg.coaching, questions: questions.length, models: {} }

@@ -17,6 +17,11 @@ export const endsTurn = (text: string): boolean => {
 }
 /** Extra quiet, beyond endSilenceMs, before a turn that did not end on a question/prompt is final: a thinking pause or "um…" inside a long question runs 1-1.5 s and must not split it. */
 export const CONT_EXTRA_MS = 1250
+/** The text trails off mid-thought ("…and", "…the", "um", a comma): the speaker is searching for words, and a 2-3 s pause is still the same question. */
+const TRAILING = /(?:[,;:\-–—]|…|\.\.\.|\b(?:and|but|so|or|because|that|which|who|the|a|an|to|of|with|for|in|on|at|from|about|if|when|how|what|why|where|um+|uh+|er+|erm|like|you know))\s*$/i
+export const TRAILING_EXTRA_MS = 3000
+/** Extra quiet, beyond endSilenceMs, before an unfinished turn is final: longer when `text` (the early decode, if it has landed) trails off. */
+export const holdExtraMs = (text: string | null): number => (text && TRAILING.test(text.trim()) ? TRAILING_EXTRA_MS : CONT_EXTRA_MS)
 
 /** Quiet needed before the early decode: 160-250 ms, about a third of the configured wait. */
 export const earlyEndMs = (endSilenceMs: number): number => Math.min(250, Math.max(160, Math.round(endSilenceMs * 0.35)))

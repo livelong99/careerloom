@@ -2,8 +2,8 @@
 // RMS VAD gate → utterance buffer → growing-window partial about every second → final once quiet for endSilenceMs.
 // Timestamps come from the audio clock (bytes pushed), never wall time, so tests and the benchmark stay deterministic.
 import { createEmitter, type SttAdapter, type SttStartOpts } from './adapter'
-import { CONT_EXTRA_MS, earlyEndMs, endsTurn } from './endpoint'
-import { createVad } from './vad'
+import { earlyEndMs, endsTurn, holdExtraMs } from './endpoint'
+import { createVad, rmsOf } from './vad'
 
 export type Decoder = {
   ready(opts: SttStartOpts): Promise<void>
@@ -14,6 +14,7 @@ export type Decoder = {
 const PARTIAL_EVERY_MS = 1000
 const MIN_SPEECH_MS = 250 // shorter voiced blips (clicks, breaths) are dropped, not decoded
 const PARTIAL_MAX_MS = 20_000 // past this a partial decode of the whole turn costs seconds and would hold the final up; the last partial stays on screen
+const NOISE_AFTER_MS = 3000 // this much "speech" that still decodes to nothing is noise
 const MAX_SEGMENT_MS = 50_000 // a 20-40 s question must stay one piece (mlx-whisper windows 30 s internally, Parakeet takes long audio); cut only past this
 
 const join = (parts: Int16Array[]): Int16Array => {
@@ -73,11 +74,12 @@ export function createChunkedAdapter(o: { id: SttAdapter['id']; decoder: Decoder
 
   function partial() {
     lastPartialAt = bufMs
-    const pcm = join(buf), t0 = segStart, t1 = t
+    const pcm = join(buf), t0 = segStart, t1 = t, my = epoch
     enqueue(async () => {
       try {
         const text = (await decoder.decode(pcm, 'partial')).trim()
-        if (text) emit('partial', { text, t0, t1 })
+        if (text) return emit('partial', { text, t0, t1 })
+        if (epoch === my && voicedMs >= NOISE_AFTER_MS && !early) { vad.gateAbove(rmsOf(pcm)); reset() } // seconds of voiced audio with no words: steady noise, not a speaker
       } catch (err) { fail(err, t0, t1) }
     })
   }
@@ -101,7 +103,7 @@ export function createChunkedAdapter(o: { id: SttAdapter['id']; decoder: Decoder
         if (early) { early = null; epoch++ } // speech resumed: the early decode no longer covers the utterance
       } else if (speech) {
         buf.push(frame); bufMs += ms; quietMs += ms
-        if (quietMs >= endSilenceMs + (fast ? CONT_EXTRA_MS : 0)) return finish() // fast: the early decode (a "?" ends the turn before this) decides; anything else waits out a thinking pause
+        if (quietMs >= endSilenceMs + (fast ? holdExtraMs(early?.text ?? null) : 0)) return finish() // fast: the early decode (a "?" ends the turn before this) decides; anything else waits out a thinking pause
         if (fast && !early && pending === 0 && voicedMs >= MIN_SPEECH_MS && quietMs >= earlyEndMs(endSilenceMs)) return startEarly()
       }
       if (!speech) return
