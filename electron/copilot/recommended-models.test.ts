@@ -17,4 +17,8 @@ describe('recommended-models.json', () => {
     for (const m of all) expect(typeof (m as { vision?: boolean }).vision, m.id).toBe('boolean')
     for (const [tier, list] of Object.entries(recommended.tiers)) expect(list.some(m => (m as { vision?: boolean }).vision), tier).toBe(true)
   })
+  it('puts a different vendor second in every tier, so one provider outage costs one failed attempt, not two', () => {
+    const vendor = (id: string) => id.split('/')[0]
+    for (const [tier, list] of Object.entries(recommended.tiers)) expect(vendor(list[1]!.id), tier).not.toBe(vendor(list[0]!.id))
+  })
 })
