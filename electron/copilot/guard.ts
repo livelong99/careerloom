@@ -16,12 +16,15 @@ const MIN_QUOTE = 8
 const collapse = (s: string) => s.replace(/\s+/g, ' ').trim()
 
 // Only claims about the candidate are checked against the résumé: general knowledge ("Dijkstra runs in O(E log V)") is the point of the copilot.
-// A line counts as a claim when it speaks in the first person or states a percentage or money figure (the usual made-up outcome).
-const PERSONAL = /\b(?:I|I'm|I've|I'd|I'll|me|my|mine|we|we've|we're|our|ours)\b|\d\s*%|[$€£₹]\s*\d/i
+// A line counts as a claim when it speaks in the first person, states a money figure, or reports a percentage as an achieved outcome
+// ("cut costs by 75%"; a bare "99.9% availability" or "above 90%" is a target or rule of thumb, which is what system-design answers are made of).
+const OUTCOME = /\b(?:cut|reduced|improved|saved|increased|grew|boosted|lowered|achieved|delivered|raised|dropped|decreased|scaled|doubled|halved|shaved)\b/i
+const PERSONAL = /\b(?:I|I'm|I've|I'd|I'll|me|my|mine|we|we've|we're|our|ours)\b|[$€£₹]\s*\d/i
+const isClaim = (line: string): boolean => PERSONAL.test(line) || (/\d\s*%/.test(line) && OUTCOME.test(line))
 
 function draftLines(s: Suggestion): string {
   const star = s.star ? [s.star.s, s.star.t, s.star.a, s.star.r] : []
-  const personal = [s.say, ...s.bullets].flatMap(t => t.split('\n')).filter(t => PERSONAL.test(t))
+  const personal = [s.say, ...s.bullets].flatMap(t => t.split('\n')).filter(isClaim)
   return [...personal, ...star].map(t => t.trim()).filter(Boolean).map(t => `- ${t}`).join('\n')
 }
 

@@ -1,6 +1,6 @@
 {
   "asOf": "2026-10-01",
-  "note": "Paid models only: free (':free') endpoints can train on prompts, so OpenRouter rejects them under the default data_collection=deny. Ids and prices read from OpenRouter /api/v1/models on 2026-10-01 (gemini-2.5-flash-lite dropped: expiration_date 2026-10-20). They drift, so the app re-lists live and falls back to this file. Order within a tier = preference (first is the default). `vision` = architecture.input_modalities includes 'image' (verified from /api/v1/models, no key, 2026-10-01); qwen3-30b is text-only.",
+  "note": "Paid models only: free (':free') endpoints can train on prompts, so OpenRouter rejects them under the default data_collection=deny. Ids and prices read from OpenRouter /api/v1/models on 2026-10-01 (gemini-2.5-flash-lite dropped: expiration_date 2026-10-20). They drift, so the app re-lists live and falls back to this file. Order within a tier = preference (first is the default); the second entry is always a different vendor from the first, because failover tries the list in order and a same-vendor fallback fails with it. `vision` = architecture.input_modalities includes 'image' (verified from /api/v1/models, no key, 2026-10-01); qwen3-30b is text-only.",
   "tiers": {
     "fast": [
       {
@@ -10,16 +10,16 @@
         "vision": true
       },
       {
-        "id": "openai/gpt-6-luna",
-        "name": "OpenAI: GPT-6 Luna",
-        "contextTokens": 1050000,
-        "vision": true
-      },
-      {
         "id": "qwen/qwen3-30b-a3b-instruct-2507",
         "name": "Qwen: Qwen3 30B A3B Instruct 2507",
         "contextTokens": 262144,
         "vision": false
+      },
+      {
+        "id": "openai/gpt-6-luna",
+        "name": "OpenAI: GPT-6 Luna",
+        "contextTokens": 1050000,
+        "vision": true
       }
     ],
     "balanced": [

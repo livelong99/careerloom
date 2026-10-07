@@ -4,7 +4,8 @@ import { extractSkills } from './skills'
 export type FactCheck = { ok: boolean; violations: string[] }
 
 const NUM = /\d[\d,]*(?:\.\d+)?\s*(?:k|m|x|%)?/gi
-const NAME = /\b[A-Z][A-Za-z0-9&.+-]{2,}(?:\s+[A-Z][A-Za-z0-9&.+-]+)*/g
+// A dot belongs to a name only inside it ("Node.js"): a sentence-final "Northwind." is the name, and must not run into the next sentence.
+const NAME = /\b[A-Z](?:[A-Za-z0-9&+-]|\.(?=[A-Za-z0-9])){2,}(?:\s+[A-Z](?:[A-Za-z0-9&+-]|\.(?=[A-Za-z0-9]))+)*/g
 // Words that may appear capitalised without being a fact (sentence openers are skipped separately).
 const COMMON = new Set('the and for with from that this into over under across about team teams using used use via our their your all new'.split(' '))
 

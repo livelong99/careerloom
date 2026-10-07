@@ -20,6 +20,10 @@ describe('guardSuggestion', () => {
     const r = guardSuggestion(src, s({ say: 'I led the Kubernetes migration of 40 services.', bullets: ['Cut deploy time by 60%', 'Built Terraform modules used by 12 teams'] }))
     expect(r.flags).toEqual([])
   })
+  it('does not flag a true name that ends a sentence (trailing period is not part of the name)', () => {
+    const r = guardSuggestion(src, s({ say: 'I worked at Northwind. My roles were at Northwind, Kubernetes and Northwind.', bullets: ['I did that at Northwind.'] }))
+    expect(r.flags).toEqual([])
+  })
   it('flags an injected fake number, skill and employer but keeps the text', () => {
     const say = 'I saved $9M at Globex Industries using Rust and cut costs 75%.'
     const r = guardSuggestion(src, s({ say, bullets: ['Managed 200 engineers'] }))
@@ -75,5 +79,10 @@ describe('guardSuggestion with general knowledge', () => {
   it('still flags an invented personal claim in the same answer', () => {
     const r = guardSuggestion(src, s({ say: 'BFS is O(V+E). I used it at Globex Industries to cut costs 75%.' }))
     expect(r.flags.map(f => f.kind)).toContain('unsupported-number')
+  })
+  it('does not flag percentages that are targets or rules of thumb, only outcomes claimed as achieved', () => {
+    const r = guardSuggestion(src, s({ say: 'Aim for 99.9% availability.', bullets: ['Keep cache hit rate above 90%', 'Alert at 80% disk usage'] }))
+    expect(r.flags).toEqual([])
+    expect(guardSuggestion(src, s({ bullets: ['Cut costs by 75%'] })).flags.map(f => f.kind)).toContain('unsupported-number')
   })
 })
