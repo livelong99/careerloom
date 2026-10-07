@@ -76,4 +76,16 @@ describe('sidecar decoder', () => {
     expect(c2.killed).toBe(true)
     expect(frames(c2.written).at(-1)!.type).toBe(FRAME.flush)
   })
+
+  it('a sidecar that dies while loading fails ready at once, with the reason it printed', async () => {
+    const c = makeChild()
+    const d = createSidecarDecoder({ spawn: () => c.child, config: () => ({}), readyTimeoutMs: 5000 })
+    const r = d.ready(OPTS)
+    c.say({ ev: 'error', message: "No module named 'onnx_asr'" }); c.die(1)
+    await expect(r).rejects.toThrow(/onnx_asr/)
+    const c2 = makeChild()
+    const d2 = createSidecarDecoder({ spawn: () => c2.child, config: () => ({}), readyTimeoutMs: 5000 })
+    const r2 = d2.ready(OPTS); c2.die(1)
+    await expect(r2).rejects.toThrow(/stopped unexpectedly \(exit 1\)/)
+  })
 })

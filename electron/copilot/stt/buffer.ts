@@ -2,7 +2,7 @@
 // RMS VAD gate → utterance buffer → growing-window partial about every second → final once quiet for endSilenceMs.
 // Timestamps come from the audio clock (bytes pushed), never wall time, so tests and the benchmark stay deterministic.
 import { createEmitter, type SttAdapter, type SttStartOpts } from './adapter'
-import { earlyEndMs, isSentenceFinal } from './endpoint'
+import { CONT_EXTRA_MS, earlyEndMs, endsTurn } from './endpoint'
 import { createVad } from './vad'
 
 export type Decoder = {
@@ -13,7 +13,8 @@ export type Decoder = {
 
 const PARTIAL_EVERY_MS = 1000
 const MIN_SPEECH_MS = 250 // shorter voiced blips (clicks, breaths) are dropped, not decoded
-const MAX_SEGMENT_MS = 25_000 // Whisper's window is 30 s; cut before it
+const PARTIAL_MAX_MS = 20_000 // past this a partial decode of the whole turn costs seconds and would hold the final up; the last partial stays on screen
+const MAX_SEGMENT_MS = 50_000 // a 20-40 s question must stay one piece (mlx-whisper windows 30 s internally, Parakeet takes long audio); cut only past this
 
 const join = (parts: Int16Array[]): Int16Array => {
   const out = new Int16Array(parts.reduce((n, p) => n + p.length, 0))
@@ -61,7 +62,7 @@ export function createChunkedAdapter(o: { id: SttAdapter['id']; decoder: Decoder
     enqueue(async () => {
       try {
         e.text = (await decoder.decode(pcm, 'final')).trim()
-        if (epoch !== my || !e.text || !isSentenceFinal(e.text)) return // speech resumed, or the turn already ended on the full wait
+        if (epoch !== my || !e.text || !endsTurn(e.text)) return // speech resumed, or the turn already ended on the full wait
         const t1 = t
         reset()
         emit('final', { text: e.text, t0, t1 })
@@ -100,12 +101,12 @@ export function createChunkedAdapter(o: { id: SttAdapter['id']; decoder: Decoder
         if (early) { early = null; epoch++ } // speech resumed: the early decode no longer covers the utterance
       } else if (speech) {
         buf.push(frame); bufMs += ms; quietMs += ms
-        if (quietMs >= endSilenceMs) return finish()
+        if (quietMs >= endSilenceMs + (fast ? CONT_EXTRA_MS : 0)) return finish() // fast: the early decode (a "?" ends the turn before this) decides; anything else waits out a thinking pause
         if (fast && !early && pending === 0 && voicedMs >= MIN_SPEECH_MS && quietMs >= earlyEndMs(endSilenceMs)) return startEarly()
       }
       if (!speech) return
       if (bufMs >= MAX_SEGMENT_MS) finish()
-      else if (pending === 0 && bufMs - lastPartialAt >= PARTIAL_EVERY_MS && !(fast && quietMs > 0)) partial() // never queue partials behind a running decode; in the quiet tail the early final decode takes the slot
+      else if (pending === 0 && bufMs - lastPartialAt >= PARTIAL_EVERY_MS && bufMs <= PARTIAL_MAX_MS && !(fast && quietMs > 0)) partial() // never queue partials behind a running decode; in the quiet tail the early final decode takes the slot
     },
     async stop() {
       if (!live) return

@@ -41,14 +41,21 @@ export function createSidecarAdapter(spec: SidecarSpec): SttAdapter {
     ready = false
     const c = spec.spawn()
     child = c
+    let failReady: (m: string) => void = () => {}, why = ''
     c.onData(lineSplitter(raw => {
-      try { handle(JSON.parse(raw) as Line) } catch { /* ponytail: non-JSON chatter from native libs is ignored */ }
+      try { const l = JSON.parse(raw) as Line; if (l.ev === 'error' && !ready) why = l.message ?? ''; handle(l) } catch { /* ponytail: non-JSON chatter from native libs is ignored */ }
     }))
-    exited = new Promise<void>(res => c.onExit(code => { res(); if (child === c && !stopping) void crashed(code) }))
+    exited = new Promise<void>(res => c.onExit(code => {
+      res()
+      if (child !== c || stopping) return
+      if (!ready) { child = null; return failReady(why || `${spec.id} stopped unexpectedly (exit ${code ?? 'signal'})`) } // never loaded: a restart would fail the same way
+      void crashed(code)
+    }))
     c.write(encodeFrame(FRAME.config, Buffer.from(JSON.stringify(spec.config(o)))))
     return new Promise<void>((resolve, reject) => {
       const t = setTimeout(() => reject(new Error(`${spec.id} did not become ready`)), spec.readyTimeoutMs ?? 60_000)
       onReady = () => { clearTimeout(t); resolve() }
+      failReady = m => { clearTimeout(t); reject(new Error(m)) }
     })
   }
 

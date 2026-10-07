@@ -9,6 +9,15 @@ export const isSentenceFinal = (text: string): boolean => {
   return SENTENCE_END.test(t) && !ABBREV.test(t) && !/\.\.\.$|…$/.test(t)
 }
 
+/** A "?" ends a turn at once; so does a short standalone prompt ("Tell me about yourself."). Any other finished sentence ("We had an outage last quarter.") is context that a question usually follows. */
+const PROMPT = /^(?:(?:so|okay|ok|alright|now|and)[,.]?\s+)?(?:tell me|walk me through|talk me through|describe|explain|introduce yourself)\b/i
+export const endsTurn = (text: string): boolean => {
+  const t = text.trim()
+  return isSentenceFinal(t) && (/\?["”')\]]*$/.test(t) || (PROMPT.test(t) && t.split(/\s+/).length <= 10))
+}
+/** Extra quiet, beyond endSilenceMs, before a turn that did not end on a question/prompt is final: a thinking pause or "um…" inside a long question runs 1-1.5 s and must not split it. */
+export const CONT_EXTRA_MS = 1250
+
 /** Quiet needed before the early decode: 160-250 ms, about a third of the configured wait. */
 export const earlyEndMs = (endSilenceMs: number): number => Math.min(250, Math.max(160, Math.round(endSilenceMs * 0.35)))
 

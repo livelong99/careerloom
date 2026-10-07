@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createSessionController } from './session'
+import { CONT_EXTRA_MS } from './stt/endpoint'
 import { createFakeAdapter, parseFixture } from './stt/fake'
 import type { CopilotEvents, StartRequest } from './types'
 
@@ -159,7 +160,7 @@ describe('session controller: endpointing + duplicate finals (PERF-2)', () => {
     })
     await s.start(req)
     for (let i = 0; i < 20; i++) s.audio({ source: sources?.[0] ?? 'mic', pcm16: chunk(100, 500), t: i * 100 })
-    return { events, opened: opened as Array<{ fastEndpoint?: boolean }>, finals: events.filter(e => e[0] === 'copilotTranscript' && (e[1] as { final: boolean }).final).map(e => (e[1] as { text: string }).text) }
+    return { events, opened: opened as Array<{ fastEndpoint?: boolean; endSilenceMs: number }>, finals: events.filter(e => e[0] === 'copilotTranscript' && (e[1] as { final: boolean }).final).map(e => (e[1] as { text: string }).text) }
   }
 
   it('asks for the fast endpoint on the interviewer channel and in live mode, never for practice answers', async () => {
@@ -167,6 +168,12 @@ describe('session controller: endpointing + duplicate finals (PERF-2)', () => {
     expect((await run(dup, { ...REQ, mode: 'practice' })).opened[0]!.fastEndpoint).toBe(false)
     expect((await run(dup, { ...REQ, mode: 'live' })).opened[0]!.fastEndpoint).toBe(true)
     expect((await run(dup, { ...REQ, mode: 'practice' }, ['system'])).opened[0]!.fastEndpoint).toBe(true)
+  })
+
+  it('practice answers wait out a thinking pause (a pause mid-answer must not end the turn); the fast channels keep the configured wait', async () => {
+    const dup = emitterFor([])
+    expect((await run(dup, { ...REQ, mode: 'practice' })).opened[0]).toMatchObject({ endSilenceMs: 650 + CONT_EXTRA_MS })
+    expect((await run(dup, { ...REQ, mode: 'live' })).opened[0]).toMatchObject({ endSilenceMs: 650 })
   })
 
   it('drops a final that repeats the previous one (formatted/unformatted or re-decoded) but keeps real repeats later', async () => {

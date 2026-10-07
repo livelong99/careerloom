@@ -153,4 +153,30 @@ describe('parakeet', () => {
     expect(row).toMatchObject({ model: 'v3', devices: ['cpu'], recommended: true, sizeMb: 640 })
     expect(FASTER_WHISPER_PACKAGES).toContain('setuptools==80.9.0')
   })
+
+  it('Windows on ARM gets an onnxruntime that has a win_arm64 wheel (1.23.2 has none); everything else keeps the tested pin', async () => {
+    const { installCommands } = await import('./install')
+    const { parakeetPackages } = await import('./runtime')
+    expect(parakeetPackages('win32', 'arm64')).toContain('onnxruntime==1.24.2')
+    for (const [p, a] of [['win32', 'x64'], ['darwin', 'arm64'], ['linux', 'x64']] as const) expect(parakeetPackages(p, a)).toContain('onnxruntime==1.23.2')
+    expect(installCommands('parakeet', 'x.py', '/c', 'v3', false, 'win32', 'arm64')[0]![1]).toContain('onnxruntime==1.24.2')
+  })
+})
+
+describe('install rollback', () => {
+  it('a failed or cancelled reinstall puts the previous ready.json back; a damaged model download is removed so a retry fetches it again', async () => {
+    const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path')
+    const { dropModelCache, restoreReady } = await import('./install')
+    const { readyFile } = await import('./runtime')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-stt-'))
+    const prev = { python: 'p', script: 's', cache: 'c', pin: 'onnx-asr==0.12.0', models: ['v3'] }
+    restoreReady(dir, prev)
+    expect(JSON.parse(fs.readFileSync(readyFile(dir), 'utf8'))).toMatchObject({ pin: 'onnx-asr==0.12.0', models: ['v3'] })
+    restoreReady(dir, null) // no previous install: nothing to put back
+    expect(JSON.parse(fs.readFileSync(readyFile(dir), 'utf8')).models).toEqual(['v3'])
+    const cache = path.join(dir, 'models'), blob = path.join(cache, 'models--istupakov--parakeet-tdt-0.6b-v3-onnx', 'blobs')
+    fs.mkdirSync(blob, { recursive: true }); fs.mkdirSync(path.join(cache, 'models--other--keep'), { recursive: true })
+    dropModelCache(cache, 'istupakov/parakeet-tdt-0.6b-v3-onnx')
+    expect(fs.readdirSync(cache)).toEqual(['models--other--keep'])
+  })
 })
