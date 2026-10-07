@@ -53,6 +53,11 @@ describe('deriveJobs', () => {
     expect(jobs.map(j => [j.state, j.portalId, j.ats])).toEqual([['new', 'source:stripe', 'greenhouse'], ['new', 'source:ramp', 'ashby']])
   })
 
+  it('flags a tracker row written by the quick triage so the UI never presents it as a full evaluation', () => {
+    const jobs = deriveJobs(inputs({ tracker: [app({ num: 5, company: 'Stripe', role: 'Staff Platform Engineer', notes: 'Solid match; quick triage (Consider)' }), app({ num: 6, company: 'Ramp', role: 'Backend Engineer', notes: 'full report' })] }))
+    expect(jobs.filter(j => j.reportNum !== null).map(j => [j.reportNum, j.quick])).toEqual([[5, true], [6, false]])
+  })
+
   it('a done pipeline row from the batch worker is evaluated with its number and score, even before the tracker merge', () => {
     const raw = '- [x] [3](../reports/003-RESERVED.md) | https://jobs.ashbyhq.com/ramp/2 | ramp | Backend Engineer | 2.4/5 | PDF ❌'
     const jobs = deriveJobs(inputs({ pipeline: [{ url: 'https://jobs.ashbyhq.com/ramp/2', company: 'ramp', role: 'Backend Engineer', done: true, raw }] }))

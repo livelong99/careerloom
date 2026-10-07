@@ -16,6 +16,10 @@ export type WriteDeps = {
   release?: (nums: string[]) => Promise<void>
   /** Run merge-tracker + reconcile-pipeline once after all files are written. */
   finalize?: () => Promise<void>
+  /** Called right after a job's files are on disk, so a resumed run can skip it (crash safety). */
+  onWritten?: (jobId: string) => void
+  /** Earlier attempt already wrote files: merge even if nothing is left to write (it may have died before merging). */
+  resumed?: boolean
   date: string
   runId: string
 }
@@ -155,6 +159,7 @@ export async function stage4(items: Array<{ job: FetchedJob; result: JobResult }
         fs.writeFileSync(path.join(additions, `${deps.runId}-${num}.tsv`), trackerRow(job, v, num, { date: deps.date }))
         states.push([`${deps.runId}-${num}`, job.url, 'completed', now, now, num, v.fit.toFixed(1), '-', '0'].map(cell).join('\t'))
         written.push({ jobId: job.id, num, report: `reports/${file}` })
+        deps.onWritten?.(job.id)
       } catch (err) {
         errors++; unused.push(num)
         failed.push({ ...result, fate: 'failed', stage: 'write', reason: `Couldn't write report: ${(err as Error).message}`, light: null })
@@ -163,9 +168,9 @@ export async function stage4(items: Array<{ job: FetchedJob; result: JobResult }
     if (unused.length) await deps.release?.(unused).catch(() => undefined)
   }
 
-  if (states.length) {
-    if (!fs.existsSync(stateFile)) fs.writeFileSync(stateFile, 'id\turl\tstatus\tstarted_at\tcompleted_at\treport_num\tscore\terror\tretries\n')
-    fs.appendFileSync(stateFile, states.join('\n') + '\n')
+  if (states.length || deps.resumed) {
+    if (states.length && !fs.existsSync(stateFile)) fs.writeFileSync(stateFile, 'id\turl\tstatus\tstarted_at\tcompleted_at\treport_num\tscore\terror\tretries\n')
+    if (states.length) fs.appendFileSync(stateFile, states.join('\n') + '\n')
     try { await deps.finalize?.() } catch (err) { errors++; return { written, errors, failed, finalizeError: (err as Error).message } }
   }
   return { written, errors, failed }

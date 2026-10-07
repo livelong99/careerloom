@@ -8,7 +8,7 @@ vi.mock('node:dns/promises', () => ({ lookup: async (host: string) => [{ address
 const browserPageText = vi.fn(async (_url: string) => `- heading "Senior Software Engineer"\n- paragraph: ${'Build distributed Java services. '.repeat(30)}`)
 vi.mock('./integrations/browser-fetch', () => ({ browserPageText }))
 vi.mock('./integrations/firecrawl', async importOriginal => ({ ...(await importOriginal<object>()), firecrawlReady: async () => false }))
-const { directJd, ensureTracker, parseWorkerResult, prefetchJd, profileProblems, workerPrompt } = await import('./jobs-batch')
+const { directJd, ensureTracker, queuedJobIds, runChain, parseWorkerResult, prefetchJd, profileProblems, workerPrompt } = await import('./jobs-batch')
 
 function tree(files: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-batch-'))
@@ -115,5 +115,24 @@ describe('prefetchJd', () => {
       expect(await prefetchJd('https://intranet.example/job/1')).toBe('')
       expect(browserPageText).not.toHaveBeenCalled()
     } finally { vi.unstubAllGlobals() }
+  })
+})
+
+describe('runChain', () => {
+  const job = (id: string) => ({ id }) as never
+  it('keeps every job of a chain claimed until it has run, so a second Evaluate click skips them', async () => {
+    const nexts: Array<(r: { status: string }) => void> = []
+    const launched: string[] = []
+    await runChain([job('a'), job('b'), job('c')], (j, _i, next) => { launched.push((j as { id: string }).id); nexts.push(next as never); return Promise.resolve({} as never) })
+    expect([...queuedJobIds()].sort()).toEqual(['a', 'b', 'c'])
+    nexts[0]!({ status: 'done' })
+    expect([...queuedJobIds()].sort()).toEqual(['b', 'c'])
+    nexts[1]!({ status: 'cancelled' }) // cancelling stops the chain and frees the rest
+    expect([...queuedJobIds()]).toEqual([])
+    expect(launched).toEqual(['a', 'b'])
+  })
+  it('frees the claim when the first launch throws', async () => {
+    await expect(runChain([job('x'), job('y')], () => Promise.reject(new Error('no runner')))).rejects.toThrow('no runner')
+    expect([...queuedJobIds()]).toEqual([])
   })
 })

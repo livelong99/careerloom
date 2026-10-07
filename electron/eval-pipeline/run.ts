@@ -110,12 +110,12 @@ export async function runPipeline(jobs: EvalJob[], deps: PipelineDeps): Promise<
   // Stage 4 — deterministic writer (light verdicts only; 'deep' ones are written by the full agent)
   if (deps.write && !cancelled()) {
     const t = performance.now()
-    const s4File = path.join(runDir, 's4.json')
-    const already = new Set(readJson<{ ids: string[] }>(s4File)?.ids ?? []) // resumed after a crash: never write a job twice
+    const s4Log = path.join(runDir, 's4.jsonl') // one id per written job, appended as it lands: a crash mid-write never duplicates reports
+    const already = new Set<string>(readJson<{ ids: string[] }>(path.join(runDir, 's4.json'))?.ids ?? [])
+    try { for (const id of fs.readFileSync(s4Log, 'utf8').split('\n')) if (id) already.add(JSON.parse(id) as string) } catch { /* first run */ }
     const items = [...results.values()].filter(r => r.fate === 'light' && r.light && !already.has(r.jobId)).map(r => ({ job: fetchedOf(r.jobId), result: r }))
-    const o = await stage4(items, deps.write)
+    const o = await stage4(items, { ...deps.write, resumed: already.size > 0, onWritten: id => fs.appendFileSync(s4Log, JSON.stringify(id) + '\n') })
     take(o.failed)
-    writeJson(s4File, { ids: [...already, ...o.written.map(w => w.jobId)] })
     done(metric('write', items.length, o.written.length, performance.now() - t, { errors: o.errors, note: o.finalizeError && `merge-tracker/reconcile failed (${o.finalizeError}); the reports are written and the next merge picks them up` }))
   }
   return finish()

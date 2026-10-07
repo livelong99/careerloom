@@ -74,7 +74,7 @@ function makeColumns(portals: Portal[], onScreened: () => void): ColumnDef<Scree
     { id: 'portal', header: 'Portal', accessorFn: j => portalName(j.portalId), cell: ({ row, getValue }) => <span className={row.original.portalId ? 'whitespace-nowrap' : 'whitespace-nowrap text-muted-foreground'}>{getValue<string>()}</span> },
     { id: 'location', header: 'Location', accessorFn: j => j.location ?? '—', cell: ({ getValue }) => <LocationCell value={getValue<string>()} /> },
     { id: 'posted', header: 'Posted', accessorFn: postedOf, cell: ({ getValue }) => <RelDate iso={getValue<string>()} /> },
-    { accessorKey: 'score', header: 'Fit', sortUndefined: 'last', cell: ({ getValue }) => <ScoreBadge score={getValue<number | null>()} /> },
+    { accessorKey: 'score', header: 'Fit', sortUndefined: 'last', cell: ({ getValue, row }) => <ScoreBadge score={getValue<number | null>()} quick={row.original.quick} /> },
     { id: 'state', header: 'State', accessorFn: j => j.state, cell: ({ row }) => <StatePill job={row.original} /> },
     { id: 'evaluated', header: 'Evaluated', accessorFn: j => j.evaluatedAt ?? '', cell: ({ getValue }) => <RelDate iso={getValue<string>()} /> },
   ]

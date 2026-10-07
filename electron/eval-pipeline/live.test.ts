@@ -73,4 +73,11 @@ describe('evaluateStaged', () => {
     const dirs = fs.readdirSync(path.join(root, 'batch', 'careerloom', 'eval-runs')).filter(d => !d.endsWith('.json'))
     expect(dirs.length).toBe(2)
   })
+
+  it('refuses a second staged run while one is in flight (same checkpoints, double reports)', async () => {
+    const first = evaluateStaged(world.slice(0, 20).map(listing), {})
+    await expect(evaluateStaged(world.slice(0, 20).map(listing), {})).rejects.toThrow(/already running/)
+    await finished((await first).id)
+    await expect(evaluateStaged(world.slice(0, 20).map(listing), {}).then(s => finished(s.id))).resolves.toBeTruthy()
+  })
 })
