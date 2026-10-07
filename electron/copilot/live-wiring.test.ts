@@ -319,4 +319,17 @@ describe('pre-warm and trace marks (PERF-1)', () => {
       expect(reqs.at(-1)!.info).toMatchObject({ spec: 'miss', auto: true })
     })
   })
+
+  it('the Clear action aborts the answer, forgets the unanswered question and tells the overlay', async () => {
+    const { w, actions, of, cancelAll } = setup()
+    w.emit('copilotState', state('listening'))
+    w.emit('copilotTranscript', line('a', 'you', 'What are the algorithms used in graph?'))
+    await vi.waitFor(() => expect(of('copilotQuestion')).toHaveLength(1))
+    actions.forEach(a => a('clear'))
+    expect(cancelAll).toHaveBeenCalled()
+    expect(of('copilotCleared')).toHaveLength(1)
+    actions.forEach(a => a('answer')) // nothing left to answer: the cleared line is not picked up again
+    await vi.waitFor(() => expect(of('copilotError').length).toBeGreaterThan(0))
+    expect(of('copilotSuggestion')).toHaveLength(0)
+  })
 })

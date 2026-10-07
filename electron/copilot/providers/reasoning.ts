@@ -1,13 +1,12 @@
-// Per-model `reasoning` request shape. OpenRouter docs (openrouter.ai/docs/use-cases/reasoning-tokens): `enabled:false` / `effort:"none"`
-// are REJECTED by mandatory-reasoning models; `effort:"minimal"` (~10% of max_tokens) and omitting the field are always accepted.
-// The model list's `mandatory` flag isn't in our curated data, so: start from a family guess, and on a 400 that names reasoning
-// walk the ladder (omit -> minimal -> low -> disabled) and remember what worked per model.
+// Per-model `reasoning` request shape. Thinking is OFF for live answers: a thinking model streams nothing visible until it has
+// finished (so answers look like they only "load"), and some leak their chain of thought into the reply. OpenRouter docs
+// (openrouter.ai/docs/use-cases/reasoning-tokens): `enabled:false` is REJECTED by mandatory-reasoning models, `effort:"minimal"`
+// and omitting the field are always accepted. So every model starts at disabled and, on a 400 that names reasoning, walks the
+// ladder (disabled -> minimal -> low -> omit) and we remember what worked per model.
 export type ReasoningShape = { enabled: false } | { effort: 'minimal' | 'low' } | null
-const LADDER: ReasoningShape[] = [null, { effort: 'minimal' }, { effort: 'low' }, { enabled: false }]
+const LADDER: ReasoningShape[] = [{ enabled: false }, { effort: 'minimal' }, { effort: 'low' }, null]
 
-// Families that think by default (omitting the field leaves them slow): ask for the least reasoning.
-const THINKS = /(^|\/)(o[1-9]|gpt-[56][\w.-]*|gemini-(3|2\.5-pro|2\.5-flash$)[\w.-]*|deepseek-r1|.*thinking.*)/i
-export const initialReasoning = (model: string): ReasoningShape => (THINKS.test(model) ? { effort: 'minimal' } : null)
+export const initialReasoning = (_model: string): ReasoningShape => ({ enabled: false })
 
 export const isReasoningRejection = (status: number, message: string): boolean => status === 400 && /reasoning|effort/i.test(message)
 

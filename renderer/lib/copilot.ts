@@ -47,6 +47,7 @@ export function reduceOverlay(m: OverlayModel, e: OverlayEvent): OverlayModel {
     case 'copilotHealth': return { ...m, health: { ...m.health, [e.payload.source]: e.payload }, error: e.payload.status === 'ok' && m.error?.kind === 'capture' ? null : m.error }
     case 'copilotError': return { ...m, error: e.payload }
     case 'copilotScreen': return { ...m, screen: e.payload }
+    case 'copilotCleared': return { ...m, question: null, suggestion: null, screen: { state: 'idle' }, error: m.error?.kind === 'engine' ? null : m.error }
     case 'copilotLevel': return { ...m, levels: { ...m.levels, [e.payload.source]: e.payload.level } }
   }
 }
@@ -68,7 +69,7 @@ export function deriveView(m: OverlayModel): OverlayViewState {
 
 /** Subscribes to every copilot push event; returns one unsubscribe. */
 export function subscribeCopilot(bridge: Bridge, dispatch: (e: OverlayEvent) => void): () => void {
-  const names: CopilotEventName[] = ['copilotState', 'copilotTranscript', 'copilotQuestion', 'copilotSuggestion', 'copilotHealth', 'copilotError', 'copilotScreen', 'copilotLevel']
+  const names: CopilotEventName[] = ['copilotState', 'copilotTranscript', 'copilotQuestion', 'copilotSuggestion', 'copilotHealth', 'copilotError', 'copilotScreen', 'copilotLevel', 'copilotCleared']
   const offs = names.map(type => bridge.onCopilotEvent(type, payload => dispatch({ type, payload } as OverlayEvent)))
   return () => offs.forEach(off => off())
 }

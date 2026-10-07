@@ -1,6 +1,7 @@
 // Ported from Open-Cluely (owner's project), adapted for Careerloom: request queue + rolling history from
 // services/ai/gemini-service.js, the action lock from main-process/features/assistant/ipc.js (latest request wins).
 // Streams a grounded answer as partial Suggestions, then a final guarded one. No tool loop, no agent CLIs.
+import { debugLog } from '../debug-log'
 import recommended from './recommended-models.json'
 import { createCostMeter, type CostMeter } from './cost'
 import { parseClassification, CLASSIFY_MAX_TOKENS, CLASSIFY_SYSTEM, type Classify } from './detector'
@@ -103,6 +104,21 @@ const SAY_VISIBLE = /\[SAY\][ \t]*\r?\n[ \t]*\S/
 /** A broken or unbound question base must never cost an answer. */
 const safeKb = (f: NonNullable<EngineDeps['kbMatch']>, jobId: string, q: string): KbMatch[] => { try { return f(jobId, q) } catch { return [] } }
 
+/** A model that returns nothing, or text without the [SAY] section (a free model leaking its reasoning), fails like a server error so failover tries the next model.
+ *  Items are held until the marker shows up, so nothing counts as "started" (and nothing is shown) before then. */
+async function* requireFormat(src: AsyncIterable<StreamItem>, model: string): AsyncGenerator<StreamItem> {
+  const held: StreamItem[] = []
+  let text = ''
+  let ok = false
+  for await (const item of src) {
+    if (ok) { yield item; continue }
+    held.push(item)
+    if ('delta' in item) text += item.delta
+    if (/\[SAY\]/i.test(text)) { ok = true; yield* held; held.length = 0 }
+  }
+  if (!ok) throw new LlmError('server', text.trim() ? `${model} did not answer in the required format` : `${model} returned an empty answer`)
+}
+
 export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
   const now = deps.now ?? Date.now
   const cost = deps.cost ?? createCostMeter()
@@ -138,6 +154,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       const shot = req.image && { captureMs: req.image.captureMs ?? 0, encodeMs: req.image.encodeMs ?? 0, bytes: req.image.jpeg.length }
       const turnInfo = (): TurnInfo | undefined => shot ? { ...(req.info ?? { kind: req.route?.kind ?? (req.question.type === 'coding' || req.question.type === 'system-design' ? req.question.type : 'behavioural'), tier, auto: req.question.auto, spec: null, gate: null, gateMs: null }), shot } : req.info
 
+      debugLog('engine', 'request', { question: question.id, model, tier, promptChars, kb: kb.length, image: Boolean(req.image), groundingChars: g.prefix.length })
       const start = now()
       const turn = deps.trace?.start(req.question.id, req.marks ?? {}, start)
       const marks: TraceMarks = req.marks ?? {} // shared with the caller: a speculative request learns its speech end after it started
@@ -153,8 +170,8 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
 
       const stream = withFailover(modelOrder(model, fallbacksFor(tier, model, req.image ? isVision : undefined)), m => {
         usedModel = m
-        return deps.provider.stream({ system: prompt.system, messages, model: m, signal: ac.signal, maxTokens: Math.round(MAX_TOKENS[tier] * (req.route?.maxTokensScale ?? 1)), sessionId: deps.sessionId?.(), onMark: k => mark(k === 'first-byte' ? 'firstByteAt' : 'requestSentAt') })
-      }, { signal: ac.signal, sleep: deps.sleep, onRetry: deps.onRetry })
+        return requireFormat(deps.provider.stream({ system: prompt.system, messages, model: m, signal: ac.signal, maxTokens: Math.round(MAX_TOKENS[tier] * (req.route?.maxTokensScale ?? 1)), sessionId: deps.sessionId?.(), onMark: k => { debugLog('engine', k, { model: m }); mark(k === 'first-byte' ? 'firstByteAt' : 'requestSentAt') } }), m)
+      }, { signal: ac.signal, sleep: deps.sleep, onRetry: i => { debugLog('engine', 'retry', i); deps.onRetry?.(i) } })
 
       let lastYield = -Infinity
       try {

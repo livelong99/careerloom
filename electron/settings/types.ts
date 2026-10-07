@@ -31,8 +31,10 @@ export type Prefs = {
   /** null = keep run logs forever. */
   retention: { runLogDays: number | null }
   docs: DocsDefaults
+  /** Debug log mode: a folder = on (app, agent and Copilot activity is appended there); null = off. */
+  debug: { dir: string | null }
 }
-export type PrefsPatch = { updates?: Partial<Prefs['updates']>; retention?: Partial<Prefs['retention']>; docs?: Partial<DocsDefaults> }
+export type PrefsPatch = { updates?: Partial<Prefs['updates']>; retention?: Partial<Prefs['retention']>; docs?: Partial<DocsDefaults>; debug?: Partial<Prefs['debug']> }
 
 export type DataLocation = { id: 'appData' | 'careerOps' | 'models' | 'copilot'; label: string; path: string | null }
 export type DataStats = { runs: number; runLogFiles: number; runLogBytes: number; threads: number; copilotSessions: number }

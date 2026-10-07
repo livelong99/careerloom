@@ -53,7 +53,7 @@ export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; que
 export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[]; /** practice only: AI-interviewer plan from the job knowledge base; absent = the report-question path. Additive. */ interview?: InterviewPlan }
 /** `start` restarts the last practice session, `retry` reopens speech recognition for the running one, `debrief` opens the last session in Careerloom (overlay buttons). Additive. */
 export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean; debrief?: boolean; /** AI interviewer controls (practice with an interview plan). Additive. */ interviewer?: 'replay' | 'skip' | 'hint'; /** Typed answer when speech recognition is unavailable (practice with an interview plan). Additive. */ typed?: string }
-export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper'
+export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper' | 'parakeet'
 export type SttDevice = 'auto' | 'cpu' | 'coreml' | 'cuda'
 /** p95FinalMs: tail of end-of-speech → final text. faster-whisper adds the device that really ran and per-decode p50/p95 (GPU time without the endpoint wait). */
 export type SttBenchmark = { at: number; p50FinalMs: number; realTimeFactor: number; ramMb: number | null; wer: number | null; p95FinalMs?: number; p50DecodeMs?: number; p95DecodeMs?: number; device?: 'cuda' | 'cpu' }
@@ -86,7 +86,7 @@ export type CopilotConfig = {
   }
   coaching: { shape: 'cues' | 'cues+star' | 'script'; length: 1 | 2 | 3; tone: 'direct' | 'warm' | 'formal'; persona: string; quoteResume: boolean }
   overlay: { layout: 'strip' | 'panel'; anchor: Anchor; displayId: number | null; width: number; fontPx: number; opacity: number; theme: 'app' | 'dark' | 'light'; clickThroughIdle: boolean; aboveFullscreen: boolean }
-  hotkeys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'expand' | 'listen' | 'toggle' | 'quickHide', string> & { panic: string }
+  hotkeys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'expand' | 'listen' | 'toggle' | 'quickHide' | 'clear', string> & { panic: string }
   privacy: {
     retentionDays: number | null; localOnly: boolean; redact: boolean
     mode: { enabled: boolean; noticeVersion: string | null; hideFromCapture: boolean; noDockIcon: boolean; neutralTitle: boolean; indicator: 'chip' | 'dot' | 'off' }
@@ -139,6 +139,8 @@ export type CopilotEvents = {
   /** Screenshot action state for the overlay button; `idle` clears it. */
   copilotScreen: { state: 'idle' | 'capturing' | 'sent' | 'ready' | 'blocked'; reason?: 'permission' | 'off' | 'ocr' | 'no-vision' | 'budget' | 'failed'; /** shown under the actions (not an error panel: capture and answers keep running) */ message?: string; /** a vision model to offer */ suggestion?: string }
   copilotLevel: { source: SourceId; level: number }     // 0..1, ≤ 15/s
+  /** The Clear shortcut: pending question and answer are dropped, the overlay goes back to listening. */
+  copilotCleared: { at: number }
 }
 
 /** What an unimplemented stub handler resolves with (WP0 only; real handlers replace it). */

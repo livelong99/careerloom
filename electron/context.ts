@@ -15,6 +15,7 @@ import { checkRoot } from './careerops'
 import { logTail } from './scan-history'
 import { NEEDS_ZEN_KEY, opencodeConfig, opencodeEnv, opencodeTextConfig, zenModel } from './opencode'
 import { agyFormatter, agyResultOk, agySessionId, agyUsage, argsFor, argsForPrompt, claudeSessionId, formatOpencodeLine, isModelId, claudeUsage, formatClaudeLine, isRunner, MODES, opencodeResultOk, opencodeSessionId, opencodeUsage, promptFor, resolveBin, RUNNERS, spawnSpec, startRun, type CliRunner, type ModeId, type PromptOptions, type RunnerId, type RunUsage, type SpawnSpec } from './runner'
+import { debugLog } from './debug-log'
 import { BROWSER_SYSTEM, runZen, zenPrompt, zenSystem, type BrowserTools } from './zen-agent'
 
 export type Handler = (...args: unknown[]) => unknown
@@ -111,7 +112,9 @@ export function inside(base: string, rel: string): string {
   return full
 }
 
+const QUIET_EVENTS = new Set(['careerloom:copilotLevel', 'careerloom:copilotOverlay'])
 export function broadcast(channel: string, payload: unknown): void {
+  if (!QUIET_EVENTS.has(channel) && !(channel === 'careerloom:copilotTranscript' && (payload as { final?: unknown } | null)?.final === false)) debugLog('event', channel, payload)
   for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send(channel, payload)
 }
 

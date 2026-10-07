@@ -6,6 +6,11 @@ export type SttCatalogModel = { id: string; label: string; hint: string; recomme
 /** Hints quote the S2 bake-off (plan §3.2): computer-generated speech, time from the end of a sentence to its text. Real calls are noisier; Benchmark measures this computer. */
 export const STT_ENGINES: ReadonlyArray<{ id: SttEngineId; label: string; hint: string; models: SttCatalogModel[]; devices: Array<Exclude<SttDevice, 'auto'>> }> = [
   {
+    id: 'parakeet', label: 'NVIDIA Parakeet (Windows and Linux)', hint: 'Default on Windows and Linux. Writes each sentence once you pause, in one piece even for a long question, and is accurate on technical words. Runs on the CPU (no GPU or CUDA needed); installs small Python packages plus a model of about 640 MB. Supports 25 European languages.',
+    devices: ['cpu'],
+    models: [{ id: 'v3', label: 'Parakeet TDT 0.6B v3', hint: 'default · int8 · runs several times faster than real time on a CPU', recommended: true }],
+  },
+  {
     id: 'whisper-mlx', label: 'Whisper (Apple silicon)', hint: 'Default on Apple silicon. Writes each sentence once you pause, about a second after the question ends. The first install is large because Whisper needs PyTorch (about 1.3 GB on top of the model).',
     devices: [],
     models: [

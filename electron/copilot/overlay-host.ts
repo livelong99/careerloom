@@ -2,6 +2,7 @@
 // the real pieces are injected (overlay-runtime.ts), which keeps every rule here unit-testable.
 // Session code (WP3) calls `publishState` for every state change and `setSessionHooks` once; it never touches
 // the window, tray or shortcuts directly.
+import { debugLog } from '../debug-log'
 import type { OverlayController } from './overlay-window'
 import type { HotkeyAction, HotkeyResult } from './hotkeys'
 import { createPanicController } from './panic'
@@ -24,7 +25,7 @@ export type HostDeps = {
 }
 
 type OverlayCmd = Parameters<CopilotApi['copilotOverlay']>[0]
-const ACTIONS = new Set<HotkeyAction>(['answer', 'followup', 'clarify', 'screenshot', 'summarise', 'listen'])
+const ACTIONS = new Set<HotkeyAction>(['answer', 'followup', 'clarify', 'screenshot', 'summarise', 'listen', 'clear'])
 const configKey = (c: CopilotConfig): string => JSON.stringify([c.overlay, c.privacy, c.hotkeys])
 
 export function createOverlayHost(deps: HostDeps) {
@@ -56,6 +57,7 @@ export function createOverlayHost(deps: HostDeps) {
   panic.arm()
 
   function onHotkey(action: HotkeyAction): void {
+    debugLog('hotkey', 'pressed', { action })
     if (action === 'panic') void panic.trigger('panic')
     else if (action === 'expand') deps.overlay.apply({ collapse: deps.getConfig().overlay.layout === 'panel' })
     else if (action === 'toggle') deps.overlay.apply({ hide: deps.overlay.isVisible() })
@@ -65,6 +67,7 @@ export function createOverlayHost(deps: HostDeps) {
 
   function registerHotkeys(): void {
     for (const r of deps.hotkeys.registerAll(deps.getConfig().hotkeys, onHotkey)) {
+      debugLog('hotkey', r.registered ? 'registered' : 'NOT registered', r)
       if (!r.registered) deps.publish('copilotError', { kind: 'hotkey', message: `${r.accelerator} could not be registered (${r.reason ?? 'unknown'})`, retrying: false })
     }
   }

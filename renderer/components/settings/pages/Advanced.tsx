@@ -8,6 +8,7 @@ import { showToast } from '../../../lib/toast'
 import type { DiagnosticRow, ResetScope } from '../../../lib/types'
 import { Group, Note, Row } from '../../kit/Group'
 import { openRuns } from '@/lib/nav'
+import { usePrefs } from '../usePrefs'
 import { ConfirmDialog, DangerZone, ReadinessBadge, type ReadyState } from '../kit'
 import { clearLocalPrefs } from '../localPrefs'
 import type { PageProps } from '../pages'
@@ -27,6 +28,11 @@ const STATUS_TEXT: Record<DiagnosticRow['status'], string> = { ok: 'OK', warn: '
 const gb = (n: number) => (n / 1024 ** 3).toFixed(1)
 
 export function AdvancedPage(_props: PageProps) {
+  const { prefs, patch } = usePrefs()
+  const debugDir = prefs?.debug.dir ?? null
+  const pickDebugDir = async () => {
+    try { const dir = await careerloom.chooseDirectory(); if (dir) await patch({ debug: { dir } }) } catch (err) { showToast(normalizeCliError(err).message, 'error', 6000) }
+  }
   const diag = usePolled(() => careerloom.diagnostics(), [], { intervalMs: null })
   const { runs } = useRuns()
   const [recheck, setRecheck] = useState(false)
@@ -58,6 +64,19 @@ export function AdvancedPage(_props: PageProps) {
           </Row>
         ))}
         {diag.data && <Row label="Memory"><code className="text-xs">{gb(diag.data.memory.freeBytes)} GB free of {gb(diag.data.memory.totalBytes)} GB</code></Row>}
+      </Group>
+
+      <Group title="Debug log" focus="debug-log">
+        <Row label="Log everything to files" hint="Writes app, agent and Copilot activity (never API keys) to a folder you choose, one file per day. Turn it on, reproduce the problem, then send the folder.">
+          <Button size="sm" variant={debugDir ? 'outline' : 'default'} disabled={!prefs} onClick={() => void (debugDir ? patch({ debug: { dir: null } }) : pickDebugDir())}>{debugDir ? 'Turn off' : 'Turn on…'}</Button>
+        </Row>
+        {debugDir && (
+          <Row label="Log folder" hint="Transcripts, questions and answers are included: share it only with someone you trust.">
+            <code className="max-w-72 truncate text-xs" title={debugDir}>{debugDir}</code>
+            <Button size="sm" variant="outline" onClick={() => void careerloom.revealPath(debugDir)}>Open folder</Button>
+            <Button size="sm" variant="outline" onClick={() => void pickDebugDir()}>Change…</Button>
+          </Row>
+        )}
       </Group>
 
       <Group title="Setup & repair" focus="setup-repair">

@@ -66,3 +66,14 @@ describe('guardSuggestion', () => {
     expect(guardSuggestion(src, s({ say: 'I saved $9M at Snowflake.' }), { factCheck: false }).flags).toEqual([])
   })
 })
+
+describe('guardSuggestion with general knowledge', () => {
+  it('does not flag general answers (algorithms, numbers, terms) that make no claim about the candidate', () => {
+    const r = guardSuggestion(src, s({ say: 'Dijkstra runs in O(E log V) with a heap; BFS and DFS are O(V+E).', bullets: ['Use a priority queue', 'Topological sort needs a DAG'] }))
+    expect(r.flags).toEqual([])
+  })
+  it('still flags an invented personal claim in the same answer', () => {
+    const r = guardSuggestion(src, s({ say: 'BFS is O(V+E). I used it at Globex Industries to cut costs 75%.' }))
+    expect(r.flags.map(f => f.kind)).toContain('unsupported-number')
+  })
+})

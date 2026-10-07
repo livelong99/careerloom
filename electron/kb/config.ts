@@ -5,6 +5,7 @@ import fs from 'node:fs'
 
 import { userFile } from '../context'
 import type { DeepPartial } from '../copilot/types'
+import { migrateInterruptKey } from '../copilot/hotkey-defaults'
 import { DEFAULT_INTERVIEW_CONFIG } from './defaults'
 import type { InterviewConfig, ResearchSourceGroup, SearchBackendId } from './types'
 
@@ -55,7 +56,7 @@ export function normalizeInterviewConfig(raw: unknown): InterviewConfig {
     voice: {
       engine: pick(vo.engine, ['system', 'kokoro', 'openrouter'], d.voice.engine), voiceId: strOrNull(vo.voiceId, d.voice.voiceId), speed: num(vo.speed, d.voice.speed, 0.7, 1.3),
       echo: pick(vo.echo, ['speakers', 'headphones'], d.voice.echo), tailMs: num(vo.tailMs, d.voice.tailMs, 150, 800),
-      pushToInterrupt: strOrNull(vo.pushToInterrupt, d.voice.pushToInterrupt, 60) ?? d.voice.pushToInterrupt,
+      pushToInterrupt: migrateInterruptKey(strOrNull(vo.pushToInterrupt, d.voice.pushToInterrupt, 60) ?? d.voice.pushToInterrupt),
     },
     kb: { retentionDays: intOrNull(kb.retentionDays, d.kb.retentionDays, 1, 3650), maxItems: num(kb.maxItems, d.kb.maxItems, 50, 400), useInLive: bool(kb.useInLive, d.kb.useInLive) },
   }

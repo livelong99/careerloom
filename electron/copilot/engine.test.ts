@@ -121,7 +121,7 @@ describe('createAnswerEngine', () => {
   })
   it('cancelAll aborts the stream and the provider sees the signal', async () => {
     let seen: AbortSignal | null = null
-    const { provider } = fakeProvider(p => (async function* () { seen = p.signal; for (let i = 0; i < 100; i++) { await new Promise(r => setTimeout(r, 5)); if (p.signal.aborted) throw new LlmError('aborted', 'c'); yield { delta: 'x' } } })())
+    const { provider } = fakeProvider(p => (async function* () { seen = p.signal; for (let i = 0; i < 100; i++) { await new Promise(r => setTimeout(r, 5)); if (p.signal.aborted) throw new LlmError('aborted', 'c'); yield { delta: i === 0 ? '[SAY]\n' : 'x' } } })())
     const engine = createAnswerEngine({ provider, config: () => cfg(), grounding: () => grounding, partialEveryMs: 0 })
     const out: Suggestion[] = []
     const run = (async () => { for await (const s of engine.answer(req())) { out.push(s); if (out.length === 2) engine.cancelAll() } })()

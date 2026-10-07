@@ -59,6 +59,7 @@ export const REGISTRY: readonly RegistryEntry[] = [
   e('data', 'clear-copilot', 'Delete Copilot sessions', 'delete', 'transcripts', 'interview'),
   e('advanced', 'diagnostics', 'Diagnostics', 'node', 'git', 'python', 'memory', 'path', 'health'),
   e('advanced', 'run-history', 'Recent runs & logs', 'log', 'tail', 'history'),
+  e('advanced', 'debug-log', 'Debug log', 'log', 'debug', 'troubleshoot', 'support'),
   e('advanced', 'limits', 'Limits', 'caps', 'timeouts', 'read-only'),
   e('advanced', 'reset-preferences', 'Reset preferences', 'defaults', 'restore'),
   e('advanced', 'reset-everything', 'Reset everything', 'factory reset', 'wipe', 'remove keys'),

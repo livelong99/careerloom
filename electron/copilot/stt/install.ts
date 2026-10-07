@@ -8,8 +8,9 @@ import { assertMemory, findPython, MIN_PYTHON } from '../../prescreen-model'
 import { spawnSpec, startRun, type SpawnSpec } from '../../runner'
 import type { SttEngineId } from '../types'
 import { SCRIPT as FASTER_WHISPER_SCRIPT } from './faster-whisper-script'
+import { SCRIPT as PARAKEET_SCRIPT } from './parakeet-script'
 import { usableGpu } from './gpu'
-import { engineDir, FASTER_WHISPER_CUDA_PACKAGES, FASTER_WHISPER_MODELS, FASTER_WHISPER_PACKAGES, findSttRuntime, PINS, readyFile, STT_MODELS, venvPython, WHISPER_MODELS } from './runtime'
+import { engineDir, FASTER_WHISPER_CUDA_PACKAGES, FASTER_WHISPER_MODELS, FASTER_WHISPER_PACKAGES, findSttRuntime, PARAKEET_MODELS, PARAKEET_PACKAGES, PINS, readyFile, STT_MODELS, venvPython, WHISPER_MODELS } from './runtime'
 import { sidecarScript, writeScript } from './sidecar-script'
 import { SCRIPT as WHISPER_SCRIPT } from './whisper-script'
 
@@ -24,6 +25,14 @@ export function installCommands(engine: SttEngineId, script: string, cache: stri
       [cuda ? 'Packages (about 1.3 GB: NVIDIA CUDA libraries, no CUDA toolkit needed)' : 'Packages', [...PIP, PINS['faster-whisper'], ...FASTER_WHISPER_PACKAGES, ...(cuda ? FASTER_WHISPER_CUDA_PACKAGES : [])]],
       ['Model', [script, 'fetch', m.repo, m.rev, cache]],
       [`Self-test (${cuda ? 'GPU, falls back to CPU if CUDA fails' : 'CPU'})`, [script, 'selftest', m.repo, m.rev, cache, device, cuda ? 'float16' : 'int8']],
+    ]
+  }
+  if (engine === 'parakeet') {
+    const m = PARAKEET_MODELS[model as keyof typeof PARAKEET_MODELS]
+    return [
+      ['Packages', [...PIP, ...PARAKEET_PACKAGES]],
+      [`Model (about ${m.sizeMb} MB)`, [script, 'fetch', m.repo, m.rev, cache]],
+      ['Self-test', [script, 'selftest', m.repo, m.rev, cache]],
     ]
   }
   if (engine === 'whisper-mlx') {
@@ -44,13 +53,13 @@ export function installCommands(engine: SttEngineId, script: string, cache: stri
 let installRun: string | null = null
 
 export async function installStt(engine: SttEngineId, model: string) {
-  if (!STT_MODELS[engine].includes(model)) throw new Error(`Unknown ${engine === 'moonshine' ? 'Moonshine' : 'Whisper'} model: ${model}`)
+  if (!STT_MODELS[engine].includes(model)) throw new Error(`Unknown ${engine} model: ${model}`)
   if (installRun && runs.get(installRun)?.status === 'running') return summary(runs.get(installRun)!)
   const { ok } = await findPython()
   if (!ok) throw new Error(`Python ${MIN_PYTHON.join('.')} or newer is needed — install it, then check again`)
   await assertMemory()
   const dir = engineDir(engine)
-  const script = engine === 'whisper-mlx' ? writeScript(path.join(dir, 'bin'), WHISPER_SCRIPT) : engine === 'faster-whisper' ? writeScript(path.join(dir, 'bin'), FASTER_WHISPER_SCRIPT) : sidecarScript(path.join(dir, 'bin'))
+  const script = engine === 'whisper-mlx' ? writeScript(path.join(dir, 'bin'), WHISPER_SCRIPT) : engine === 'parakeet' ? writeScript(path.join(dir, 'bin'), PARAKEET_SCRIPT) : engine === 'faster-whisper' ? writeScript(path.join(dir, 'bin'), FASTER_WHISPER_SCRIPT) : sidecarScript(path.join(dir, 'bin'))
   const cuda = engine === 'faster-whisper' && usableGpu() !== null
   const cache = path.join(dir, 'models')
   fs.mkdirSync(dir, { recursive: true })

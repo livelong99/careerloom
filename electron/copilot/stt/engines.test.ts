@@ -13,7 +13,7 @@ const GPU = { name: 'RTX 4060', vramMb: 8188, driver: '551.23', computeCap: 8.9 
 const tmp: string[] = []
 afterEach(() => { for (const d of tmp.splice(0)) fs.rmSync(d, { recursive: true, force: true }) })
 
-function fakeInstall(engine: 'moonshine' | 'whisper-mlx' | 'faster-whisper', pin: string, models: string[], extra: object = {}) {
+function fakeInstall(engine: 'moonshine' | 'whisper-mlx' | 'faster-whisper' | 'parakeet', pin: string, models: string[], extra: object = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-stt-rt-')); tmp.push(root)
   const dir = engineDir(engine, root)
   fs.mkdirSync(path.dirname(venvPython(dir)), { recursive: true }); fs.writeFileSync(venvPython(dir), '')
@@ -22,15 +22,11 @@ function fakeInstall(engine: 'moonshine' | 'whisper-mlx' | 'faster-whisper', pin
 }
 
 describe('runtime', () => {
-  it('whisper is the default on Apple silicon, moonshine elsewhere', () => {
+  it('whisper on Apple silicon, moonshine on Intel Macs, Parakeet on Windows and Linux (GPU or not)', () => {
     expect(defaultEngine('darwin', 'arm64')).toBe('whisper-mlx')
     expect(defaultEngine('darwin', 'x64')).toBe('moonshine')
-    expect(defaultEngine('win32', 'x64', () => null)).toBe('moonshine')
-    expect(defaultEngine('linux', 'x64', () => null)).toBe('moonshine')
-    expect(defaultEngine('win32', 'x64', () => GPU)).toBe('faster-whisper')
-    expect(defaultEngine('linux', 'x64', () => GPU)).toBe('faster-whisper')
-    expect(defaultEngine('darwin', 'arm64', () => GPU)).toBe('whisper-mlx')
-    expect(defaultEngine('darwin', 'x64', () => GPU)).toBe('moonshine')
+    for (const p of ['win32', 'linux'] as const) for (const a of ['x64', 'arm64'] as const) expect(defaultEngine(p, a), `${p} ${a}`).toBe('parakeet')
+    expect(defaultModel('parakeet')).toBe('v3'); expect(defaultModel('parakeet', true)).toBe('v3')
     expect(defaultModel('whisper-mlx')).toBe('small'); expect(defaultModel('moonshine')).toBe('small')
     expect(defaultModel('faster-whisper', true)).toBe('turbo'); expect(defaultModel('faster-whisper', false)).toBe('small')
   })
@@ -135,5 +131,26 @@ describe('not-installed engines fail with a message that says what to do', () =>
   it('moonshine without a runtime', async () => {
     const { moonshineAdapter } = await import('./moonshine')
     await expect(moonshineAdapter('small', 'auto', null).start(opts)).rejects.toThrow(/Settings → Local models/)
+  })
+})
+
+describe('parakeet', () => {
+  it('installs small packages, one pinned 40-char model and a self-test; the script decodes whole utterances on the CPU', async () => {
+    const { installCommands } = await import('./install')
+    const { PARAKEET_MODELS, PARAKEET_PACKAGES } = await import('./runtime')
+    const { SCRIPT } = await import('./parakeet-script')
+    expect(PARAKEET_MODELS.v3.rev).toMatch(/^[0-9a-f]{40}$/)
+    const cmds = installCommands('parakeet', 'x.py', '/c', 'v3')
+    expect(cmds.map(c => c[0])).toEqual(['Packages', expect.stringContaining('Model'), 'Self-test'])
+    expect(cmds[0]![1]).toEqual(expect.arrayContaining([...PARAKEET_PACKAGES]))
+    expect(cmds[1]![1]).toEqual(['x.py', 'fetch', PARAKEET_MODELS.v3.repo, PARAKEET_MODELS.v3.rev, '/c'])
+    for (const needle of ["'ev': 'ready'", "'ev': 'decoded'", 'nemo-parakeet-tdt-0.6b-v3', "quantization='int8'", 'CPUExecutionProvider']) expect(SCRIPT).toContain(needle)
+  })
+  it('lists the one model as the recommended CPU model and keeps the faster-whisper install working with a setuptools that still has pkg_resources', async () => {
+    const { listSttModels } = await import('./engines')
+    const { FASTER_WHISPER_PACKAGES } = await import('./runtime')
+    const row = listSttModels({ engine: 'parakeet', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 650, vocab: [] }, 'parakeet', false).find(m => m.engine === 'parakeet')!
+    expect(row).toMatchObject({ model: 'v3', devices: ['cpu'], recommended: true, sizeMb: 640 })
+    expect(FASTER_WHISPER_PACKAGES).toContain('setuptools==80.9.0')
   })
 })

@@ -4,7 +4,7 @@ import { deriveView, formatElapsed, kbdLabel, sessionCost, type OverlayModel } f
 import type { OverlayProblem, OverlayViewData } from './types'
 
 const TYPE_LABEL: Record<QuestionType, string> = { behavioural: 'Behavioural', technical: 'Technical', 'system-design': 'System design', coding: 'Coding', other: 'Question' }
-const ENGINE_LABEL: Record<CopilotConfig['stt']['engine'], string> = { moonshine: 'Moonshine · on device', 'whisper-mlx': 'Whisper MLX · on device', 'faster-whisper': 'faster-whisper · on device' }
+const ENGINE_LABEL: Record<CopilotConfig['stt']['engine'], string> = { moonshine: 'Moonshine · on device', 'whisper-mlx': 'Whisper MLX · on device', 'faster-whisper': 'faster-whisper · on device', parakeet: 'Parakeet · on device' }
 const ERROR_TITLE = { engine: 'Answer engine problem', capture: 'Audio capture problem', hotkey: 'Shortcut problem' } as const
 const TIER_LABEL = { fast: 'Fast', balanced: 'Balanced', deep: 'Deep' } as const
 

@@ -10,10 +10,8 @@ describe('recommended-models.json', () => {
     for (const m of all) expect((prices.models as Record<string, { promptUsdPerM: number }>)[m.id]?.promptUsdPerM, m.id).toBeGreaterThan(0)
   })
   it('is dated so a stale fallback is visible', () => { expect(recommended.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/) })
-  it('default of every tier is sent a reasoning shape the model accepts; the fast default needs no reasoning at all', () => {
-    for (const list of Object.values(recommended.tiers)) for (const m of list) expect(initialReasoning(m.id), m.id).not.toEqual({ enabled: false })
-    expect(initialReasoning(recommended.tiers.fast[0]!.id)).toBeNull()
-    expect(initialReasoning(recommended.tiers.balanced[0]!.id)).toBeNull()
+  it('every model starts with thinking off (the provider walks the ladder if one refuses)', () => {
+    for (const list of Object.values(recommended.tiers)) for (const m of list) expect(initialReasoning(m.id), m.id).toEqual({ enabled: false })
   })
   it('flags vision per model (OpenRouter input_modalities) and offers at least one vision default per tier', () => {
     for (const m of all) expect(typeof (m as { vision?: boolean }).vision, m.id).toBe('boolean')

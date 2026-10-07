@@ -81,6 +81,7 @@ export function TranscriptionPage() {
             {shown.wer !== null && <Chip>Word errors {Math.round(shown.wer * 1000) / 10}%</Chip>}</>}
         </Row>
         {engine.id === 'whisper-mlx' && selected?.installed === false && <Note tone="warn">Installing Whisper downloads about 1.3 GB of Python packages (PyTorch) plus the model, into a folder in your home directory. Nothing is bundled with the app.</Note>}
+        {engine.id === 'parakeet' && selected?.installed === false && <Note tone="warn">Installing downloads a model of about 640 MB plus small Python packages, into a folder in your home directory. Nothing is bundled with the app.</Note>}
         {engine.id === 'faster-whisper' && selected?.installed === false && <Note tone="warn">Installing downloads about 1.3 GB of NVIDIA runtime libraries (no PyTorch, no CUDA toolkit) plus the model, into a folder in your home directory. Needs an NVIDIA driver 527.41 or newer.</Note>}
         <Note>Speeds above come from a test with computer-generated speech, which is cleaner than a real call. Press Benchmark to measure this computer with the same audio.</Note>
         <Note tone="ok">Audio from your microphone and system audio stays on this computer. Only the text of the conversation is sent to the answer provider.</Note>

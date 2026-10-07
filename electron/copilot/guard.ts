@@ -15,9 +15,14 @@ export interface AnswerGuard { check(src: GuardSources, suggestion: Suggestion):
 const MIN_QUOTE = 8
 const collapse = (s: string) => s.replace(/\s+/g, ' ').trim()
 
+// Only claims about the candidate are checked against the résumé: general knowledge ("Dijkstra runs in O(E log V)") is the point of the copilot.
+// A line counts as a claim when it speaks in the first person or states a percentage or money figure (the usual made-up outcome).
+const PERSONAL = /\b(?:I|I'm|I've|I'd|I'll|me|my|mine|we|we've|we're|our|ours)\b|\d\s*%|[$€£₹]\s*\d/i
+
 function draftLines(s: Suggestion): string {
   const star = s.star ? [s.star.s, s.star.t, s.star.a, s.star.r] : []
-  return [s.say, ...s.bullets, ...star].flatMap(t => t.split('\n')).map(t => t.trim()).filter(Boolean).map(t => `- ${t}`).join('\n')
+  const personal = [s.say, ...s.bullets].flatMap(t => t.split('\n')).filter(t => PERSONAL.test(t))
+  return [...personal, ...star].map(t => t.trim()).filter(Boolean).map(t => `- ${t}`).join('\n')
 }
 
 const KINDS: Array<[RegExp, Suggestion['flags'][number]['kind']]> = [

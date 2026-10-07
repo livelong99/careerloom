@@ -98,6 +98,7 @@ R: Zero downtime
   })
   it('ignores text before the first marker and returns empty for garbage', () => {
     expect(parseSuggestion('Sure! here you go', true)).toEqual({ say: '', bullets: [], star: null, proof: [] })
+    expect(parseSuggestion('noise\n[SAY]\nHi', true).say).toBe('Hi')
   })
 })
 

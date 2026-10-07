@@ -2,11 +2,11 @@ import { app } from 'electron'
 import fs from 'node:fs'
 
 import { userFile } from '../context'
+import { defaultHotkeys, migrateHotkey } from './hotkey-defaults'
 import { defaultEngine } from './stt/runtime'
 import type { Anchor, CopilotConfig, DeepPartial, SttBenchmark } from './types'
 
 const FILE = 'copilot.json'
-const PANIC = 'Control+Alt+Shift+X'
 
 export const DEFAULT_CONFIG: CopilotConfig = {
   version: 1,
@@ -22,10 +22,7 @@ export const DEFAULT_CONFIG: CopilotConfig = {
   },
   coaching: { shape: 'cues+star', length: 2, tone: 'direct', persona: '', quoteResume: true },
   overlay: { layout: 'strip', anchor: 'tr', displayId: null, width: 440, fontPx: 14, opacity: 0.94, theme: 'app', clickThroughIdle: true, aboveFullscreen: true },
-  hotkeys: {
-    answer: 'Control+Alt+A', followup: 'Control+Alt+F', clarify: 'Control+Alt+C', screenshot: 'Control+Alt+S', summarise: 'Control+Alt+M',
-    expand: 'Control+Alt+E', listen: 'Control+Alt+L', toggle: 'Control+Alt+H', quickHide: 'Control+Alt+Shift+H', panic: PANIC,
-  },
+  hotkeys: defaultHotkeys(),
   privacy: {
     retentionDays: 90, localOnly: false, redact: true,
     mode: { enabled: false, noticeVersion: null, hideFromCapture: false, noDockIcon: false, neutralTitle: false, indicator: 'chip' },
@@ -65,7 +62,7 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
   const r = obj(raw)
   const audio = obj(r.audio), stt = obj(r.stt), eng = obj(r.engine), or = obj(eng.openrouter), models = obj(eng.models), gt = obj(eng.gate)
   const co = obj(r.coaching), ov = obj(r.overlay), hk = obj(r.hotkeys), pr = obj(r.privacy), pm = obj(pr.mode), pc = obj(r.practice)
-  const accel = (k: keyof typeof d.hotkeys) => text(hk[k], d.hotkeys[k], 60) || d.hotkeys[k]
+  const accel = (k: keyof typeof d.hotkeys) => migrateHotkey(k, text(hk[k], d.hotkeys[k], 60) || d.hotkeys[k])
   return {
     version: 1,
     audio: {
@@ -97,7 +94,7 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
     },
     hotkeys: {
       answer: accel('answer'), followup: accel('followup'), clarify: accel('clarify'), screenshot: accel('screenshot'), summarise: accel('summarise'),
-      expand: accel('expand'), listen: accel('listen'), toggle: accel('toggle'), quickHide: accel('quickHide'), panic: PANIC, // fixed by design
+      expand: accel('expand'), listen: accel('listen'), toggle: accel('toggle'), quickHide: accel('quickHide'), clear: accel('clear'), panic: d.hotkeys.panic, // fixed by design
     },
     privacy: {
       retentionDays: intOrNull(pr.retentionDays, d.privacy.retentionDays, 0, 3650), localOnly: bool(pr.localOnly, d.privacy.localOnly), redact: bool(pr.redact, d.privacy.redact),

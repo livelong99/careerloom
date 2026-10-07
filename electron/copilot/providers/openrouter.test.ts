@@ -163,21 +163,23 @@ describe('reasoning parameter (PERF-1)', () => {
     }) as unknown as typeof fetch
     return { f, calls }
   }
-  it('never sends reasoning:{enabled:false} to a non-reasoning model (field omitted)', async () => {
-    const { f, calls } = fakeFetch(['data: [DONE]\n\n'])
-    await stream('openai/gpt-4.1-nano', f)
-    expect('reasoning' in body(calls[0]!)).toBe(false)
+  it('turns thinking off first for every model (a thinking model shows nothing until it has finished)', async () => {
+    for (const model of ['openai/gpt-4.1-nano', 'openai/gpt-5.4-mini', 'qwen/qwen3.8-27b:free']) {
+      const { f, calls } = fakeFetch(['data: [DONE]\n\n'])
+      await stream(model, f)
+      expect(body(calls[0]!).reasoning, model).toEqual({ enabled: false })
+    }
   })
-  it('asks mandatory-reasoning families for minimal effort, not "disabled"', async () => {
-    const { f, calls } = fakeFetch(['data: [DONE]\n\n'])
+  it('falls back to minimal effort for a mandatory-reasoning model that refuses "disabled", and remembers it', async () => {
+    const { f, calls } = picky(b => JSON.stringify(b.reasoning) !== JSON.stringify({ enabled: false }))
     await stream('openai/gpt-5.4-mini', f)
-    expect(body(calls[0]!).reasoning).toEqual({ effort: 'minimal' })
+    expect(calls.map(c => c.reasoning)).toEqual([{ enabled: false }, { effort: 'minimal' }])
   })
   it('on a reasoning 400 walks the ladder, then remembers what the model accepted', async () => {
     const { f, calls } = picky(b => JSON.stringify(b.reasoning) === JSON.stringify({ effort: 'low' }))
     const p = createOpenRouter({ getKey: () => 'k', fetch: f, config: () => cfg })
     await all(p.stream({ ...prompt(), model: 'acme/thinker-9' }))
-    expect(calls.map(c => c.reasoning)).toEqual([undefined, { effort: 'minimal' }, { effort: 'low' }])
+    expect(calls.map(c => c.reasoning)).toEqual([{ enabled: false }, { effort: 'minimal' }, { effort: 'low' }])
     await all(p.stream({ ...prompt(), model: 'acme/thinker-9' }))
     expect(calls[3]!.reasoning).toEqual({ effort: 'low' }) // learned: a single request next time
     expect(calls).toHaveLength(4)

@@ -5,6 +5,7 @@ import { heuristicHint, questionType, type QuestionDetector } from './detector'
 import { checkVision, defaultModelFor, type AnswerEngine } from './engine'
 import type { PromptKind } from './prompts'
 import { friendlyLlmError } from './providers/errors'
+import { debugLog } from '../debug-log'
 import { LlmError } from './providers/openrouter'
 import { routeQuestion, type Route } from './routing'
 import { ScreenshotError, type Shot } from './screenshots'
@@ -164,6 +165,7 @@ export function createLiveWiring(d: WiringDeps) {
     prefetch(q)
     const cfg = d.config()
     const decision = cfg.engine.autoAnswer ? auto.decide(q, l, sources, cfg.engine) : null
+    debugLog('copilot', 'question detected', { id: q.id, text: q.text, type: q.type, hint: q.hint, autoAnswer: cfg.engine.autoAnswer, sources, decision: decision ? (decision.ask ? 'ask' : decision.reason) : 'auto-answer off' })
     if (!decision?.ask) return taken.run?.abort()
     const screenTurn = decision.route.needsScreenshot && d.screen !== undefined && screenGate(decision.route.tier) === null
     if (screenTurn) taken.run?.abort() // an early text-only request can't carry the frame
@@ -177,7 +179,7 @@ export function createLiveWiring(d: WiringDeps) {
     let q = (questionId ? questions.get(questionId) : undefined) ?? lastQuestion
     if (!q) {
       // Flush what is still being said: the key is often pressed before the engine has finalised the question.
-      const heard = kind === 'summarise' ? undefined : [...lines].reverse().find(l => l.text.trim() !== '')
+      const heard = kind === 'summarise' ? undefined : [...lines].reverse().find(l => l.text.trim() !== '' && !answeredLines.has(l.id))
       if (!heard && kind !== 'summarise') return error('Nothing to answer yet: no question has been heard')
       const text = heard?.text.trim() ?? SUMMARISE_PROMPT
       if (heard) answeredLines.add(heard.id)
@@ -187,6 +189,8 @@ export function createLiveWiring(d: WiringDeps) {
     current?.abort()
     const ac = new AbortController()
     current = ac
+    debugLog('copilot', 'answer start', { kind, questionId: q.id, text: q.text, manual: !extra.route })
+    let shown = 0
     const run = extra.run
     run && ac.signal.addEventListener('abort', run.abort, { once: true })
     try {
@@ -201,13 +205,26 @@ export function createLiveWiring(d: WiringDeps) {
         run.release()
       }
       for await (const s of run?.stream ?? d.engine.answer({ question: q, transcript: lines.filter(l => l.final), kind, signal: ac.signal, route, marks: extra.marks, info, ...(image ? { image } : {}) })) {
+        shown++
         d.recorder.suggestion(s)
         d.host.publish('copilotSuggestion', s)
       }
+      debugLog('copilot', shown ? 'answer end' : 'answer ended with nothing shown (superseded or stopped)', { kind, questionId: q.id, suggestions: shown, aborted: ac.signal.aborted })
     } catch (e) {
+      debugLog('copilot', 'answer failed', { kind, questionId: q.id, error: e, code: e instanceof LlmError ? e.code : undefined })
       if (e instanceof LlmError && e.code === 'no_vision') block('no-vision', { message: noVisionText("This model can't read images.", e.suggestion), suggestion: e.suggestion })
       else engineError(e)
     }
+  }
+
+  /** The Clear shortcut: stop what is being answered and forget the unanswered question, so a stray line cannot be answered by the next press. */
+  function clearPending(): void {
+    current?.abort(); current = null
+    d.engine.cancelAll(); spec.cancel(); dropScreen()
+    for (const l of lines) if (l.final) answeredLines.add(l.id)
+    questions = new Map(); lastQuestion = null
+    debugLog('copilot', 'cleared')
+    d.host.publish('copilotCleared', { at: now() })
   }
 
   /** The AI interviewer asked a question: it takes the same path as one heard on the interviewer channel (recorded, shown, auto-answered when on), so cues and suggestions match live. */
@@ -227,7 +244,7 @@ export function createLiveWiring(d: WiringDeps) {
     await answer('answer', undefined, { press: true })
   }
 
-  d.host.onAction(a => { if (ANSWER_KINDS.has(a)) void answer(a as PromptKind); else if (a === 'screenshot') void screenshot() })
+  d.host.onAction(a => { debugLog('copilot', 'action', { action: a, hasQuestion: lastQuestion !== null, lines: lines.length }); if (ANSWER_KINDS.has(a)) void answer(a as PromptKind); else if (a === 'screenshot') void screenshot(); else if (a === 'clear') clearPending() })
 
   const emit: Emit = (ev, payload) => {
     if (ev === 'copilotState') {

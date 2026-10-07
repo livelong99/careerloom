@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { checkRoot } from '../careerops'
+import { applyDebugLog } from '../debug-log-hooks'
 import { broadcast, readApiKey, readOpencodeKey, readRunHistory, readSettings, runLog, userFile, writeSettings, type Handler } from '../context'
 import { acknowledgeList, revokeAck } from '../integrations/browser-login'
 import { findRuntime, modelDir } from '../prescreen-model'
@@ -74,7 +75,9 @@ export const settingsHandlers: Record<string, Handler> = {
   },
   prefsGet: (): Prefs => readSettings().prefs,
   prefsSet: (patch: unknown): Prefs => {
-    const prefs = writeSettings({ prefs: applyPrefsPatch(readSettings().prefs, patch) }).prefs
+    const before = readSettings().prefs
+    const prefs = writeSettings({ prefs: applyPrefsPatch(before, patch) }).prefs
+    try { applyDebugLog() } catch (err) { writeSettings({ prefs: { ...prefs, debug: before.debug } }); throw err } // a folder we can't write to is not kept
     changed()
     return prefs
   },
@@ -86,9 +89,9 @@ export const settingsHandlers: Record<string, Handler> = {
     return left
   },
   dataLocations,
-  /** Opens a listed data folder in the OS file manager; any other path is refused. */
+  /** Opens a listed data folder (or the debug-log folder) in the OS file manager; any other path is refused. */
   revealPath: async (p: unknown): Promise<boolean> => {
-    if (typeof p !== 'string' || !dataLocations().some(l => l.path === p)) throw new Error('Not a data location')
+    if (typeof p !== 'string' || !(dataLocations().some(l => l.path === p) || p === readSettings().prefs.debug.dir)) throw new Error('Not a data location')
     const err = await shell.openPath(p)
     if (err) throw new Error(err)
     return true

@@ -114,6 +114,8 @@ These are installed on the user's machine only when the user opts in, each under
 | [career-ops](https://github.com/career-ops-hq/career-ops) | MIT | The user's own career-ops folder |
 | [moonshine-voice](https://pypi.org/project/moonshine-voice/) `==0.1.5` (pinned) | MIT | Copilot → Transcription → Install local speech model |
 | Moonshine speech models (`tiny`, `small`, `medium` English streaming models, fetched by the package from Moonshine AI) | Released by Moonshine AI for English under the MIT License; re-check each model card when the pin or model list changes (non-English Moonshine models use a separate community license and are not used) | Same install step |
+| [onnx-asr](https://github.com/istupakov/onnx-asr) `==0.12.0` and [onnxruntime](https://github.com/microsoft/onnxruntime) `==1.23.2` (pinned) | MIT | Copilot → Transcription → Install local speech model (NVIDIA Parakeet) |
+| [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) weights, int8 ONNX conversion by [istupakov](https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx), pinned by commit | CC-BY-4.0 (attribution: NVIDIA; converted to ONNX and int8-quantised by istupakov); downloaded on demand, never bundled | Same install step |
 | [mlx-whisper](https://github.com/ml-explore/mlx-examples) and [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | MIT | **Not installed yet**: the Whisper engines are listed as alternates in settings but have no adapter; nothing is downloaded for them |
 
 ### Humanizer skill (bundled text)

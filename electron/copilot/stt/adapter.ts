@@ -7,7 +7,7 @@ export type SttStartOpts = { source: SourceId; language: string; vocab: string[]
 
 /** Owner: WP3. One adapter instance per source; 16 kHz mono PCM16 in (plan §6). */
 export interface SttAdapter {
-  readonly id: 'moonshine' | 'whisper-mlx' | 'faster-whisper' | 'soniox' | 'assemblyai' | 'deepgram' | 'apple' | 'fake'
+  readonly id: 'moonshine' | 'whisper-mlx' | 'faster-whisper' | 'parakeet' | 'soniox' | 'assemblyai' | 'deepgram' | 'apple' | 'fake'
   start(opts: SttStartOpts): Promise<void>
   push(pcm16: ArrayBuffer): void
   on(ev: SttEventName, cb: (e: SttEvent) => void): void

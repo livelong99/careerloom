@@ -33,6 +33,8 @@ import { checkReadiness, pickReadyRunner, type Readiness } from './readiness'
 import { zenModels } from './opencode'
 import { sweepCookieTemp } from './integrations/browser-cookies'
 import { createUpdateChecker, type UpdateChecker } from './updates'
+import { debugLog } from './debug-log'
+import { applyDebugLog, installDebugHooks } from './debug-log-hooks'
 import { cancelAll, cancelRun, isMode, isModelId, isRunner, MODES, resolveBin, spawnSpec } from './runner'
 import { execFile } from 'node:child_process'
 
@@ -262,6 +264,9 @@ function installSkillContext(): void {
   })
 }
 
+/** Debug log: failures are always logged; successes only for the calls that matter when chasing a Copilot or setup problem. */
+const LOG_OK_CALLS = /^(copilot(?!Overlay)|interview|kb|tts|bootstrap|setApiKey|prefsSet)/
+
 function registerHandlers(): void {
   installSkillContext()
   const all: Record<string, Handler> = { ...handlers }
@@ -273,9 +278,13 @@ function registerHandlers(): void {
   }
   for (const [name, fn] of Object.entries(all)) {
     ipcMain.handle(`careerloom:${name}`, async (_event, ...args: unknown[]): Promise<Envelope> => {
+      const t0 = Date.now()
       try {
-        return { ok: true, value: await fn(...args) }
+        const value = await fn(...args)
+        if (LOG_OK_CALLS.test(name)) debugLog('ipc', name, { ms: Date.now() - t0 })
+        return { ok: true, value }
       } catch (err) {
+        debugLog('ipc', `${name} failed`, { ms: Date.now() - t0, error: err })
         return { ok: false, error: { kind: 'error', message: err instanceof Error ? err.message : String(err) } }
       }
     })
@@ -351,7 +360,9 @@ function bootstrap(): void {
     win?.focus()
   })
   app.on('before-quit', () => { cancelAll(); stopPrescreen(); killSttSidecars(); clearCopilotShots() })
+  installDebugHooks()
   void app.whenReady().then(() => {
+    try { applyDebugLog() } catch (err) { console.error('debug log not started:', err) }
     sweepCookieTemp() // plaintext cookie copies a crashed browser scan left behind
     registerHandlers()
     // Only our own pages may ask for the microphone; every other permission keeps Electron's default (allowed).
