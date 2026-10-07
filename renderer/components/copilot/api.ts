@@ -33,15 +33,17 @@ export function useCopilotConfig(): { config: CopilotConfig | null; save: (patch
     careerloom.copilotGetConfig().then(c => { if (live) setConfig(c) }, e => { if (live) setError(errorText(e)) })
     return () => { live = false }
   }, [])
+  const seq = useRef(0)
   const save = useCallback(async (patch: DeepPartial<CopilotConfig>) => {
     const before = ref.current
-    if (before) setConfig(mergeConfig(before, patch))
+    const mine = ++seq.current // only the newest edit may write the screen state: an older reply must not undo what was typed since
+    if (before) { const optimistic = mergeConfig(before, patch); ref.current = optimistic; setConfig(optimistic) }
     try {
       const next = await careerloom.copilotSetConfig(patch)
-      setConfig(next)
+      if (mine === seq.current) { ref.current = next; setConfig(next) }
       return next
     } catch (e) {
-      setConfig(before)
+      if (mine === seq.current) { ref.current = before; setConfig(before) }
       showToast(errorText(e), 'error')
       return null
     }

@@ -41,4 +41,12 @@ describe('Settings → Answer engine → screen reading', () => {
     render(<EnginePage />)
     expect(await screen.findByText(/OCR.*not available yet/i)).toBeTruthy()
   })
+  it('clicking the unavailable OCR choice saves nothing (it was a dead control that left screenshots blocked)', async () => {
+    render(<EnginePage />)
+    const ocr = await screen.findByRole('tab', { name: /OCR/ })
+    expect(ocr.getAttribute('aria-disabled')).toBe('true')
+    fireEvent.click(ocr)
+    fireEvent.keyDown(ocr, { key: 'Enter' })
+    expect(api.copilotSetConfig).not.toHaveBeenCalledWith({ engine: { vision: 'ocr' } })
+  })
 })

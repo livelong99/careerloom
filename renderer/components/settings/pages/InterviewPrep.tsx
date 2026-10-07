@@ -32,10 +32,20 @@ function useInterviewConfig() {
     careerloom.interviewConfig().then(c => { if (live) setConfig(c) }, e => { if (live) setError(errorText(e)) })
     return () => { live = false }
   }, [])
+  const seq = useRef(0)
   const save = useCallback(async (patch: Patch): Promise<InterviewConfig | null> => {
     const before = ref.current
-    if (before) setConfig(mergeConfig(before, patch))
-    try { const next = await careerloom.interviewSetConfig(patch); setConfig(next); return next } catch (e) { setConfig(before); showToast(errorText(e), 'error'); return null }
+    const mine = ++seq.current // an older reply must not undo a newer edit
+    if (before) { const optimistic = mergeConfig(before, patch); ref.current = optimistic; setConfig(optimistic) }
+    try {
+      const next = await careerloom.interviewSetConfig(patch)
+      if (mine === seq.current) { ref.current = next; setConfig(next) }
+      return next
+    } catch (e) {
+      if (mine === seq.current) { ref.current = before; setConfig(before) }
+      showToast(errorText(e), 'error')
+      return null
+    }
   }, [])
   return { config, save, error }
 }

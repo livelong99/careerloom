@@ -92,6 +92,15 @@ describe('TranscriptionPage', () => {
     expect(screen.getByText('RAM 610 MB')).toBeTruthy()
     expect(screen.getByText(/0\.08× real time/)).toBeTruthy()
   })
+  it('a word that is already listed (any case) is not added again, and the box caps a word at 60 characters', async () => {
+    api.copilotGetConfig.mockResolvedValue(CONFIG)
+    render(<TranscriptionPage />)
+    const box = await screen.findByLabelText('New word') as HTMLInputElement
+    expect(box.maxLength).toBe(60)
+    fireEvent.change(box, { target: { value: 'kubernetes' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add word' }))
+    expect(api.copilotSetConfig).not.toHaveBeenCalledWith({ stt: { vocab: expect.anything() } })
+  })
   it('states that audio stays on this computer and adds vocabulary', async () => {
     render(<TranscriptionPage />)
     expect(await screen.findByText(/stays on this computer/i)).toBeTruthy()

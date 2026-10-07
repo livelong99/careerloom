@@ -112,6 +112,18 @@ describe('migration safety', () => {
     expect(readCopilotConfig().stt).toMatchObject({ engine: 'faster-whisper', model: 'turbo', device: 'cuda' })
     expect(writeCopilotConfig({ stt: { engine: 'soniox' as never } }).stt.engine).toBe(defaultEngine())
   })
+  it('parakeet (offered in the engine picker on every platform) is kept, not reset to the default', () => {
+    expect(writeCopilotConfig({ stt: { engine: 'parakeet', model: 'v3' } }).stt).toMatchObject({ engine: 'parakeet', model: 'v3' })
+  })
+  it('garbage files (array root, null, wrong types, huge vocab) still load as a valid config', () => {
+    for (const raw of ['[]', 'null', '"x"', '{"stt":5,"engine":[],"overlay":{"width":"wide","opacity":9},"stt2":1}']) {
+      fs.writeFileSync(file, raw)
+      const c = readCopilotConfig()
+      expect(c.overlay.opacity).toBeLessThanOrEqual(1)
+      expect(c.stt.endSilenceMs).toBe(DEFAULT_CONFIG.stt.endSilenceMs)
+    }
+    expect(normalizeConfig({ stt: { vocab: Array.from({ length: 500 }, (_, i) => `w${i}`) } }).stt.vocab).toHaveLength(200)
+  })
   it('keeps the extra benchmark fields (p95, decode times, device) and drops bad ones', () => {
     const b = { at: 1, p50FinalMs: 400, realTimeFactor: 0.1, ramMb: null, wer: 0.05, p95FinalMs: 600, p50DecodeMs: 120, p95DecodeMs: 200, device: 'cuda' as const }
     expect(writeCopilotConfig({ stt: { lastBenchmark: b } }).stt.lastBenchmark).toEqual(b)

@@ -18,10 +18,18 @@ export function usePrefs(): { prefs: Prefs | null; patch: (p: PrefsPatch) => Pro
     careerloom.prefsGet().then(p => { if (live) setPrefs(p) }, e => { if (live) setError(errorText(e)) })
     return () => { live = false }
   }, [])
+  const seq = useRef(0)
   const patch = useCallback(async (p: PrefsPatch) => {
     const before = ref.current
-    if (before) setPrefs(mergePrefs(before, p))
-    try { setPrefs(await careerloom.prefsSet(p)) } catch (e) { setPrefs(before); showToast(errorText(e), 'error') }
+    const mine = ++seq.current // an older reply must not undo a newer edit
+    if (before) { const optimistic = mergePrefs(before, p); ref.current = optimistic; setPrefs(optimistic) }
+    try {
+      const next = await careerloom.prefsSet(p)
+      if (mine === seq.current) { ref.current = next; setPrefs(next) }
+    } catch (e) {
+      if (mine === seq.current) { ref.current = before; setPrefs(before) }
+      showToast(errorText(e), 'error')
+    }
   }, [])
   return { prefs, patch, error }
 }
