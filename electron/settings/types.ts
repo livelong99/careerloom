@@ -33,8 +33,10 @@ export type Prefs = {
   docs: DocsDefaults
   /** Debug log mode: a folder = on (app, agent and Copilot activity is appended there); null = off. */
   debug: { dir: string | null }
+  /** Staged evaluation (electron/eval-pipeline): batched cheap-model triage first, the full agent only for the best matches. Off until proven. */
+  evalPipeline: { enabled: boolean }
 }
-export type PrefsPatch = { updates?: Partial<Prefs['updates']>; retention?: Partial<Prefs['retention']>; docs?: Partial<DocsDefaults>; debug?: Partial<Prefs['debug']> }
+export type PrefsPatch = { updates?: Partial<Prefs['updates']>; retention?: Partial<Prefs['retention']>; docs?: Partial<DocsDefaults>; debug?: Partial<Prefs['debug']>; evalPipeline?: Partial<Prefs['evalPipeline']> }
 
 export type DataLocation = { id: 'appData' | 'careerOps' | 'models' | 'copilot'; label: string; path: string | null }
 export type DataStats = { runs: number; runLogFiles: number; runLogBytes: number; threads: number; copilotSessions: number }

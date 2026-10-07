@@ -144,7 +144,7 @@ export function ensureTracker(data: string): void {
 }
 
 /** Merge worker results into the tracker (also picks up results stranded by an earlier failed merge). */
-async function mergeTracker(): Promise<void> {
+export async function mergeTracker(): Promise<void> {
   ensureTracker(dataRoot())
   const res = await runScript(['merge-tracker.mjs'])
   if (res.code !== 0) console.error('merge-tracker failed:', res.stderr.split('\n')[0])

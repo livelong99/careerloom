@@ -5,7 +5,7 @@ import { careerloom } from '@/lib/ipc'
 import { showToast } from '@/lib/toast'
 import type { Prefs, PrefsPatch } from '@/lib/types'
 
-export const mergePrefs = (b: Prefs, p: PrefsPatch): Prefs => ({ updates: { ...b.updates, ...p.updates }, retention: { ...b.retention, ...p.retention }, docs: { ...b.docs, ...p.docs }, debug: { ...b.debug, ...p.debug } })
+export const mergePrefs = (b: Prefs, p: PrefsPatch): Prefs => ({ updates: { ...b.updates, ...p.updates }, retention: { ...b.retention, ...p.retention }, docs: { ...b.docs, ...p.docs }, debug: { ...b.debug, ...p.debug }, evalPipeline: { ...b.evalPipeline, ...p.evalPipeline } })
 
 /** settings.json `prefs`: `patch` applies at once and reverts (with a toast) if main refuses it. `error` = main not ready yet. */
 export function usePrefs(): { prefs: Prefs | null; patch: (p: PrefsPatch) => Promise<void>; error: string | null } {

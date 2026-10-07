@@ -8,7 +8,7 @@ import type { Settings } from '../../lib/types'
 export const settingsFixture = (over: Partial<Settings> = {}): Settings => ({
   root: '/home/me/career-ops', runner: 'claude', models: {}, helperModels: {}, hasApiKey: false, hasOpencodeKey: false,
   rootCheck: { ok: true, root: '/home/me/career-ops', dataRoot: '/home/me/career-ops/data' },
-  prefs: { updates: { enabled: true }, retention: { runLogDays: null }, docs: { tone: 'concise', length: 'standard', humanize: true }, debug: { dir: null } },
+  prefs: { updates: { enabled: true }, retention: { runLogDays: null }, docs: { tone: 'concise', length: 'standard', humanize: true }, debug: { dir: null }, evalPipeline: { enabled: false } },
   keyMeta: {},
   ...over,
 })

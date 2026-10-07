@@ -2,10 +2,12 @@ import { PrescreenModelPanel, PrescreenPolicyEditor } from '@/components/jobs/Pr
 import { errorText, useAsync } from '@/components/copilot/api'
 import { Group, Note, Row } from '@/components/copilot/Group'
 import { Button } from '@/components/ui/button'
+import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { careerloom } from '@/lib/ipc'
 import { navigate } from '@/lib/nav'
 import { showToast } from '@/lib/toast'
 import { Page } from '@/sections/resume/PageStub'
+import { usePrefs } from '../usePrefs'
 
 /** Limits that are fixed in code today (read-only here): web boards in electron/integrations, per-request caps in electron/jobs.ts. */
 const LIMITS: Array<[string, string]> = [
@@ -20,6 +22,7 @@ export function JobsPage() {
   const rescreen = async (): Promise<void> => {
     try { const r = await careerloom.prescreenJobs(); showToast(`Re-screened ${Object.keys(r.results).length} jobs`) } catch (e) { showToast(errorText(e), 'error', 6000) }
   }
+  const { prefs, patch } = usePrefs()
   const s = status.data
   return (
     <Page title="Jobs & boards" blurb="How jobs are filtered before the agent spends tokens on them, and the limits scans work within.">
@@ -28,6 +31,11 @@ export function JobsPage() {
         {s && <PrescreenPolicyEditor key={JSON.stringify(s.policy)} status={s} busy={false} reload={async () => status.reload()} rescreen={rescreen} />}
         {s && <PrescreenModelPanel status={s} busy={false} reload={async () => status.reload()} rescreen={rescreen} />}
       </div>
+      <Group title="Fast evaluation (beta)" focus="fast-eval">
+        <Row label="Staged evaluation" hint="Evaluate many jobs at once: de-duplicate, filter and score locally, have a cheap model triage them in batches, then run the full agent only on the best matches. Triage reports are marked quick; off by default.">
+          <ToggleSwitch aria-label="Staged evaluation" disabled={!prefs} checked={prefs?.evalPipeline.enabled ?? false} onCheckedChange={v => patch({ evalPipeline: { enabled: v } })} />
+        </Row>
+      </Group>
       <Group title="Scans and limits" focus="pipeline-limits">
         {LIMITS.map(([label, hint]) => <Row key={label} label={label} hint={hint} />)}
         <Row label="Boards" hint="Which boards are scanned, and how, is set per board.">
