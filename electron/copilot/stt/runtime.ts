@@ -19,6 +19,9 @@ export const FASTER_WHISPER_MODELS = {
 } as const
 /** NVIDIA Parakeet TDT 0.6B v3 (CC-BY-4.0 weights) as int8 ONNX by istupakov, pinned by commit; runs on CPU through onnxruntime (small packages, no CUDA). onnx-asr 0.12 needs a separate onnxruntime. */
 export const PARAKEET_PACKAGES = ['onnx-asr[hub]==0.12.0', 'onnxruntime==1.23.2'] as const
+/** onnxruntime 1.23.2 has no Windows-on-ARM wheel; 1.24.2 is the first that does and decodes the same model (checked on macOS). */
+export const parakeetPackages = (platform = process.platform, arch = process.arch): readonly string[] =>
+  platform === 'win32' && arch === 'arm64' ? [PARAKEET_PACKAGES[0], 'onnxruntime==1.24.2'] : PARAKEET_PACKAGES
 export const PARAKEET_MODELS = {
   v3: { repo: 'istupakov/parakeet-tdt-0.6b-v3-onnx', rev: '8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce', sizeMb: 640 },
 } as const

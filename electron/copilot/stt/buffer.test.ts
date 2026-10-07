@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { SttEvent } from './adapter'
 import { createChunkedAdapter, type Decoder } from './buffer'
+import { CONT_EXTRA_MS } from './endpoint'
 import { concat, frames, silence, tone } from './pcm-gen.test-util'
 
 const OPTS = { source: 'mic' as const, language: 'en', vocab: [], endSilenceMs: 600 }
@@ -95,13 +96,28 @@ describe('chunked adapter (non-streaming engine behind SttAdapter)', () => {
     expect(names().filter(n => n === 'closed')).toHaveLength(1)
   })
 
-  it('forces a final when one utterance runs past the window cap', async () => {
+  it('forces a final when one utterance runs past the window cap, but a 40 s monologue is not cut', async () => {
+    const long = setup()
+    await long.a.start(OPTS)
+    await feed(long.a, concat(silence(300), tone(40_000)))
+    await settle()
+    expect(long.calls.filter(c => c.kind === 'final')).toHaveLength(0)
+    await long.a.stop()
     const { a, calls } = setup()
     await a.start(OPTS)
-    await feed(a, concat(silence(300), tone(27_000)))
+    await feed(a, concat(silence(300), tone(52_000)))
     await settle()
     expect(calls.filter(c => c.kind === 'final').length).toBe(1)
-    expect(calls.find(c => c.kind === 'final')!.ms).toBeLessThanOrEqual(25_100)
+    expect(calls.find(c => c.kind === 'final')!.ms).toBeLessThanOrEqual(50_100)
+    await a.stop()
+  })
+
+  it('stops decoding partials past 20 s so a long turn is not delayed behind them', async () => {
+    const { a, calls } = setup()
+    await a.start(OPTS)
+    await feed(a, concat(silence(300), tone(30_000)))
+    await settle()
+    expect(Math.max(...calls.filter(c => c.kind === 'partial').map(c => c.ms))).toBeLessThanOrEqual(21_000)
     await a.stop()
   })
 
@@ -135,11 +151,11 @@ describe('adaptive endpoint (fastEndpoint)', () => {
     await a.stop()
   })
 
-  it('keeps the full wait for unfinished text and reuses the early decode (one final decode)', async () => {
+  it('keeps the full wait (plus the thinking-pause hold) for unfinished text and reuses the early decode (one final decode)', async () => {
     const finals: number[] = []
     const { a, seen } = setup({ decode: async (pcm, kind) => { if (kind === 'final') finals.push(pcm.length); return 'so tell me about' } })
     await a.start(FAST)
-    await feed(a, concat(silence(300), tone(1500), silence(1000)))
+    await feed(a, concat(silence(300), tone(1500), silence(2500)))
     await settle()
     expect(finalAt(seen).t1).toBeGreaterThanOrEqual(SPEECH_END + 650)
     expect(finals).toHaveLength(1)
@@ -156,11 +172,40 @@ describe('adaptive endpoint (fastEndpoint)', () => {
     await feed(a, tone(1000)) // speech resumes
     release(); await settle()
     expect(seen.filter(s => s[0] === 'final')).toHaveLength(0)
-    await feed(a, silence(1000)); await settle()
+    await feed(a, silence(2000)); await settle()
     const finals = seen.filter(s => s[0] === 'final')
     expect(finals).toHaveLength(1)
     expect(finals[0]![1].text).toBe('First half. Second half.')
     await a.stop()
+  })
+
+  it('a statement ending a sentence is not a turn end: a 1.5 s pause then more speech stays one final', async () => {
+    const { a, seen } = setup({ decode: async (pcm, kind) => (pcm.length < 16 * 2500 ? 'We had a situation last quarter.' : 'We had a situation last quarter. How would you debug it?') })
+    await a.start(FAST)
+    await feed(a, concat(silence(300), tone(1500), silence(1500), tone(1500), silence(1000)))
+    await settle()
+    const finals = seen.filter(s => s[0] === 'final')
+    expect(finals).toHaveLength(1)
+    expect(finals[0]![1].text).toBe('We had a situation last quarter. How would you debug it?')
+    await a.stop()
+  })
+
+  it('holds a statement final for the extra window, but a question or short prompt still ends early', async () => {
+    const stmt = setup({ decode: async () => 'We had a situation last quarter.' })
+    await stmt.a.start(FAST)
+    await feed(stmt.a, concat(silence(300), tone(1500), silence(2500)))
+    await settle()
+    expect(finalAt(stmt.seen).t1).toBeGreaterThanOrEqual(SPEECH_END + 650 + CONT_EXTRA_MS)
+    expect(finalAt(stmt.seen).t1).toBeLessThan(SPEECH_END + 650 + CONT_EXTRA_MS + 300)
+    await stmt.a.stop()
+    for (const text of ['Why do you want to work here?', 'Tell me about yourself.']) {
+      const q = setup({ decode: async () => text })
+      await q.a.start(FAST)
+      await feed(q.a, concat(silence(300), tone(1500), silence(1000)))
+      await settle()
+      expect(finalAt(q.seen).t1).toBeLessThan(SPEECH_END + 450)
+      await q.a.stop()
+    }
   })
 
   it('does nothing different without the flag', async () => {

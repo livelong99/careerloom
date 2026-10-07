@@ -18,22 +18,28 @@ export function createSidecarDecoder(spec: DecoderSpec): Decoder {
   function launch(o: SttStartOpts): Promise<void> {
     const c = spec.spawn()
     child = c
-    let onReady: () => void = () => {}
+    let onReady: () => void = () => {}, failReady: (m: string) => void = () => {}, isReady = false, why = ''
     const ready = new Promise<void>((resolve, reject) => {
       const t = setTimeout(() => reject(new Error('Speech model did not become ready')), spec.readyTimeoutMs ?? 120_000)
-      onReady = () => { clearTimeout(t); resolve() }
+      onReady = () => { isReady = true; clearTimeout(t); resolve() }
+      failReady = m => { clearTimeout(t); reject(new Error(m)) }
     })
     c.onData(lineSplitter(raw => {
       let l: Line
       try { l = JSON.parse(raw) as Line } catch { return } // ponytail: non-JSON chatter from native libs is ignored
       if (l.ev === 'ready') { spec.onReady?.({ device: l.device, reason: l.reason ?? undefined }); return onReady() }
       const p = l.id === undefined ? undefined : pending.get(l.id)
-      if (!p) return
+      if (!p) { if (l.ev === 'error' && !isReady) why = l.message ?? '' ; return } // a load failure the script reported just before exiting
       pending.delete(l.id!)
       if (l.ev === 'decoded') p.resolve((l.text ?? '').trim())
       else p.reject(new Error(l.message ?? 'Speech recognition failed'))
     }))
-    exited = new Promise<void>(res => c.onExit(code => { res(); if (child === c && !closing) void crashed(code) }))
+    exited = new Promise<void>(res => c.onExit(code => {
+      res()
+      if (child !== c || closing) return
+      if (!isReady) { child = null; return failReady(why || `Speech recognition stopped unexpectedly (exit ${code ?? 'signal'})`) } // never loaded (missing package, bad model): a restart would fail the same way
+      void crashed(code)
+    }))
     c.write(encodeFrame(FRAME.config, Buffer.from(JSON.stringify(spec.config(o)))))
     return ready
   }

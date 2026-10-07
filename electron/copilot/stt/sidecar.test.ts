@@ -73,4 +73,11 @@ describe('sidecar adapter', () => {
     const a = createSidecarAdapter({ id: 'moonshine', spawn: () => c.child, config: () => ({}), readyTimeoutMs: 10 })
     await expect(a.start(opts)).rejects.toThrow(/ready/)
   })
+
+  it('rejects start at once when the child exits before ready', async () => {
+    const c = makeChild()
+    const a = createSidecarAdapter({ id: 'moonshine', spawn: () => c.child, config: () => ({}), readyTimeoutMs: 5000 })
+    const p = a.start(opts); c.die(1)
+    await expect(p).rejects.toThrow(/stopped unexpectedly \(exit 1\)/)
+  })
 })

@@ -1,7 +1,7 @@
 // Capture + STT orchestration (plan §3, WP3 scope only): audio chunks in → one STT adapter per source →
 // transcript/health/level events out. Engine, store and overlay attach through `emit` (WP1/2/4).
 import type { SttAdapter } from './stt/adapter'
-import { normFinal } from './stt/endpoint'
+import { CONT_EXTRA_MS, normFinal } from './stt/endpoint'
 import { createSourceHealth } from './source-health'
 import type { AudioChunkMsg, CopilotConfig, CopilotEvents, CopilotState, SourceId, Speaker, StartRequest, StopReason, TranscriptLine } from './types'
 
@@ -87,7 +87,9 @@ export function createSessionController(deps: SessionDeps) {
       health.set(source, h)
       const cfg = deps.stt()
       // Fast end-of-turn only where a finished sentence is a real boundary: the interviewer's channel (or mic-only live), never a practice answer.
-      await a.start({ source, language: cfg.language, vocab: cfg.vocab, endSilenceMs: cfg.endSilenceMs, fastEndpoint: source === 'system' || mode === 'live' })
+      const fast = source === 'system' || mode === 'live'
+      // A practice answer has no early decode to tell a finished sentence from a thinking pause, so it waits the pause out too (a pause mid-answer must not end the turn).
+      await a.start({ source, language: cfg.language, vocab: cfg.vocab, endSilenceMs: cfg.endSilenceMs + (fast ? 0 : CONT_EXTRA_MS), fastEndpoint: fast })
       if (gen !== my) { await a.stop().catch(() => undefined); return } // stopped while it was starting: teardown already dropped it
       h.start()
     }))
