@@ -13,15 +13,18 @@ export const isSentenceFinal = (text: string): boolean => {
 const PROMPT = /^(?:(?:so|okay|ok|alright|now|and)[,.]?\s+)?(?:tell me|walk me through|talk me through|describe|explain|introduce yourself)\b/i
 export const endsTurn = (text: string): boolean => {
   const t = text.trim()
-  return isSentenceFinal(t) && (/\?["”')\]]*$/.test(t) || (PROMPT.test(t) && t.split(/\s+/).length <= 10))
+  return isSentenceFinal(t) && !dangling(t) && (/\?["”')\]]*$/.test(t) || (PROMPT.test(t) && t.split(/\s+/).length <= 10))
 }
 /** Extra quiet, beyond endSilenceMs, before a turn that did not end on a question/prompt is final: a thinking pause or "um…" inside a long question runs 1-1.5 s and must not split it. */
 export const CONT_EXTRA_MS = 1250
 /** The text trails off mid-thought ("…and", "…the", "um", a comma): the speaker is searching for words, and a 2-3 s pause is still the same question. */
 const TRAILING = /(?:[,;:\-–—]|…|\.\.\.|\b(?:and|but|so|or|because|that|which|who|the|a|an|to|of|with|for|in|on|at|from|about|if|when|how|what|why|where|um+|uh+|er+|erm|like|you know))\s*$/i
+/** Whisper punctuates a cut-off clause ("…led a migration and." / "…about the."): a full stop after a word no sentence ends on is still a pause. */
+const DANGLING = /\b(?:and|but|or|because|which|who|the|a|an|to|of|with|for|in|on|at|from|about|if|when)[.\s]*$/i
+const dangling = (t: string): boolean => DANGLING.test(t)
 export const TRAILING_EXTRA_MS = 3000
 /** Extra quiet, beyond endSilenceMs, before an unfinished turn is final: longer when `text` (the early decode, if it has landed) trails off. */
-export const holdExtraMs = (text: string | null): number => (text && TRAILING.test(text.trim()) ? TRAILING_EXTRA_MS : CONT_EXTRA_MS)
+export const holdExtraMs = (text: string | null): number => (text && (TRAILING.test(text.trim()) || dangling(text.trim())) ? TRAILING_EXTRA_MS : CONT_EXTRA_MS)
 
 /** Quiet needed before the early decode: 160-250 ms, about a third of the configured wait. */
 export const earlyEndMs = (endSilenceMs: number): number => Math.min(250, Math.max(160, Math.round(endSilenceMs * 0.35)))
