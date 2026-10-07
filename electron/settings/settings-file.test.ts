@@ -70,5 +70,12 @@ describe('prefs', () => {
   it.each([[{ retention: { runLogDays: 0 } }], [{ retention: { runLogDays: 1.5 } }], [{ docs: { tone: 'x' } }], [{ updates: { enabled: 'yes' } }]])('rejects %j', patch => {
     expect(() => applyPrefsPatch(defaultPrefs(), patch)).toThrow()
   })
+  it('staged evaluation is off by default, only a real true turns it on, and the patch is validated', () => {
+    expect(defaultPrefs().evalPipeline.enabled).toBe(false)
+    expect(normalizePrefs({ evalPipeline: { enabled: 'yes' } }).evalPipeline.enabled).toBe(false)
+    expect(normalizePrefs({ evalPipeline: { enabled: true } }).evalPipeline.enabled).toBe(true)
+    expect(applyPrefsPatch(defaultPrefs(), { evalPipeline: { enabled: true } }).evalPipeline.enabled).toBe(true)
+    expect(() => applyPrefsPatch(defaultPrefs(), { evalPipeline: { enabled: 1 } })).toThrow(/true or false/)
+  })
   it('normalizePrefs never throws on junk', () => expect(normalizePrefs(42)).toEqual(defaultPrefs()))
 })

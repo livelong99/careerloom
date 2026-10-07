@@ -15,7 +15,7 @@ import { JobsPage } from './Jobs'
 import { MonitoringPage } from './Monitoring'
 import { ResumePage } from './Resume'
 
-const PREFS = { updates: { enabled: true }, retention: { runLogDays: null }, docs: { tone: 'warm', length: 'standard', humanize: true } }
+const PREFS = { updates: { enabled: true }, retention: { runLogDays: null }, docs: { tone: 'warm', length: 'standard', humanize: true }, debug: { dir: null }, evalPipeline: { enabled: false } }
 const seen = vi.fn()
 beforeEach(() => {
   window.addEventListener(NAVIGATE_EVENT, e => seen((e as CustomEvent).detail))
@@ -114,6 +114,14 @@ describe('Jobs & boards', () => {
     await waitFor(() => expect(api.prescreenJobs).toHaveBeenCalled())
     expect(screen.getByText('No local model')).toBeTruthy()
     expect(screen.getByText(/no background schedule/)).toBeTruthy()
+  })
+  it('turns staged evaluation on and off through prefs.evalPipeline (off by default)', async () => {
+    render(<JobsPage />)
+    const sw = await screen.findByRole('switch', { name: 'Staged evaluation' })
+    await waitFor(() => expect(sw.hasAttribute('disabled')).toBe(false))
+    expect(sw.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(sw)
+    await waitFor(() => expect(api.prefsSet).toHaveBeenCalledWith({ evalPipeline: { enabled: true } }))
   })
   it('shows a clear message when pre-screen status cannot be read', async () => {
     api.prescreenStatus.mockRejectedValue(new Error('prescreen offline'))

@@ -36,6 +36,7 @@ export const REGISTRY: readonly RegistryEntry[] = [
   e('integrations', 'integration:skills', 'Skills', 'github skills', 'allowlist'),
   e('integrations', 'integration:plugins', 'Plugins', 'career-ops plugins', 'enable', 'disable'),
   e('jobs', 'prescreen', 'Pre-screen policy', 'countries', 'remote', 'years', 'seniority', 'location'),
+  e('jobs', 'fast-eval', 'Fast evaluation', 'staged', 'batch', 'cheap model', 'triage', 'speed'),
   e('jobs', 'pipeline-limits', 'Pipeline limits', 'sequential', 'scan caps', 'evaluate'),
   e('resume', 'doc-defaults', 'Document defaults', 'tone', 'length', 'humanize', 'cover letter'),
   e('agent', 'agent-permissions', 'What the runner may do', 'permissions', 'sandbox', 'tools'),

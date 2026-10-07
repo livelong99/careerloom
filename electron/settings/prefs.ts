@@ -11,6 +11,7 @@ export const defaultPrefs = (): Prefs => ({
   retention: { runLogDays: null },
   docs: { tone: 'warm', length: 'standard', humanize: true },
   debug: { dir: null },
+  evalPipeline: { enabled: false },
 })
 
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
@@ -38,13 +39,14 @@ export function normalizePrefs(raw: unknown): Prefs {
     retention: { runLogDays: typeof days === 'number' && Number.isInteger(days) && days >= 1 && days <= MAX_RETENTION_DAYS ? days : null },
     docs: docsOut,
     debug: { dir: dirOf(rec(r.debug).dir) },
+    evalPipeline: { enabled: rec(r.evalPipeline).enabled === true },
   }
 }
 
 /** Validates a renderer patch strictly (unlike `normalizePrefs`, bad values throw so the UI can show why). */
 export function applyPrefsPatch(current: Prefs, patch: unknown): Prefs {
   const p = rec(patch) as PrefsPatch & Record<string, unknown>
-  const next: Prefs = { updates: { ...current.updates }, retention: { ...current.retention }, docs: { ...current.docs }, debug: { ...current.debug } }
+  const next: Prefs = { updates: { ...current.updates }, retention: { ...current.retention }, docs: { ...current.docs }, debug: { ...current.debug }, evalPipeline: { ...current.evalPipeline } }
   const u = rec(p.updates)
   if ('enabled' in u) { if (typeof u.enabled !== 'boolean') throw new Error('updates.enabled must be true or false'); next.updates.enabled = u.enabled }
   const t = rec(p.retention)
@@ -62,6 +64,8 @@ export function applyPrefsPatch(current: Prefs, patch: unknown): Prefs {
     if (g.dir !== null && dirOf(g.dir) === null) throw new Error('Choose a folder for the debug log')
     next.debug.dir = g.dir as string | null
   }
+  const e = rec(p.evalPipeline)
+  if ('enabled' in e) { if (typeof e.enabled !== 'boolean') throw new Error('evalPipeline.enabled must be true or false'); next.evalPipeline.enabled = e.enabled }
   return next
 }
 

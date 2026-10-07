@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { listReports, readPipeline, readTracker } from './careerops'
-import { careerOpsRoot, dataRoot, launch, readRunHistory, runs, startAgentPrompt, str, summary, type Handler } from './context'
+import { careerOpsRoot, dataRoot, launch, readRunHistory, readSettings, runs, startAgentPrompt, str, summary, type Handler } from './context'
 import type { JobListing, Portal } from './contract'
 import { firecrawlReady } from './integrations/firecrawl'
 import { readRegistry } from './integrations/registry'
@@ -12,6 +12,7 @@ import { latestHealth, mergeScanHistory, parseScanRuns } from './scan-history'
 import { readAllSources, subsetScanYaml, type Source } from './integrations/sources'
 import { readBoardIndex, scanWebBoards } from './integrations/web-board'
 import { isWebBoard, portalIdForUrl } from './integrations/web-board-core'
+import { evaluateStaged } from './eval-pipeline/live'
 import { evaluateSelected } from './jobs-batch'
 import { deriveJobs, derivePortals, parseScanHistory, readGuidelines, sanitizeName, upsertGuideline } from './jobs-data'
 import { resolveBin, spawnSpec } from './runner'
@@ -20,6 +21,8 @@ import { resolveBin, spawnSpec } from './runner'
 // Contract: electron/contract.ts + renderer/lib/types.ts (CareerloomBridge).
 
 const MAX_IDS = 200
+/** Staged evaluation (eval-pipeline) triages thousands of jobs per request; the per-job agent path stays at MAX_IDS. */
+const MAX_STAGED_IDS = 5000
 const MAX_GUIDELINE = 4000
 
 const read = (file: string) => { try { return fs.readFileSync(file, 'utf8') } catch { return '' } }
@@ -71,9 +74,9 @@ const listPortals = (): Portal[] => {
   })
 }
 
-function ids(v: unknown, name: string): string[] {
-  if (!Array.isArray(v) || v.length > MAX_IDS || !v.every(x => typeof x === 'string' && x.length <= 2048)) {
-    throw new Error(`${name} must be an array of at most ${MAX_IDS} strings`)
+function ids(v: unknown, name: string, max = MAX_IDS): string[] {
+  if (!Array.isArray(v) || v.length > max || !v.every(x => typeof x === 'string' && x.length <= 2048)) {
+    throw new Error(`${name} must be an array of at most ${max} strings`)
   }
   return v as string[]
 }
@@ -125,11 +128,13 @@ export const jobsHandlers: Record<string, Handler> = {
   /** Evaluate exactly the selected jobs (career-ops' headless batch worker, one run each).
    *  Already-evaluated jobs are skipped unless `force` (re-evaluate after a résumé change). */
   evaluateJobs: async (raw: unknown, force: unknown) => {
-    const wanted = new Set(ids(raw, 'ids'))
+    const staged = readSettings().prefs.evalPipeline.enabled
+    const wanted = new Set(ids(raw, 'ids', staged ? MAX_STAGED_IDS : MAX_IDS))
     if (!wanted.size) throw new Error('Select at least one job to evaluate')
     const jobs = listJobs().filter(j => wanted.has(j.id) && /^https?:\/\//i.test(j.url) && (force === true || j.reportNum === null))
     if (!jobs.length) throw new Error('Those jobs are already evaluated — use Re-evaluate to run them again')
-    return evaluateSelected(jobs, await agentEnv())
+    const env = await agentEnv()
+    return staged && jobs.length > 1 && jobs.every(j => j.reportNum === null) ? evaluateStaged(jobs, env) : evaluateSelected(jobs, env)
   },
   /** Unevaluated jobs per portal id — the delete dialog offers to hide them. */
   countUnevaluated: (raw: unknown) => {
