@@ -20,7 +20,7 @@ export const openApplication = (app: Application): void => void careerloom.listJ
   const j = js.find(x => x.reportNum === app.num)
   if (j) openJob(j.id)
   else showToast('That role is not in your Jobs list', 'error')
-})
+}).catch(() => showToast('Could not open that job. Try again.', 'error'))
 export const setJobList = (next: string[]) => { ids = next }
 export const neighbours = (id: string): { prev: string | null; next: string | null; index: number; total: number } => {
   const i = ids.indexOf(id)

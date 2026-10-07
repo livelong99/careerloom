@@ -31,7 +31,7 @@ export function createTtsRuntime(d: TtsRuntimeDeps) {
   }
   const svc: TtsService = createTtsService({
     chain: () => buildChain(d.config().engine, d.engines, { kokoroInstalled: d.kokoroInstalled(), hasOpenRouterKey: d.hasOpenRouterKey() }),
-    voice: () => ({ voiceId: d.config().voiceId, speed: d.config().speed }),
+    voice: () => ({ voiceId: d.config().voiceId, speed: d.config().speed, engine: d.config().engine }),
     send: d.send,
     onFallback: (from, to) => d.notify(`${NAMES[from]} is unavailable, using ${NAMES[to]}`),
     onError: () => d.notify('Could not speak that sentence'),
@@ -42,12 +42,12 @@ export function createTtsRuntime(d: TtsRuntimeDeps) {
       svc.cancel()
       // preview is one-off: bypass the configured chain/voice but keep fallback to the system voice
       const chain = buildChain(engine, d.engines, { kokoroInstalled: d.kokoroInstalled(), hasOpenRouterKey: d.hasOpenRouterKey() })
-      previewSvc(chain, voiceId, speed).speak('preview', PREVIEW_TEXT)
+      previewSvc(chain, engine, voiceId, speed).speak('preview', PREVIEW_TEXT)
     },
     interviewInstallVoice: async (_engine: 'kokoro') => d.install(),
   }
-  const previewSvc = (chain: TtsEngine[], voiceId: string, speed: number) => {
-    const s = createTtsService({ chain: () => chain, voice: () => ({ voiceId, speed }), send: d.send, onError: () => d.notify('Could not play the preview') })
+  const previewSvc = (chain: TtsEngine[], engine: string, voiceId: string, speed: number) => {
+    const s = createTtsService({ chain: () => chain, voice: () => ({ voiceId: voiceId || null, speed, engine }), send: d.send, onError: () => d.notify('Could not play the preview') })
     const speak = s.speak.bind(s)
     return { speak: (id: string, t: string) => { speak(id, t); s.end(id) } }
   }

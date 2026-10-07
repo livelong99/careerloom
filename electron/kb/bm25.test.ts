@@ -8,6 +8,10 @@ describe('tokenize', () => {
     expect(tokenize('We use C++, C# and .NET with Node.js')).toEqual(expect.arrayContaining(['c++', 'c#', '.net', 'node.js']))
     expect(tokenize('the of and to')).toEqual([])
   })
+  it('tokenizes accented and non-Latin words instead of dropping them', () => {
+    expect(tokenize('café résumé')).toEqual(['café', 'résumé'])
+    expect(tokenize('数据 engineer').length).toBeGreaterThan(1)
+  })
   it('strips light suffixes so inflections meet', () => {
     expect(tokenize('indexes')).toEqual(tokenize('index'))
     expect(tokenize('queries')).toEqual(tokenize('query'))

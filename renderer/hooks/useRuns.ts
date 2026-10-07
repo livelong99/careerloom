@@ -72,7 +72,7 @@ export function useRunsState(): Runs {
     }
   }, [adopt])
 
-  const cancel = useCallback((id: string) => { void careerloom.cancelRun(id) }, [])
+  const cancel = useCallback((id: string) => { careerloom.cancelRun(id).catch(err => showToast(normalizeCliError(err).message, 'error')) }, [])
 
   const forget = useCallback(async (ids: string[]) => {
     const n = await careerloom.deleteRuns(ids)

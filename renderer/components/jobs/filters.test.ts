@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { JobListing, Portal } from '../../lib/types'
 import {
   activeFilterChips, applyJobFilters, DEFAULT_FILTERS, facetCounts, loadPersistedFilters, loadSavedViews,
-  NO_LOCATION, NO_PORTAL, persistFilters, removeFilterChip, saveSavedViews, toApplication, type JobFilters, type ScreenedJob,
+  NO_LOCATION, NO_PORTAL, persistFilters, pruneStalePortals, removeFilterChip, saveSavedViews, toApplication, type JobFilters, type ScreenedJob,
 } from './filters'
 
 function job(over: Partial<ScreenedJob>): ScreenedJob {
@@ -82,5 +82,13 @@ describe('pre-screen filters', () => {
       { key: 'screen:likely', label: 'Pre-screen', value: 'Likely fit' }, { key: 'hideUnlikely', label: 'Pre-screen', value: 'Hide unlikely' },
     ])
     expect(removeFilterChip(removeFilterChip(f, 'screen:likely'), 'hideUnlikely')).toEqual(DEFAULT_FILTERS)
+  })
+})
+
+describe('pruneStalePortals', () => {
+  it('drops portal filters for portals that no longer exist, keeps the rest', () => {
+    const f = { ...DEFAULT_FILTERS, portals: ['source:gone', 'source:ramp', NO_PORTAL] }
+    expect(pruneStalePortals(f, new Set(['source:ramp'])).portals).toEqual(['source:ramp', NO_PORTAL])
+    expect(pruneStalePortals(f, new Set(['source:gone', 'source:ramp']))).toBe(f)
   })
 })

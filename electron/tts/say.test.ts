@@ -94,6 +94,12 @@ describe('system engine', () => {
     expect(script).not.toContain('Remove-Item')
     expect(script).toContain('-Rate 0')
   })
+  it('windows: curly quotes in the voice id cannot end the PowerShell string', async () => {
+    const calls: string[][] = []
+    const eng = createSystemEngine({ platform: 'win32', powershell: async a => { calls.push(a); return '' }, readWav: async () => wav([1]), tmp: () => 'C:\\t\\out.wav', writeText: () => {}, rm: async () => {} })
+    for await (const _ of eng.synth('x', 'Zira\u2019; calc; \u2019', 1, new AbortController().signal)) { /* drain */ }
+    expect(calls[0][calls[0].indexOf('-Command') + 1]).toContain("-Voice 'Zira\u2019\u2019; calc; \u2019\u2019'")
+  })
   it('an aborted signal produces no audio', async () => {
     const ac = new AbortController(); ac.abort()
     const eng = createSystemEngine({ platform: 'darwin', exec: async () => '', readWav: async () => wav([1]), tmp: () => '/t', rm: async () => {} })

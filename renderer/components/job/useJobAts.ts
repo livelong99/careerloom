@@ -12,6 +12,6 @@ export function useJobAts(jobId: string) {
   const { refresh } = report
   const settled = useCallback(() => refresh(), [refresh])
   const ats = useAtsLive(settled, jobId)
-  return { report: report.data ?? null, loading: report.data === undefined && !report.error, live: ats.live, run: () => ats.analyze(''), answer: ats.answer }
+  return { report: report.data ?? null, loading: report.loading && !report.data, live: ats.live, run: () => ats.analyze(''), answer: ats.answer }
 }
 export type JobAts = ReturnType<typeof useJobAts>

@@ -30,7 +30,7 @@ export function parseRobots(text: string, token: string): Rules {
       if (cur && value !== '') cur.rules.push({ allow: field === 'allow', re: toRegExp(value), len: value.length })
     } else lastWasAgent = false
   }
-  const named = groups.filter(g => g.agents.some(a => a !== '*' && want.includes(a)))
+  const named = groups.filter(g => g.agents.some(a => a !== '*' && a !== '' && want.includes(a)))
   const chosen = named.length ? named : groups.filter(g => g.agents.includes('*'))
   return chosen.flatMap(g => g.rules)
 }

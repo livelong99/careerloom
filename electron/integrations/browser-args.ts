@@ -85,9 +85,11 @@ module.exports.default = async ({ page }) => {
  *  in-memory profile seeded only with the board's cookies, the user's installed Chrome, top-level
  *  navigation locked to the board's domain, and generous load timeouts for slow boards. */
 export function playwrightMcp(storageStateFile: string, headless: boolean, navLockFile: string, browser: 'chrome' | 'msedge' = 'chrome'): McpServer {
+  const win = process.platform === 'win32' // CLIs spawn MCP servers without a shell; npx is npx.cmd there
   return {
-    command: 'npx',
+    command: win ? 'cmd' : 'npx',
     args: [
+      ...(win ? ['/c', 'npx'] : []),
       '-y', PLAYWRIGHT_MCP, '--isolated', '--storage-state', storageStateFile, '--init-page', navLockFile,
       // Console logs and other artifacts (signed-in page output) go to the run's private temp dir, deleted
       // after the run — not the MCP's cwd, which some CLIs set to their own launch directory.

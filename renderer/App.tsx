@@ -127,7 +127,7 @@ function AppBody() {
   else if (shown === 'settings') body = <Settings settings={settings.data} onChanged={settings.refresh} target={settingsTarget} />
   else if (shown === 'overview') body = <Overview onNavigate={setSection} />
   else if (shown === 'jobs' || (shown === 'job' && !jobFocus)) body = <Jobs />
-  else if (shown === 'job') body = <Job id={jobFocus!} />
+  else if (shown === 'job') body = <Job key={jobFocus} id={jobFocus!} />
   else if (shown === 'boards') body = <Boards focusId={boardFocus} onFocusHandled={() => setBoardFocus(null)} />
   else if (shown === 'resume') body = <Resume />
   else if (shown === 'runs') body = <Runs focusId={runsFocus} onFocusHandled={clearRunsFocus} />

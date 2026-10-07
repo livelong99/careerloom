@@ -34,6 +34,8 @@ export type UpdateStatus = {
 
 type GitHubRelease = { tag_name?: string }
 
+const FAIL_BACKOFF_MS = 5 * 60_000
+
 function baselineStatus(currentVersion: string): UpdateStatus {
   return { currentVersion, latestVersion: null, updateAvailable: false, tag: null }
 }
@@ -44,8 +46,8 @@ export function compareSemver(a: string, b: string): number {
   const pa = a.split('.')
   const pb = b.split('.')
   for (let i = 0; i < 3; i++) {
-    const x = Number(pa[i] ?? 0) || 0
-    const y = Number(pb[i] ?? 0) || 0
+    const x = parseInt(pa[i] ?? '0', 10) || 0
+    const y = parseInt(pb[i] ?? '0', 10) || 0
     if (x !== y) return x < y ? -1 : 1
   }
   return 0
@@ -127,8 +129,9 @@ export function createUpdateChecker(opts: {
           }
         }
       } catch {
-        // Offline / GitHub error / timeout: silent no-op. Keep the last known
-        // status and leave lastCheckedAt so the next cycle retries.
+        // Offline / GitHub error / private repo (404): silent no-op. Keep the last known
+        // status and retry after a short backoff, not on every getStatus poll.
+        lastCheckedAt = now() - intervalMs + FAIL_BACKOFF_MS
       } finally {
         clearTimeout(timer)
         inflight = null

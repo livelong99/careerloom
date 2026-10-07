@@ -56,7 +56,7 @@ export function Monitoring({ onNavigate }: { onNavigate: (s: Section) => void })
   const { generation } = useRuns()
   const [rangeOpt, setRangeOpt] = useState<RangeOpt>('30d')
   const range = useMemo(() => rangeFor(rangeOpt), [rangeOpt])
-  const metrics = usePolled(() => careerloom.getMetrics(range), [generation, range?.from, range?.to], { intervalMs: POLL_MS })
+  const metrics = usePolled(() => careerloom.getMetrics(range), [generation, range?.from, range?.to], { intervalMs: POLL_MS, memoKey: `metrics:${range?.from ?? ''}:${range?.to ?? ''}` })
   const tracker = usePolled(() => careerloom.getTracker(), [generation], { intervalMs: POLL_MS, memoKey: 'tracker' })
   const profile = usePolled(() => careerloom.profileStatus(), [generation], { intervalMs: null })
 

@@ -9,6 +9,7 @@ import {
   appendPending, companyKey, deriveJobs, derivePortals, GUIDELINES_HEADING, normUrl, parseScanHistory,
   readGuidelines, subsetPortalsYaml, upsertGuideline, type JobInputs,
 } from './jobs-data'
+import { evaluatingJobIds } from './jobs'
 import { withSourceIds } from './integrations/sources'
 
 const HEADER = 'url\tfirst_seen\tportal\ttitle\tcompany\tstatus\tlocation\tfingerprint\tposted_at\ttrust_score\ttrust_flags\tnormalized_company'
@@ -172,5 +173,15 @@ describe('guidelines block', () => {
     expect(text.split('\n').filter(l => /^#{1,3}\s/.test(l))).toEqual(['# X', '## After', GUIDELINES_HEADING, '### Acme Evil'])
     expect(text).not.toContain('\r')
     expect(() => upsertGuideline(custom, 'A', 'bad\0')).toThrow()
+  })
+})
+
+describe('evaluatingJobIds', () => {
+  it('lists only jobs with a running evaluate run', () => {
+    const ids = evaluatingJobIds([
+      { mode: 'evaluate', status: 'running', jobId: 'a' }, { mode: 'evaluate', status: 'done', jobId: 'b' },
+      { mode: 'scan', status: 'running', jobId: 'c' }, { mode: 'evaluate', status: 'running', jobId: null },
+    ])
+    expect([...ids]).toEqual(['a'])
   })
 })

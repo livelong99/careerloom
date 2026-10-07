@@ -41,7 +41,7 @@ const merge = <T extends { id: string }>(old: T[], next: T[], keep: (o: T, n: T)
   return [...out.values()]
 }
 /** Research re-finds an item: refresh the facts, keep what the user and the practice runs wrote. A user-edited item keeps its own fields. */
-const mergeItem = (o: KbItem, n: KbItem): KbItem => ({ ...(o.user.edited ? { ...n, text: o.text, type: o.type, skills: o.skills, difficulty: o.difficulty } : n), id: o.id, user: o.user, stats: o.stats })
+const mergeItem = (o: KbItem, n: KbItem): KbItem => ({ ...(o.user.edited ? { ...n, text: o.text, type: o.type, skills: o.skills, difficulty: o.difficulty } : n), id: o.id, user: o.user, stats: o.stats, ...(o.provenance === 'user' ? { provenance: o.provenance } : {}) })
 const priority = (i: KbItem): number => (i.user.pinned || i.user.edited || i.provenance === 'user' ? 1 : 0)
 const capItems = (items: KbItem[]): KbItem[] => {
   if (items.length <= LIMITS.items) return items
