@@ -25,6 +25,11 @@ describe('debug log', () => {
     const l = JSON.parse(formatLine('t', 'm', { apiKey: 'abc', Authorization: 'Bearer z', promptTokens: 12, note: 'key sk-or-v1-abcdef1234567890', err: new Error('boom') }))
     expect(l.data).toMatchObject({ apiKey: '[hidden]', Authorization: '[hidden]', promptTokens: 12, note: 'key sk-…', err: { message: 'boom' } })
   })
+  it('masks Bearer tokens, key-in-URL params and other providers\' key shapes inside free text', () => {
+    const l = JSON.parse(formatLine('t', 'm', { err: 'GET https://x.test/v1?key=AIzaSyABCDEF123456&q=1 401 Authorization: Bearer abc.def-123', fc: 'fc-0123456789abcdef0123', refreshToken: 'r', refresh_token: 'r2', clientSecret: 's', maxTokens: 3 }))
+    expect(JSON.stringify(l)).not.toMatch(/AIzaSy|abc\.def|fc-0123|"r"|"r2"|"s"/)
+    expect(l.data.maxTokens).toBe(3)
+  })
   it('truncates huge lines', () => { expect(formatLine('t', 'm', { x: 'a'.repeat(20000) }).length).toBeLessThan(6200) })
   it('refuses a missing folder so Settings can say why', () => {
     expect(() => setDebugLogDir(path.join(tmp(), 'nope'))).toThrow()

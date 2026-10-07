@@ -71,7 +71,7 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
       systemSource: pick(audio.systemSource, ['loopback', 'virtual'], d.audio.systemSource), virtualDeviceId: strOrNull(audio.virtualDeviceId, d.audio.virtualDeviceId),
     },
     stt: {
-      engine: pick(stt.engine, ['moonshine', 'whisper-mlx', 'faster-whisper'], d.stt.engine), model: strOrNull(stt.model, d.stt.model),
+      engine: pick(stt.engine, ['moonshine', 'whisper-mlx', 'faster-whisper', 'parakeet'], d.stt.engine), model: strOrNull(stt.model, d.stt.model),
       device: pick(stt.device, ['auto', 'cpu', 'coreml', 'cuda'], d.stt.device), language: 'en',
       lastBenchmark: benchmark(stt.lastBenchmark), endSilenceMs: num(stt.endSilenceMs, d.stt.endSilenceMs, 200, 3000), vocab: words(stt.vocab, d.stt.vocab),
     },

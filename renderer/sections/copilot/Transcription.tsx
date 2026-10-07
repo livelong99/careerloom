@@ -52,7 +52,7 @@ export function TranscriptionPage() {
   }
   const addWord = (): void => {
     const w = word.trim()
-    if (!w || stt.vocab.includes(w)) return setWord('')
+    if (!w || stt.vocab.length >= 200 || stt.vocab.some(x => x.toLowerCase() === w.toLowerCase())) return setWord('')
     void save({ stt: { vocab: [...stt.vocab, w] } }); setWord('')
   }
 
@@ -102,7 +102,7 @@ export function TranscriptionPage() {
                 <button type="button" aria-label={`Remove word ${w}`} className="cursor-pointer border-0 bg-transparent p-0 text-muted-foreground hover:text-foreground" onClick={() => void save({ stt: { vocab: stt.vocab.filter(x => x !== w) } })}>×</button>
               </span>
             ))}
-            <input aria-label="New word" className={`${selectClass} min-w-32`} value={word} onChange={e => setWord(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addWord() }} />
+            <input aria-label="New word" maxLength={60} className={`${selectClass} min-w-32`} value={word} onChange={e => setWord(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addWord() }} />
             <Button variant="outline" size="sm" aria-label="Add word" onClick={addWord}>Add</Button>
           </div>
         </Row>

@@ -4,8 +4,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const MASK_KEY = /cookie|authorization|api[_-]?key|password|secret|bearer|^token$|access[_-]?token/i
-const KEYISH = /\bsk-[A-Za-z0-9_-]{8,}/g
+const MASK_KEY = /cookie|authorization|api[_-]?key|password|secret|bearer|credential|^token$|(access|refresh|id|auth|session)[_-]?token/i
+// secrets inside free text (error messages, URLs, headers): sk-/fc-/BSA key shapes, Bearer tokens, ?key=/token= query values
+const KEYISH = /\b(?:sk|fc)-[A-Za-z0-9_-]{8,}|\bBSA[A-Za-z0-9_-]{16,}|\bBearer\s+[A-Za-z0-9._~+/=-]{8,}|([?&](?:api[_-]?key|key|token|access_token)=)[^&\s"']+/gi
 const MAX_LINE = 6000
 
 let dir: string | null = null
@@ -18,7 +19,7 @@ export function formatLine(src: string, msg: string, data?: unknown, at = new Da
     if (k && MASK_KEY.test(k)) return '[hidden]'
     if (v instanceof Error) return { name: v.name, message: v.message, stack: v.stack }
     if (typeof v === 'bigint') return String(v)
-    return typeof v === 'string' ? v.replace(KEYISH, 'sk-…') : v
+    return typeof v === 'string' ? v.replace(KEYISH, (m: string, q?: string) => (q ? `${q}…` : /^sk-/i.test(m) ? 'sk-…' : '[hidden]')) : v
   })
   return line.length > MAX_LINE ? `${line.slice(0, MAX_LINE)}…[truncated ${line.length - MAX_LINE}]` : line
 }
@@ -32,8 +33,12 @@ export function debugLog(src: string, msg: string, data?: unknown): void {
 export function setDebugLogDir(next: string | null): void {
   if (next === dir) return
   if (next !== null) {
-    if (!path.isAbsolute(next) || !fs.statSync(next).isDirectory()) throw new Error('Choose an existing folder for the debug log')
-    fs.appendFileSync(fileFor(next), `${formatLine('debug', 'log started')}\n`) // a write probe: surfaces permission errors now
+    let isDir = false
+    try { isDir = path.isAbsolute(next) && fs.statSync(next).isDirectory() } catch { /* reported below */ }
+    if (!isDir) throw new Error('Choose an existing folder for the debug log')
+    try { fs.appendFileSync(fileFor(next), `${formatLine('debug', 'log started')}\n`) } catch (err) { // a write probe: surfaces permission errors now
+      throw new Error(`Can't write to that folder (${(err as NodeJS.ErrnoException).code ?? 'error'}). Choose another one.`)
+    }
   } else debugLog('debug', 'log stopped')
   dir = next
 }

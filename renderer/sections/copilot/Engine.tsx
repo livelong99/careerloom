@@ -73,7 +73,7 @@ export function EnginePage() {
           </Row>
         )}
         <Row label="Read screenshots with" hint="Vision models read the picture directly. Reading it as text is not built yet.">
-          <SegTabs options={[{ value: 'vision', label: 'Vision model' }, { value: 'ocr', label: 'Text only (OCR): not available yet' }]} value={e.vision} onChange={v => patch({ vision: v as 'vision' | 'ocr' })} />
+          <SegTabs options={[{ value: 'vision', label: 'Vision model' }, { value: 'ocr', label: 'Text only (OCR): not available yet', disabled: true }]} value={e.vision} onChange={v => patch({ vision: v as 'vision' | 'ocr' })} />
         </Row>
       </Group>
     </Page>
