@@ -50,6 +50,7 @@ export function factCheck(before: string, after: string, answers: Array<string |
     for (const m of body.matchAll(NAME)) {
       if (m.index === 0 || /[.!?]\s*$/.test(body.slice(0, m.index))) continue // sentence opener: a verb, not a name
       const phrase = m[0]
+      if (/^[A-Z]{2,}s$/.test(phrase)) continue // a plural acronym (VMs, APIs, SLAs) is a term, not a name
       const words = phrase.split(/\s+/)
       if (words.every(w => COMMON.has(w.toLowerCase()) || lower.includes(w.toLowerCase()))) continue
       if (extractSkills(phrase).size) continue // reported above as a skill

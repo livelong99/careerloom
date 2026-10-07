@@ -83,3 +83,10 @@ it('undo stack is capped at 50, newest kept', () => {
   expect(s).toHaveLength(UNDO_LIMIT)
   expect(s[s.length - 1]!.undoId).toBe(`u${UNDO_LIMIT + 4}`)
 })
+
+describe('plural acronyms', () => {
+  it('does not flag "VMs" as an invented name', () => {
+    const r = factCheck('Led a Kubernetes migration.', 'Led a Kubernetes migration.\nWe moved services from VMs to containers.', [])
+    expect(r.violations.filter(v => v.includes('VMs'))).toEqual([])
+  })
+})

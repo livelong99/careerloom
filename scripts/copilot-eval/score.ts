@@ -93,7 +93,7 @@ const LEAK = /<\/?think|<reasoning|\b(system prompt|these rules|rule \d|the mark
 function leak(t: Turn): string | null {
   const pre = t.raw.slice(0, Math.max(0, t.raw.search(/\[SAY\]/i)))
   if (/\[SAY\]/i.test(t.raw) ? pre.trim() : t.raw.trim() && !t.suggestion) return 'text before the first marker'
-  const m = LEAK.exec(t.raw)
+  const m = LEAK.exec(t.raw.replace(/\[PROOF\][\s\S]*$/i, '')) // a proof line's source label ("CANDIDATE FACTS") is the requested format, not a leak
   return m ? `reasoning/prompt leak "${m[0].slice(0, 30)}"` : null
 }
 
