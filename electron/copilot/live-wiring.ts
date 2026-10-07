@@ -84,7 +84,7 @@ export function createLiveWiring(d: WiringDeps) {
   let manual = 0
   const answeredLines = new Set<string>() // transcript lines already answered on demand: their final is not a new question
   let current: AbortController | null = null
-  let tail: { q: DetectedQuestion; text: string; at: number } | null = null // the last interviewer final that became a question
+  let tail: { q: DetectedQuestion; text: string; at: number; asked: boolean } | null = null // the last interviewer final that became a question
   let gen = 0 // bumped by reset/Clear: a detection that was already awaiting the detector when it happened is dropped
   let deferred: ReturnType<typeof setTimeout> | null = null // an auto-ask waiting out the min gap
   let lastAsk: { key: string; at: number; live: boolean; failed: boolean } | null = null // the answer most recently started, for the same-question dedupe
@@ -152,7 +152,8 @@ export function createLiveWiring(d: WiringDeps) {
     grab().catch(() => undefined)
   }
 
-  const undefer = (): void => { gen++; if (deferred) clearTimeout(deferred); deferred = null }
+  const unschedule = (): void => { if (deferred) clearTimeout(deferred); deferred = null }
+  const undefer = (): void => { gen++; unschedule() } // gen: detections already awaiting the detector are dropped (reset, Clear, stop, panic)
   const reset = (): void => { dropScreen(); lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; tail = null; lastAsk = null; undefer(); d.detector.reset(); auto.reset(); spec.cancel() }
   const error = (message: string, extra: { actions?: CopilotEvents['copilotError']['actions']; suggestion?: string } = {}): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false, ...extra })
   const engineError = (e: unknown): void => {
@@ -176,8 +177,8 @@ export function createLiveWiring(d: WiringDeps) {
     if (g !== gen) return spec.take(l.id, '', '').run?.abort()
     const taken = spec.take(l.id, l.text, q?.id ?? '') // an early request for this line: adopted if the final matches, aborted otherwise
     if (!q) return taken.run?.abort()
-    if (merged) { q = { ...q, id: prev.q.id }; auto.unask(); debugLog('copilot', 'question merged', { id: q.id, text: q.text }) }
-    tail = { q, text: l.text, at: sttFinalAt }
+    if (merged) { q = { ...q, id: prev.q.id }; if (prev.asked) auto.unask(); debugLog('copilot', 'question merged', { id: q.id, text: q.text }) }
+    tail = { q, text: l.text, at: sttFinalAt, asked: false }
     addQuestion(q)
     prefetch(q)
     const cfg = d.config()
@@ -187,7 +188,7 @@ export function createLiveWiring(d: WiringDeps) {
       taken.run?.abort()
       // A clarification right behind the question hit the min gap: ask once it clears if nothing newer was said (the overlay already shows it).
       const wait = decision?.reason === 'rate' ? auto.gapMs() : 0
-      if (wait > 0) { undefer(); deferred = setTimeout(() => { deferred = null; if (lastQuestion?.id === q.id) void askLater(q, l, sttFinalAt) }, wait); deferred.unref?.() }
+      if (wait > 0) { unschedule(); deferred = setTimeout(() => { deferred = null; if (lastQuestion?.id === q.id) void askLater(q, l, sttFinalAt) }, wait); deferred.unref?.() }
       return
     }
     return startAuto(q, l, sttFinalAt, decision, taken)
@@ -200,6 +201,7 @@ export function createLiveWiring(d: WiringDeps) {
   }
 
   async function startAuto(q: DetectedQuestion, l: TranscriptLine, sttFinalAt: number, decision: Extract<ReturnType<typeof auto.decide>, { ask: true }>, taken: { run: SpecRun | null; outcome: TurnInfo['spec'] }): Promise<void> {
+    if (tail?.q.id === q.id) tail.asked = true
     const screenTurn = decision.route.needsScreenshot && d.screen !== undefined && screenGate(decision.route.tier) === null
     if (screenTurn) taken.run?.abort() // an early text-only request can't carry the frame
     // speech end = the line's audio end; STT-final and detector times come from the wall clock (PERF-1 trace).

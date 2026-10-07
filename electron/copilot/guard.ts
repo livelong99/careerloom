@@ -22,9 +22,12 @@ const OUTCOME = /\b(?:cut|reduced|improved|saved|increased|grew|boosted|lowered|
 const PERSONAL = /\b(?:I|I'm|I've|I'd|I'll|me|my|mine|we|we've|we're|our|ours)\b|[$€£₹]\s*\d/i
 const isClaim = (line: string): boolean => PERSONAL.test(line) || (/\d\s*%/.test(line) && OUTCOME.test(line))
 
+// A coding answer carries its code inside [SAY]: loop variables ("i"), literals and comments there are not claims about the candidate.
+const CODE_FENCE = /```[\s\S]*?(?:```|$)/g
+
 function draftLines(s: Suggestion): string {
   const star = s.star ? [s.star.s, s.star.t, s.star.a, s.star.r] : []
-  const personal = [s.say, ...s.bullets].flatMap(t => t.split('\n')).filter(isClaim)
+  const personal = [s.say.replace(CODE_FENCE, ''), ...s.bullets].flatMap(t => t.split('\n')).filter(isClaim)
   return [...personal, ...star].map(t => t.trim()).filter(Boolean).map(t => `- ${t}`).join('\n')
 }
 

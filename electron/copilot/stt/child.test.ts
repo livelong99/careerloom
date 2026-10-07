@@ -30,4 +30,19 @@ describe('spawnSidecarChild', () => {
     expect(code).toBeNull()
     expect(fs.readdirSync(dir).map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('')).toContain('spawn failed')
   })
+
+  it('caps the stderr lines logged per process: a library warning on every frame cannot fill the log', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-child-'))
+    const script = path.join(dir, 'noisy.js')
+    fs.writeFileSync(script, "for (let i = 0; i < 5000; i++) console.error('warning ' + i)")
+    setDebugLogDir(dir)
+    const c = spawnSidecarChild({ python: process.execPath, script, cache: '', pin: '', models: [] })
+    await new Promise<void>(r => c.onExit(() => r()))
+    await new Promise(r => setTimeout(r, 50))
+    const log = fs.readdirSync(dir).filter(f => f.endsWith('.log')).map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('')
+    const lines = log.split('\n').filter(l => l.includes('"msg":"stderr"')).length
+    expect(lines).toBeLessThanOrEqual(201)
+    expect(log).toContain('further stderr lines not logged')
+    expect(log).toMatch(/"msg":"exit"/)
+  })
 })

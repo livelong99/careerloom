@@ -81,7 +81,8 @@ describe('overlay host wiring', () => {
   })
 
   it('expand toggles strip/panel from the persisted layout; toggle hides/shows; quickHide toggles', () => {
-    const { host, overlay, hotkeyHandler } = setup() // default layout = strip
+    let t = 0
+    const { host, overlay, hotkeyHandler } = setup(DEFAULT_CONFIG, () => t) // default layout = strip
     host.publishState(listening)
     hotkeyHandler()('expand')
     expect(overlay.apply).toHaveBeenLastCalledWith({ collapse: false })
@@ -89,7 +90,7 @@ describe('overlay host wiring', () => {
     expect(overlay.apply).toHaveBeenLastCalledWith({ hide: true })
     hotkeyHandler()('quickHide')
     expect(overlay.apply).toHaveBeenLastCalledWith({ quickHide: true })
-    hotkeyHandler()('quickHide')
+    t += 1000; hotkeyHandler()('quickHide')
     expect(overlay.apply).toHaveBeenLastCalledWith({ quickHide: false })
   })
 
@@ -205,12 +206,13 @@ describe('overlay host wiring', () => {
   })
 
   it('toggle while quick-hidden shows the window again and un-wipes it, so the next quick-hide hides', () => {
-    const { host, overlay, hotkeyHandler } = setup()
+    let t = 0
+    const { host, overlay, hotkeyHandler } = setup(DEFAULT_CONFIG, () => t)
     host.publishState(listening)
     hotkeyHandler()('quickHide')
     hotkeyHandler()('toggle')
     expect(overlay.apply).toHaveBeenLastCalledWith({ quickHide: false })
-    hotkeyHandler()('quickHide')
+    t += 1000; hotkeyHandler()('quickHide')
     expect(overlay.apply).toHaveBeenLastCalledWith({ quickHide: true })
   })
 

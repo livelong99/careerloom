@@ -27,7 +27,7 @@ export type HostDeps = {
 
 type OverlayCmd = Parameters<CopilotApi['copilotOverlay']>[0]
 const ACTIONS = new Set<HotkeyAction>(['answer', 'followup', 'clarify', 'screenshot', 'summarise', 'listen', 'clear'])
-const REPEAT_MS = 400 // a held key auto-repeats (Windows especially): one press = one request
+const REPEAT_MS = 400 // a held key auto-repeats (Windows especially): one press = one request (or one toggle)
 const ACTION_NAME: Partial<Record<HotkeyAction, string>> = { answer: 'Answer', followup: 'Follow-up', clarify: 'Clarify', screenshot: 'Screenshot', summarise: 'Summarise', expand: 'Expand or collapse', listen: 'Listen', toggle: 'Show or hide', quickHide: 'Quick hide', clear: 'Clear', panic: 'Stop' }
 const REASON_TEXT = { 'in-use': 'is in use by another app', reserved: 'is reserved by the system', invalid: 'is not a valid shortcut' } as const
 const configKey = (c: CopilotConfig): string => JSON.stringify([c.overlay, c.privacy, c.hotkeys])
@@ -64,7 +64,7 @@ export function createOverlayHost(deps: HostDeps) {
 
   function onHotkey(action: HotkeyAction): void {
     debugLog('hotkey', 'pressed', { action })
-    if (ACTIONS.has(action)) {
+    if (action !== 'panic') { // panic is idempotent and must never be swallowed
       const t = now()
       if (t - (lastPress.get(action) ?? -Infinity) < REPEAT_MS) return
       lastPress.set(action, t)

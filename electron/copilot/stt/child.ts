@@ -6,6 +6,7 @@ import type { SidecarChild } from './sidecar'
 import type { SttRuntime } from './runtime'
 
 const live = new Set<ChildProcess>()
+const STDERR_MAX_LINES = 200
 /** Kill running STT sidecars (session stop, app quit). */
 export const killSttSidecars = () => { for (const c of live) c.kill('SIGKILL') }
 
@@ -15,7 +16,13 @@ export function spawnSidecarChild(rt: SttRuntime, env?: NodeJS.ProcessEnv): Side
   live.add(c)
   const name = path.basename(path.dirname(path.dirname(path.dirname(rt.python)))) // <engine>/venv/{bin,Scripts}/python
   c.stderr.setEncoding('utf8')
-  c.stderr.on('data', (t: string) => { for (const l of t.split(/\r?\n/)) if (l.trim()) debugLog('stt', 'stderr', { engine: name, line: l.slice(0, 500) }) })
+  let logged = 0
+  c.stderr.on('data', (t: string) => {
+    for (const l of t.split(/\r?\n/)) {
+      if (!l.trim() || logged > STDERR_MAX_LINES) continue // a library that warns on every frame must not fill the log
+      debugLog('stt', 'stderr', { engine: name, line: ++logged > STDERR_MAX_LINES ? `…further stderr lines not logged (cap ${STDERR_MAX_LINES})` : l.slice(0, 500) })
+    }
+  })
   c.on('error', err => debugLog('stt', 'spawn failed', { engine: name, message: err.message })) // ENOENT: the venv python is gone
   c.on('exit', (code, signal) => { live.delete(c); debugLog('stt', 'exit', { engine: name, code, signal }) })
   c.stdin.on('error', () => {}) // EPIPE after a crash is reported through exit

@@ -85,4 +85,9 @@ describe('guardSuggestion with general knowledge', () => {
     expect(r.flags).toEqual([])
     expect(guardSuggestion(src, s({ bullets: ['Cut costs by 75%'] })).flags.map(f => f.kind)).toContain('unsupported-number')
   })
+  it('ignores the fenced code block of a coding answer (loop variable "i", numbers in comments)', () => {
+    const code = 'Use a hash map, one pass.\n```python\nfor i, n in enumerate(nums):\n    seen[n] = i  # 2 lookups per element\n```'
+    expect(guardSuggestion(src, s({ say: code })).flags).toEqual([])
+    expect(guardSuggestion(src, s({ say: 'Use a hash map.\n```python\nfor i in x:  # 2 lookups' })).flags).toEqual([]) // unterminated fence
+  })
 })
