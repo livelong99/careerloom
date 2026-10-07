@@ -8,7 +8,7 @@ vi.mock('node:dns/promises', () => ({ lookup: async (host: string) => [{ address
 const browserPageText = vi.fn(async (_url: string) => `- heading "Senior Software Engineer"\n- paragraph: ${'Build distributed Java services. '.repeat(30)}`)
 vi.mock('./integrations/browser-fetch', () => ({ browserPageText }))
 vi.mock('./integrations/firecrawl', async importOriginal => ({ ...(await importOriginal<object>()), firecrawlReady: async () => false }))
-const { directJd, ensureTracker, queuedJobIds, runChain, parseWorkerResult, prefetchJd, profileProblems, workerPrompt } = await import('./jobs-batch')
+const { DeadPostingError, isDeadPosting, directJd, ensureTracker, queuedJobIds, runChain, parseWorkerResult, prefetchJd, profileProblems, workerPrompt } = await import('./jobs-batch')
 
 function tree(files: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-batch-'))
@@ -134,5 +134,23 @@ describe('runChain', () => {
   it('frees the claim when the first launch throws', async () => {
     await expect(runChain([job('x'), job('y')], () => Promise.reject(new Error('no runner')))).rejects.toThrow('no runner')
     expect([...queuedJobIds()]).toEqual([])
+  })
+  it('skips a taken-down posting and carries on with the rest of the chain', async () => {
+    const launched: string[] = []
+    await runChain([job('a'), job('b')], (j) => {
+      const id = (j as { id: string }).id
+      if (id === 'a') return Promise.reject(new DeadPostingError({ company: 'Google', title: 'SWE' }))
+      launched.push(id); return Promise.resolve({} as never)
+    })
+    expect(launched).toEqual(['b'])
+  })
+})
+
+describe('isDeadPosting', () => {
+  it('spots removed-posting notices but not real descriptions', () => {
+    expect(isDeadPosting('Job not found. This job may have been taken down.')).toBe(true)
+    expect(isDeadPosting('Sorry, this position is no longer available.')).toBe(true)
+    expect(isDeadPosting('Senior engineer. You will build things. '.repeat(100) + ' job not found')).toBe(false)
+    expect(isDeadPosting('We are hiring a backend engineer to own our job search service.')).toBe(false)
   })
 })

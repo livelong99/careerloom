@@ -116,6 +116,14 @@ export async function prefetchJd(url: string): Promise<string> {
 
 const MIN_JD = 400
 
+/** The page is a "this posting is gone" notice, not a job description: evaluating it only burns an agent run. */
+const DEAD = /job not found|(?:job|position|posting|role|vacancy)[^.\n]{0,40}(?:no longer (?:available|accepting|open)|has been (?:removed|filled|closed|taken down)|(?:is|was) (?:removed|closed|filled|expired))|may have been taken down|this job (?:has )?expired|page (?:you(?:'|’)re looking for )?(?:cannot|can(?:'|’)t) be found/i
+export const isDeadPosting = (jd: string): boolean => jd.length < 3000 ? DEAD.test(jd) : DEAD.test(jd.slice(0, 1500))
+
+export class DeadPostingError extends Error {
+  constructor(job: { company: string; title: string }) { super(`${job.company} — ${job.title}: the posting has been taken down, so there is nothing to evaluate`) }
+}
+
 /** Plain fetch (public hosts only, redirects re-checked). Script-rendered boards still ship the
  *  posting as JSON-LD for search engines; markdown converters drop that script, so read it here. */
 export async function directJd(raw: string): Promise<string> {
@@ -164,7 +172,14 @@ async function launchWorker(job: JobListing, index: number, total: number, env: 
   const jdFile = path.join(dir, `${id}.jd.md`)
   const promptFile = path.join(dir, `${id}.worker.md`)
   const release = () => runScript(['reserve-report-num.mjs', '--release', reportNum]).catch(() => undefined)
-  try { fs.writeFileSync(jdFile, await prefetchJd(job.url)) } catch (err) { await release(); throw err }
+  let jd = ''
+  try { jd = await prefetchJd(job.url) } catch (err) { await release(); throw err }
+  if (isDeadPosting(jd)) {
+    await release()
+    appendBatchState(root, { id, url: job.url, status: 'expired', startedAt: new Date().toISOString(), reportNum: '-', score: null, error: 'posting removed' })
+    throw new DeadPostingError(job)
+  }
+  fs.writeFileSync(jdFile, jd)
   const date = new Date().toISOString().slice(0, 10)
   fs.writeFileSync(promptFile, workerPrompt(template, { url: job.url, jdFile: path.relative(root, jdFile), reportNum, date, id }))
   const startedAt = new Date().toISOString()
@@ -209,7 +224,12 @@ export function runChain(jobs: JobListing[], launch: (job: JobListing, i: number
     queued.delete(jobs[i]!.id)
     if (run.status !== 'cancelled' && i + 1 < jobs.length) step(i + 1).catch(err => console.error('batch evaluation stopped:', err))
     else drop(i + 1)
-  }).catch(err => { drop(i); throw err })
+  }).catch(err => {
+    queued.delete(jobs[i]!.id)
+    // A taken-down posting is that job's problem, not the chain's: skip it without an agent run.
+    if (err instanceof DeadPostingError && i + 1 < jobs.length) return step(i + 1)
+    drop(i + 1); throw err
+  })
   return step(0)
 }
 
