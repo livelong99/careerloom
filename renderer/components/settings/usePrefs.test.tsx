@@ -21,4 +21,16 @@ describe('usePrefs.patch', () => {
     await act(async () => { slow[0]!() })
     expect(result.current.prefs?.retention.runLogDays).toBe(30)
   })
+
+  it('when the newest edit is refused too, the screen shows what main really has, not the older refused edit', async () => {
+    api.prefsGet.mockResolvedValue(P)
+    const fail: Array<() => void> = []
+    api.prefsSet.mockImplementation(() => new Promise((_, rej) => fail.push(() => rej(new Error('no')))))
+    const { result } = renderHook(() => usePrefs())
+    await waitFor(() => expect(result.current.prefs).not.toBeNull())
+    act(() => { void result.current.patch({ retention: { runLogDays: 7 } }) })
+    act(() => { void result.current.patch({ retention: { runLogDays: 30 } }) })
+    await act(async () => { fail[0]!(); fail[1]!() })
+    await waitFor(() => expect(result.current.prefs?.retention.runLogDays).toBeNull())
+  })
 })

@@ -197,14 +197,27 @@ async function launchWorker(job: JobListing, index: number, total: number, env: 
   })
 }
 
+/** Jobs waiting in or running as part of an evaluation chain: a second Evaluate click must skip them. */
+const queued = new Set<string>()
+export const queuedJobIds = (): ReadonlySet<string> => queued
+
+/** Run `launch` for each job one after another; the next starts when the previous ends. Cancelling or a failed launch stops the chain. */
+export function runChain(jobs: JobListing[], launch: (job: JobListing, i: number, next: (run: RunRecord) => void) => Promise<RunSummary>): Promise<RunSummary> {
+  jobs.forEach(j => queued.add(j.id))
+  const drop = (from: number) => jobs.slice(from).forEach(j => queued.delete(j.id))
+  const step = (i: number): Promise<RunSummary> => launch(jobs[i]!, i, run => {
+    queued.delete(jobs[i]!.id)
+    if (run.status !== 'cancelled' && i + 1 < jobs.length) step(i + 1).catch(err => console.error('batch evaluation stopped:', err))
+    else drop(i + 1)
+  }).catch(err => { drop(i); throw err })
+  return step(0)
+}
+
 /** Evaluate `jobs` one after another. Resolves with the first run; the rest follow as each ends.
  *  Cancelling any run stops the chain. */
 export async function evaluateSelected(jobs: JobListing[], env: NodeJS.ProcessEnv): Promise<RunSummary> {
   const problems = profileProblems(careerOpsRoot(), dataRoot())
   if (problems.length) throw new Error(`Personalize your profile first so scores mean something: ${problems.join('; ')}. Use Resume → Build my profile.`)
   await mergeTracker().catch(err => console.error('merge-tracker failed:', err))
-  const step = (i: number): Promise<RunSummary> => launchWorker(jobs[i]!, i, jobs.length, env, run => {
-    if (run.status !== 'cancelled' && i + 1 < jobs.length) step(i + 1).catch(err => console.error('batch evaluation stopped:', err))
-  })
-  return step(0)
+  return runChain(jobs, (job, i, next) => launchWorker(job, i, jobs.length, env, next))
 }

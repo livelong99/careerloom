@@ -147,6 +147,8 @@ export type JobListing = {
   evaluatedAt: string | null
   /** Evaluated before the résumé last changed → worth re-running. */
   stale: boolean
+  /** Report came from the staged quick triage, not the full evaluation (Re-evaluate for the deep one). */
+  quick?: boolean
 }
 export type Portal = {
   id: string // slug-ish stable id derived from the portals.yml entry

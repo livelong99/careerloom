@@ -27,7 +27,9 @@ export function usePrefs(): { prefs: Prefs | null; patch: (p: PrefsPatch) => Pro
       const next = await careerloom.prefsSet(p)
       if (mine === seq.current) { ref.current = next; setPrefs(next) }
     } catch (e) {
-      if (mine === seq.current) { ref.current = before; setPrefs(before) }
+      if (mine === seq.current) { // earlier refused edits are baked into `before`: ask main what it really has
+        careerloom.prefsGet().then(p => { ref.current = p; setPrefs(p) }, () => { ref.current = before; setPrefs(before) })
+      }
       showToast(errorText(e), 'error')
     }
   }, [])

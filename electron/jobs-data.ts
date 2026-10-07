@@ -128,6 +128,7 @@ export function deriveJobs(input: JobInputs): JobListing[] {
       title: job.title || app.role, company: job.company || app.company,
       state, status: app.status, score: app.score ?? job.score, reportNum: app.num,
       reportPath: app.report, evaluatedAt,
+      quick: /quick triage/i.test(app.notes),
       stale: state === 'evaluated' && input.cvMtime !== null && evaluatedMs !== null && evaluatedMs < input.cvMtime,
     })
   }

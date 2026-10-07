@@ -67,8 +67,11 @@ function runFolder(root: string, ids: string[], profileKey: string): { runId: st
 
 const line = (m: StageMetric) => `▸ ${m.stage}: ${m.inCount} → ${m.outCount} in ${(m.ms / 1000).toFixed(1)}s${m.inputTokens ? ` · ${m.inputTokens + m.outputTokens} tokens` : ''}${m.usd ? ` · $${m.usd.toFixed(4)}` : ''}${m.errors ? ` · ${m.errors} errors` : ''}${m.note ? `\n  ⚠ ${m.note}` : ''}\n`
 
+let inFlight = false
+
 /** Staged evaluation of `jobs`: drops and judges them cheaply, writes quick reports, hands the best to the full agent. */
 export async function evaluateStaged(jobs: JobListing[], env: NodeJS.ProcessEnv): Promise<RunSummary> {
+  if (inFlight) throw new Error('A staged evaluation is already running — wait for it or cancel it in Runs')
   if (readSettings().runner === 'api') return evaluateSelected(jobs, env) // the OpenRouter runner can't take free-form prompts: the legacy path explains it
   const root = careerOpsRoot()
   const problems = profileProblems(root, dataRoot())
@@ -78,6 +81,7 @@ export async function evaluateStaged(jobs: JobListing[], env: NodeJS.ProcessEnv)
   const date = new Date().toISOString().slice(0, 10)
   const record = { runner: 'script' as const, mode: 'evaluate', label: `Evaluate ${jobs.length} jobs (staged)`, input: null, jobId: null }
 
+  inFlight = true
   return summary(launchTask(record, async (log, run) => {
     const ac = new AbortController()
     const watch = setInterval(() => { if (run.status === 'cancelled') ac.abort() }, 500)
@@ -106,7 +110,7 @@ export async function evaluateStaged(jobs: JobListing[], env: NodeJS.ProcessEnv)
         log(`▸ Escalating ${deep.length} best matches to the full evaluation (one run each, see Runs).\n`)
         await evaluateSelected(deep, env)
       }
-    } finally { clearInterval(watch) }
+    } finally { clearInterval(watch); inFlight = false }
   }))
 }
 

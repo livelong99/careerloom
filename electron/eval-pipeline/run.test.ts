@@ -55,6 +55,33 @@ describe('runPipeline', () => {
     expect(state).toHaveLength(light.length + 1)
   })
 
+  it('checkpoints each written job before the next number reservation (a crash mid-write never duplicates reports)', async () => {
+    const events: string[] = []
+    const h = harness({ n: 600 })
+    const d = h.deps()
+    const reserve = d.write!.reserve
+    d.write = { ...d.write!, reserve: async c => { events.push('reserve'); return reserve(c) } }
+    const dry = await runPipeline(h.world, { ...d, write: null })
+    const light = dry.results.filter(r => r.fate === 'light')
+    expect(light.length).toBeGreaterThan(50)
+    fs.writeFileSync(path.join(d.runDir, 's4.jsonl'), JSON.stringify(light[0]!.jobId) + '\n') // a previous run died after writing this one
+    await runPipeline(h.world, d)
+    expect(fs.readdirSync(path.join(h.root, 'reports'))).toHaveLength(light.length - 1)
+    const saved = fs.readFileSync(path.join(d.runDir, 's4.jsonl'), 'utf8').trim().split('\n')
+    expect(saved).toHaveLength(light.length) // the seeded id + every job written now
+    expect(events.filter(e => e === 'reserve').length).toBeGreaterThan(1)
+  })
+
+  it('a resumed run that has nothing left to write still runs merge-tracker (the crash may have hit before it)', async () => {
+    const h = harness({ n: 200 })
+    const d = h.deps()
+    const dry = await runPipeline(h.world, { ...d, write: null })
+    fs.writeFileSync(path.join(d.runDir, 's4.jsonl'), dry.results.filter(r => r.fate === 'light').map(r => JSON.stringify(r.jobId)).join('\n') + '\n')
+    await runPipeline(h.world, d)
+    expect(h.finalized()).toBe(1)
+    expect(fs.readdirSync(path.join(h.root, 'reports'))).toHaveLength(0)
+  })
+
   it('writes a Skip verdict as a SKIP tracker row and the rest as Evaluated', async () => {
     const h = harness({ n: 120 })
     const out = await runPipeline(h.world, h.deps())

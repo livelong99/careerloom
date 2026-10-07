@@ -13,7 +13,7 @@ import { readAllSources, subsetScanYaml, type Source } from './integrations/sour
 import { readBoardIndex, scanWebBoards } from './integrations/web-board'
 import { isWebBoard, portalIdForUrl } from './integrations/web-board-core'
 import { evaluateStaged } from './eval-pipeline/live'
-import { evaluateSelected } from './jobs-batch'
+import { evaluateSelected, queuedJobIds } from './jobs-batch'
 import { deriveJobs, derivePortals, parseScanHistory, readGuidelines, sanitizeName, upsertGuideline } from './jobs-data'
 import { resolveBin, spawnSpec } from './runner'
 
@@ -136,7 +136,7 @@ export const jobsHandlers: Record<string, Handler> = {
     const staged = readSettings().prefs.evalPipeline.enabled
     const wanted = new Set(ids(raw, 'ids', staged ? MAX_STAGED_IDS : MAX_IDS))
     if (!wanted.size) throw new Error('Select at least one job to evaluate')
-    const busy = evaluatingJobIds(runs.values())
+    const busy = new Set([...evaluatingJobIds(runs.values()), ...queuedJobIds()])
     const jobs = listJobs().filter(j => wanted.has(j.id) && !busy.has(j.id) && /^https?:\/\//i.test(j.url) && (force === true || j.reportNum === null))
     if (!jobs.length) throw new Error('Those jobs are already evaluated or being evaluated — use Re-evaluate to run them again')
     const env = await agentEnv()

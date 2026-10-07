@@ -46,7 +46,7 @@ function runToEnd(record: Pick<RunRecord, 'mode' | 'label' | 'input'> & { runner
 /** One public page rendered in the user's Chrome (headless, fresh profile, no cookies, navigation
  *  locked to its domain) as Playwright's page snapshot — for script-rendered pages that block plain
  *  HTTP clients (Naukri). Careerloom drives the tools itself: no agent, no tokens. */
-export async function browserPageText(url: string): Promise<string> {
+async function renderPage(url: string): Promise<string> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-jd-')) // mkdtemp is 0700
   let mcp: McpClient | null = null
   try {
@@ -63,6 +63,14 @@ export async function browserPageText(url: string): Promise<string> {
     mcp?.close()
     fs.rmSync(dir, { recursive: true, force: true })
   }
+}
+
+let renderTail: Promise<unknown> = Promise.resolve()
+/** One Chrome at a time: bulk evaluation fetches JDs 8 in flight and every blocked site lands here (16 GB machines). */
+export function browserPageText(url: string): Promise<string> {
+  const run = renderTail.then(() => renderPage(url))
+  renderTail = run.catch(() => undefined)
+  return run
 }
 
 export async function browserExtract(board: Source, guideline: string | undefined, log: (t: string) => void): Promise<WebJob[]> {
