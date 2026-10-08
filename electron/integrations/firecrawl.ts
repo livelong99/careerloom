@@ -56,7 +56,7 @@ function runCompose(verb: string[], composeDir: string | null, timeoutMs: number
   })
 }
 
-function runQuick(bin: string, args: string[], cwd?: string): Promise<string | null> {
+export function runQuick(bin: string, args: string[], cwd?: string): Promise<string | null> {
   let spec
   try { spec = spawnSpec(bin, args) } catch { return Promise.resolve(null) }
   return new Promise(resolve => {

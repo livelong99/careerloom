@@ -13,11 +13,14 @@ export type FirecrawlConfig = { url: string; composeDir: string }
 /** `sourceSet` = the user chose `source` (an unset "off" means Chrome's last-used profile when
  *  Chrome is installed); `pageWait` = seconds the browser agent waits after each page load. */
 export type BrowserLoginConfig = { source: 'off' | 'chrome' | 'file'; profile: string; cookiesFile: string; headless: boolean; testDomain: string; acks: string[]; sourceSet?: boolean; pageWait?: number; fast?: boolean }
-export type IntegrationsRegistry = { skills: SkillEntry[]; firecrawl: FirecrawlConfig; browser: BrowserLoginConfig }
+/** Self-hosted SearXNG for knowledge-base web search (loopback only). */
+export type SearxngConfig = { url: string }
+export type IntegrationsRegistry = { skills: SkillEntry[]; firecrawl: FirecrawlConfig; searxng: SearxngConfig; browser: BrowserLoginConfig }
 
 const DEFAULTS: IntegrationsRegistry = {
   skills: [],
   firecrawl: { url: 'http://127.0.0.1:3002', composeDir: '' },
+  searxng: { url: 'http://127.0.0.1:8888' },
   browser: { source: 'off', profile: 'Default', cookiesFile: '', headless: false, testDomain: 'github.com', acks: [] },
 }
 
@@ -27,6 +30,7 @@ export function readRegistry(): IntegrationsRegistry {
     return {
       skills: Array.isArray(raw.skills) ? raw.skills : [],
       firecrawl: { ...DEFAULTS.firecrawl, ...raw.firecrawl },
+      searxng: { ...DEFAULTS.searxng, ...raw.searxng },
       browser: { ...DEFAULTS.browser, ...raw.browser },
     }
   } catch {

@@ -8,6 +8,7 @@ import {
 import {
   firecrawlDetail, firecrawlPull, firecrawlStart, firecrawlStop, setFirecrawlConfig,
 } from './integrations/firecrawl'
+import { searxngDetail, searxngPull, searxngStart, searxngStop, setSearxngConfig } from './integrations/searxng'
 import { previewSkillInstall, installSkill, listSkills, getSkillDetail, removeSkill, repairCareerOps, updateSkill, updateCareerOps, setSkillEnabled } from './integrations/skills'
 import { parseGithubUrl } from './integrations/github'
 import { validateScrapeTarget } from './integrations/firecrawl-client'
@@ -43,13 +44,15 @@ function sourceToIntegration(c: Source): Integration {
 async function listAll(): Promise<Integration[]> {
   const firecrawlRow: Integration = await firecrawlDetail().then(({ checks: _c, config: _cf, logTail: _l, path: _p, ...row }) => row)
   const { checks: _c, config: _cf, logTail: _l, path: _p, ...browserRow } = browserLoginDetail()
-  return [...listSkills(), ...sources().map(sourceToIntegration), firecrawlRow, browserRow, ...listPlugins()]
+  const searxngRow: Integration = await searxngDetail().then(({ checks: _c, config: _cf, logTail: _l, path: _p, ...row }) => row)
+  return [...listSkills(), ...sources().map(sourceToIntegration), firecrawlRow, searxngRow, browserRow, ...listPlugins()]
 }
 
 async function getDetail(id: string): Promise<IntegrationDetail> {
   if (id.startsWith('skill:')) return getSkillDetail(id)
   if (id.startsWith('plugin:')) return getPluginDetail(id)
   if (id === 'service:firecrawl') return firecrawlDetail()
+  if (id === 'service:searxng') return searxngDetail()
   if (id === 'service:browser') return browserLoginDetail()
   if (id.startsWith('source:')) {
     const found = sources().find(c => c.id === id)
@@ -153,6 +156,12 @@ async function integrationAction(rawId: string, rawAction: string): Promise<Inte
     if (action === 'stop') return firecrawlStop()
     return firecrawlDetail() // 'check'
   }
+  if (id === 'service:searxng') {
+    if (action === 'install') return searxngPull()
+    if (action === 'start') return searxngStart()
+    if (action === 'stop') return searxngStop()
+    return searxngDetail()
+  }
   if (id === 'service:browser') return action === 'install' ? warmPlaywrightMcp() : testBrowserLogin()
   if (id.startsWith('plugin:')) {
     if (action === 'install') return installPlugin(id)
@@ -168,6 +177,7 @@ function setIntegrationConfig(rawId: string, patch: unknown): IntegrationDetail 
   const id = str(rawId, 'id')
   const p = (patch ?? {}) as Record<string, string | boolean | null>
   if (id === 'service:firecrawl') { setFirecrawlConfig(p); return firecrawlDetail() }
+  if (id === 'service:searxng') { setSearxngConfig(p); return searxngDetail() }
   if (id === 'service:browser') { setBrowserLoginConfig(p); return browserLoginDetail() }
   if (id.startsWith('plugin:')) { setPluginConfig(id, p); return getPluginDetail(id) }
   throw new Error(`"${id}" has no configuration`)

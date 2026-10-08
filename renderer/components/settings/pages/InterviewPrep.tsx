@@ -126,7 +126,7 @@ function SearchGroup({ c, save, keyTail }: { c: InterviewConfig; save: (p: Patch
         {needsKey && (keyTail?.has ? <Badge variant="success">Key set</Badge> : <Badge variant="warn">No key</Badge>)}
       </Row>
       {!needsKey && (
-        <Row label="SearXNG address" htmlFor="interview-searxng" hint="https, or http on this computer only (localhost). No password or query in the address.">
+        <Row label="SearXNG address" htmlFor="interview-searxng" hint={<>http on this computer, or https. No password or query. Don’t have one? <button type="button" className="text-brand-text underline-offset-2 hover:underline" onClick={() => goToSettings('integrations')}>Install it in Integrations</button> (needs Docker).</>}>
           <Draft label="SearXNG address" value={s.searxngUrl ?? ''} placeholder="http://localhost:8080" className="h-8 w-60" maxLength={200} parse={t => (t === '' ? null : /^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1|\[::1\])([:/]|$)/.test(t) && !/[?#@]/.test(t) ? t : undefined)} onCommit={v => save({ research: { search: { searxngUrl: v as string | null } } })} />
         </Row>
       )}
