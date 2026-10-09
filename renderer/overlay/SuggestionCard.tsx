@@ -9,16 +9,21 @@ const FLAG_LABEL: Record<Suggestion['flags'][number]['kind'], string> = {
 }
 
 /** Say first · Then cover · STAR skeleton (only real steps) · Proof · fact check. Streams: caret + shimmer rows. */
-export function SuggestionCard({ s }: { s: Suggestion }) {
-  const streaming = !s.done
+/** `compact`: only the headline (More detail is open under it). `onMore`: the More detail link in the answer's label row. */
+export function SuggestionCard({ s, compact, onMore, moreKbd, note }: { s: Suggestion; compact?: boolean; onMore?: () => void; moreKbd?: string; note?: string | null }) {
+  const streaming = !s.done && !(s.kind === 'detail' && note) // a note on the detail card means it failed where it broke off
   const { say, bullets, star, proof, flags } = s
+  const detail = s.kind === 'detail'
+  const noteEl = note ? <span className="more note" role="status" title={note}>{note}</span> : null
+  const more = onMore && !detail ? <button type="button" className="more" onClick={onMore} title="Expand this answer with background and depth"><OvIcon name="more" size={12} />More detail{moreKbd ? <span className="kbd">{moreKbd}</span> : null}</button> : null
+  if (compact && !detail) return <div className="sug compact"><div className="lbl"><OvIcon name="spark" size={12} />Say first</div><p className="say">{say}</p></div>
   return (
-    <div className="sug" aria-live="polite" aria-busy={streaming}>
-      <div className="lbl"><OvIcon name="spark" size={12} />Say first</div>
+    <div className={`sug${detail ? ' detail' : ''}`} aria-live="polite" aria-busy={streaming}>
+      <div className="lbl"><OvIcon name={detail ? 'more' : 'spark'} size={12} />{detail ? 'More detail · keep going with' : 'Say first'}{noteEl}{more}</div>
       <p className="say">{say}{streaming && bullets.length === 0 ? <span className="caret" /> : null}</p>
       {bullets.length > 0 || streaming ? (
         <>
-          <div className="lbl">Then cover</div>
+          <div className="lbl">{detail ? 'Background and likely follow-ups' : 'Then cover'}</div>
           <ul>
             {bullets.map((b, i) => <li key={i}>{b}{streaming && i === bullets.length - 1 ? <span className="caret" /> : null}</li>)}
             {streaming && bullets.length < 3 ? <li className="pend">.</li> : null}

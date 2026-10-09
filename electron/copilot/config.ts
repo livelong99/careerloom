@@ -5,7 +5,7 @@ import { userFile } from '../context'
 import { PROVIDER_IDS, type ProviderId } from '../llm/providers'
 import { isFastFor } from './fast-models'
 import { defaultHotkeys, migrateHotkey } from './hotkey-defaults'
-import { validateAccelerator } from './hotkeys'
+import { sameAccelerator, validateAccelerator } from './hotkeys'
 import { parseModelId } from './stt/hf-models'
 import { DEFAULT_HF_OPTIONS, defaultEngine } from './stt/runtime'
 import type { Anchor, CopilotConfig, DeepPartial, SttBenchmark } from './types'
@@ -62,6 +62,13 @@ function benchmark(v: unknown): SttBenchmark | null {
   }
 }
 
+/** `def`, or the same modifiers with another letter, whichever no other action already uses (def again if all are taken). */
+function freeShortcut(h: CopilotConfig['hotkeys'], key: keyof CopilotConfig['hotkeys'], def: string): string {
+  const prefix = def.slice(0, def.lastIndexOf('+') + 1)
+  const taken = (a: string) => (Object.keys(h) as Array<keyof typeof h>).some(k => k !== key && sameAccelerator(h[k], a))
+  return [def, ...'GJUYOPBNW'.split('').map(l => prefix + l)].find(a => !taken(a)) ?? def
+}
+
 /** Coerce anything (old/newer file, renderer patch) into a valid CopilotConfig; unknown keys are dropped. */
 export function normalizeConfig(raw: unknown): CopilotConfig {
   const d = DEFAULT_CONFIG
@@ -71,6 +78,12 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
   const hf = obj(stt.hf), sttEngine = pick(stt.engine, ['moonshine', 'whisper-mlx', 'faster-whisper', 'parakeet', 'hf'] as const, d.stt.engine), sttModel = strOrNull(stt.model, d.stt.model)
   const provider = pick<ProviderId>(eng.provider, PROVIDER_IDS, d.engine.provider)
   const accel = (k: keyof typeof d.hotkeys) => { const a = migrateHotkey(k, text(hk[k], d.hotkeys[k], 60) || d.hotkeys[k]); return validateAccelerator(a).ok ? a : d.hotkeys[k] }
+  const hotkeys: CopilotConfig['hotkeys'] = {
+    answer: accel('answer'), followup: accel('followup'), clarify: accel('clarify'), screenshot: accel('screenshot'), summarise: accel('summarise'), detail: accel('detail'),
+    expand: accel('expand'), listen: accel('listen'), toggle: accel('toggle'), quickHide: accel('quickHide'), clear: accel('clear'), panic: d.hotkeys.panic, // fixed by design
+  }
+  // More detail came after people had set their own shortcuts: a file without it gets the first default no other action uses.
+  if (hk.detail === undefined) hotkeys.detail = freeShortcut(hotkeys, 'detail', d.hotkeys.detail)
   return {
     version: 1,
     audio: {
@@ -101,10 +114,7 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
       width: num(ov.width, d.overlay.width, 280, 1200), fontPx: num(ov.fontPx, d.overlay.fontPx, 10, 28), opacity: num(ov.opacity, d.overlay.opacity, 0.6, 1),
       theme: pick(ov.theme, ['app', 'dark', 'light'], d.overlay.theme), clickThroughIdle: bool(ov.clickThroughIdle, d.overlay.clickThroughIdle), aboveFullscreen: bool(ov.aboveFullscreen, d.overlay.aboveFullscreen),
     },
-    hotkeys: {
-      answer: accel('answer'), followup: accel('followup'), clarify: accel('clarify'), screenshot: accel('screenshot'), summarise: accel('summarise'),
-      expand: accel('expand'), listen: accel('listen'), toggle: accel('toggle'), quickHide: accel('quickHide'), clear: accel('clear'), panic: d.hotkeys.panic, // fixed by design
-    },
+    hotkeys,
     privacy: {
       retentionDays: intOrNull(pr.retentionDays, d.privacy.retentionDays, 0, 3650), localOnly: bool(pr.localOnly, d.privacy.localOnly), redact: bool(pr.redact, d.privacy.redact),
       mode: {

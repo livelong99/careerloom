@@ -42,6 +42,8 @@ export function buildOverlayData(m: OverlayModel, { cfg, layout, now, wiped }: C
     cost: `$${sessionCost(m).toFixed(2)}`,
     question: m.question ? { type: TYPE_LABEL[m.question.type], text: m.question.text } : null,
     suggestion: s,
+    detail: m.detail && m.detail.questionId === m.question?.id ? m.detail : null,
+    detailNote: m.detailNote,
     lines: m.transcript.map(l => ({ id: l.id, who: l.speaker === 'you' ? 'You' : 'Interviewer', text: l.text, partial: !l.final })),
     levels: m.levels,
     engine: ENGINE_LABEL[cfg.stt.engine],
@@ -49,6 +51,6 @@ export function buildOverlayData(m: OverlayModel, { cfg, layout, now, wiped }: C
     savedMinutes: Math.round((now - started) / 60_000),
     problem: problemOf(m, state),
     screen: m.screen,
-    keys: { answer: kbdLabel(hk.answer), followup: kbdLabel(hk.followup), clarify: kbdLabel(hk.clarify), screenshot: kbdLabel(hk.screenshot), summarise: kbdLabel(hk.summarise), expand: kbdLabel(hk.expand), listen: kbdLabel(hk.listen), panic: kbdLabel(hk.panic) },
+    keys: { answer: kbdLabel(hk.answer), followup: kbdLabel(hk.followup), clarify: kbdLabel(hk.clarify), screenshot: kbdLabel(hk.screenshot), summarise: kbdLabel(hk.summarise), detail: kbdLabel(hk.detail), expand: kbdLabel(hk.expand), listen: kbdLabel(hk.listen), panic: kbdLabel(hk.panic) },
   }
 }

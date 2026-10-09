@@ -18,12 +18,13 @@ export type Route = {
 export function routeQuestion(q: Pick<DetectedQuestion, 'text' | 'auto' | 'hint'>, cfg: CopilotConfig['engine'], kind: PromptKind = 'answer'): Route {
   const hint = q.hint ?? heuristicHint(q.text)
   const small = hint.kind === 'small-talk'
-  const deep = kind === 'answer' && cfg.escalateForDesignCoding && !small && (hint.kind === 'coding' || hint.kind === 'system-design' || hint.deep)
+  const deep = (kind === 'answer' || kind === 'detail') && cfg.escalateForDesignCoding && !small && (hint.kind === 'coding' || hint.kind === 'system-design' || hint.deep)
+  const detail = kind === 'detail'
   return {
     kind: hint.kind,
-    tier: small ? 'fast' : deep ? 'deep' : cfg.tier,
-    maxTokensScale: small ? 0.4 : hint.kind === 'factual' ? 0.75 : 1,
-    variant: small || hint.kind === 'factual' ? 'brief' : 'default',
+    tier: small && !detail ? 'fast' : deep ? 'deep' : cfg.tier,
+    maxTokensScale: detail ? 2.5 : small ? 0.4 : hint.kind === 'factual' ? 0.75 : 1, // More detail: about 250 words plus background
+    variant: !detail && (small || hint.kind === 'factual') ? 'brief' : 'default',
     needsScreenshot: hint.needsScreenshot,
     skipLlm: kind === 'answer' && q.auto && small,
   }

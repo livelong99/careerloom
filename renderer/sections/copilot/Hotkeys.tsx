@@ -19,6 +19,7 @@ const LABELS: ReadonlyArray<{ key: Key; label: string }> = [
   { key: 'clarify', label: 'Clarify the question' },
   { key: 'screenshot', label: 'Screenshot and solve' },
   { key: 'summarise', label: 'Summarise so far' },
+  { key: 'detail', label: 'More detail on this answer' },
   { key: 'expand', label: 'Expand or collapse' },
   { key: 'listen', label: 'Start listening' },
   { key: 'toggle', label: 'Show or hide overlay' },

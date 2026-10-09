@@ -25,6 +25,10 @@ export type DetectedQuestion = { id: string; text: string; type: QuestionType; c
 export type KbRef = { id: string; text: string; sourceId: string | null; source: string | null }
 export type Suggestion = {
   questionId: string; model: string; tier: 'fast' | 'balanced' | 'deep'
+  /** 'detail': the More detail expansion of this question's answer (shown under it, never replacing it). */
+  kind?: 'detail' | 'clarify' | 'summarise'
+  /** Which request this belongs to (live sessions): partials of one answer share it, so the overlay can tell a new answer from more of the same. */
+  reqId?: number
   say: string; bullets: string[]; star: { s: string; t: string; a: string; r: string } | null
   proof: Array<{ quote: string; source: string }>; flags: Array<{ kind: 'unsupported-number' | 'unsupported-skill' | 'unsupported-name'; text: string }>
   done: boolean; firstTokenMs: number | null; totalMs: number | null; costUsd: number | null
@@ -91,7 +95,7 @@ export type CopilotConfig = {
   }
   coaching: { shape: 'cues' | 'cues+star' | 'script'; length: 1 | 2 | 3; tone: 'direct' | 'warm' | 'formal'; persona: string; quoteResume: boolean }
   overlay: { layout: 'strip' | 'panel'; anchor: Anchor; displayId: number | null; width: number; fontPx: number; opacity: number; theme: 'app' | 'dark' | 'light'; clickThroughIdle: boolean; aboveFullscreen: boolean }
-  hotkeys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'expand' | 'listen' | 'toggle' | 'quickHide' | 'clear', string> & { panic: string }
+  hotkeys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'detail' | 'expand' | 'listen' | 'toggle' | 'quickHide' | 'clear', string> & { panic: string }
   privacy: {
     retentionDays: number | null; localOnly: boolean; redact: boolean
     mode: { enabled: boolean; noticeVersion: string | null; hideFromCapture: boolean; noDockIcon: boolean; neutralTitle: boolean; indicator: 'chip' | 'dot' | 'off' }
@@ -110,7 +114,7 @@ export interface CopilotApi {
   copilotOpenSystemSettings(pane: 'microphone' | 'system-audio' | 'screen'): boolean
   copilotStart(req: StartRequest): { sessionId: string }
   copilotStop(reason: StopReason): void
-  copilotAnswer(kind: 'answer' | 'followup' | 'clarify' | 'summarise', questionId?: string): void
+  copilotAnswer(kind: 'answer' | 'followup' | 'clarify' | 'summarise' | 'detail', questionId?: string): void
   copilotScreenshot(): void
   copilotOverlay(cmd: OverlayCommand): void
   copilotAckPrivacyNotice(version: string): { ok: boolean }
@@ -144,7 +148,7 @@ export type CopilotEvents = {
   copilotQuestion: DetectedQuestion
   copilotSuggestion: Suggestion                 // repeated, `done:false` while streaming; throttle ≤ 12/s
   copilotHealth: SourceHealth
-  copilotError: { kind: 'stt' | 'engine' | 'capture' | 'hotkey'; message: string; retrying: boolean; attempt?: number; actions?: ErrorAction[]; suggestion?: string }
+  copilotError: { kind: 'stt' | 'engine' | 'capture' | 'hotkey' | 'detail'; message: string; retrying: boolean; attempt?: number; actions?: ErrorAction[]; suggestion?: string }
   /** Screenshot action state for the overlay button; `idle` clears it. */
   copilotScreen: { state: 'idle' | 'capturing' | 'sent' | 'ready' | 'blocked'; reason?: 'permission' | 'off' | 'ocr' | 'no-vision' | 'budget' | 'failed'; /** shown under the actions (not an error panel: capture and answers keep running) */ message?: string; /** a vision model to offer */ suggestion?: string }
   copilotLevel: { source: SourceId; level: number }     // 0..1, ≤ 15/s

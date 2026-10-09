@@ -23,6 +23,8 @@ import type { CopilotConfig, DetectedQuestion, Suggestion, TranscriptLine } from
 export type AnswerRequest = { question: DetectedQuestion; transcript: TranscriptLine[]; kind: PromptKind; signal: AbortSignal; marks?: TraceMarks; route?: Route
   /** How the turn was routed and started (trace only). Shared like `marks`: read at the end of the request. */
   info?: TurnInfo
+  /** More detail: the answer already on screen for this question. */
+  prior?: { say: string; bullets: string[]; star?: Suggestion['star'] }
   /** A downscaled screenshot (JPEG) to send with the question; only ever goes to a vision model (see `EngineDeps.isVision`). */
   image?: { jpeg: Buffer; captureMs?: number; encodeMs?: number }
   /** Held (speculative) requests: the trace record is written when this resolves, once the late marks (speech end, release) are in. */
@@ -142,6 +144,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
   const now = deps.now ?? Date.now
   const cost = deps.cost ?? createCostMeter()
   const active = new Set<AbortController>()
+  const details = new Set<AbortController>() // More detail requests: they run beside the answer they expand
   const gap = deps.partialEveryMs ?? 80
   const isVision = deps.isVision ?? recVision
 
@@ -149,10 +152,12 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
     const cfg = deps.config()
     if (deps.ceilingUsd !== undefined && cost.exceeds(deps.ceilingUsd)) throw new LlmError('budget', `Session spend limit of $${deps.ceilingUsd.toFixed(2)} reached`)
     if (req.signal.aborted) return
-    // Latest request wins: a new hotkey press supersedes whatever is still streaming.
-    for (const c of active) c.abort()
+    // Latest request wins: a new hotkey press supersedes whatever is still streaming. More detail is the exception: it only
+    // replaces an older More detail, so the short answer keeps streaming; any other request cancels a running More detail.
+    for (const c of active) if (req.kind !== 'detail' || details.has(c)) c.abort()
     const ac = new AbortController()
     active.add(ac)
+    if (req.kind === 'detail') details.add(ac)
     const onAbort = () => ac.abort()
     req.signal.addEventListener('abort', onAbort, { once: true })
     try {
@@ -167,7 +172,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       const kbStartAt = now()
       const kb = deps.kbMatch && req.route?.variant !== 'brief' ? safeKb(deps.kbMatch, g.summary.jobId, question.text) : []
       const kbDoneAt = now()
-      const prompt = buildPrompt({ grounding: g.prefix, coaching: cfg.coaching, question, transcript: lines, kind: req.kind, variant: req.route?.variant, kb })
+      const prompt = buildPrompt({ grounding: g.prefix, coaching: cfg.coaching, question, transcript: lines, kind: req.kind, variant: req.route?.variant, kb, prior: req.prior && { say: mask(req.prior.say), bullets: req.prior.bullets.map(mask), star: req.prior.star && { s: mask(req.prior.star.s), t: mask(req.prior.star.t), a: mask(req.prior.star.a), r: mask(req.prior.star.r) } } })
       const promptChars = prompt.system.length + prompt.messages.reduce((n, m) => n + m.content.length, 0)
       const messages = req.image ? prompt.messages.map(m => ({ ...m, content: userContentWithImage(m.content, req.image!.jpeg) })) : prompt.messages
       const shot = req.image && { captureMs: req.image.captureMs ?? 0, encodeMs: req.image.encodeMs ?? 0, bytes: req.image.jpeg.length }
@@ -184,7 +189,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       let firstTokenMs: number | null = null
       let usage: StreamUsage | null = null
       let usedModel = model
-      const base: Suggestion = { questionId: req.question.id, model, tier, say: '', bullets: [], star: null, proof: [], flags: [], done: false, firstTokenMs: null, totalMs: null, costUsd: null }
+      const base: Suggestion = { questionId: req.question.id, ...(req.kind === 'detail' ? { kind: 'detail' as const } : {}), model, tier, say: '', bullets: [], star: null, proof: [], flags: [], done: false, firstTokenMs: null, totalMs: null, costUsd: null }
       const snapshot = (done: boolean): Suggestion => ({ ...base, ...(kbRefs.length ? { kb: kbRefs } : {}), model: usedModel, ...onlyBehaviouralProof(parseSuggestion(text, done), req.question.type), done, firstTokenMs, totalMs: done ? now() - start : null, trace: stageMs(marks, { promptTokens: usage?.promptTokens, cachedTokens: usage?.cachedTokens }, turnInfo()) })
 
       const maxTokens = Math.round(MAX_TOKENS[tier] * (req.route?.maxTokensScale ?? 1))
@@ -231,6 +236,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
     } finally {
       req.signal.removeEventListener('abort', onAbort)
       active.delete(ac)
+      details.delete(ac)
     }
   }
 

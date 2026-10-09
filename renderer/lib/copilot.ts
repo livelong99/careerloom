@@ -14,6 +14,10 @@ export type OverlayModel = {
   transcript: TranscriptLine[]
   question: DetectedQuestion | null
   suggestion: Suggestion | null
+  /** More detail for the current question: shown under the answer, never replacing it. */
+  detail: Suggestion | null
+  /** Why More detail could not run (a note under the answer, never the error panel). */
+  detailNote: string | null
   health: Partial<Record<SourceId, SourceHealth>>
   levels: Record<SourceId, number>
   error: CopilotEvents['copilotError'] | null
@@ -22,7 +26,7 @@ export type OverlayModel = {
   costs: Record<string, number>
 }
 
-export const initialOverlayModel: OverlayModel = { session: null, transcript: [], question: null, suggestion: null, health: {}, levels: { mic: 0, system: 0 }, error: null, screen: { state: 'idle' }, costs: {} }
+export const initialOverlayModel: OverlayModel = { session: null, transcript: [], question: null, suggestion: null, detail: null, detailNote: null, health: {}, levels: { mic: 0, system: 0 }, error: null, screen: { state: 'idle' }, costs: {} }
 
 const blank = (session: OverlayModel['session']): OverlayModel => ({ ...initialOverlayModel, session })
 
@@ -39,15 +43,21 @@ export function reduceOverlay(m: OverlayModel, e: OverlayEvent): OverlayModel {
       const lines = i >= 0 ? m.transcript.map((l, j) => (j === i ? e.payload : l)) : [...m.transcript, e.payload]
       return { ...m, transcript: lines.slice(-TRANSCRIPT_LINES), error: m.error?.retrying ? null : m.error }
     }
-    case 'copilotQuestion': return { ...m, question: e.payload, suggestion: null }
+    // A new question or answer also ends an engine error panel from an earlier request (it would otherwise cover them until Clear).
+    case 'copilotQuestion': return { ...m, question: e.payload, suggestion: null, detail: null, detailNote: null, error: m.error?.kind === 'engine' ? null : m.error }
     case 'copilotSuggestion': {
-      const cost = e.payload.costUsd
-      return { ...m, suggestion: e.payload, costs: cost === null ? m.costs : { ...m.costs, [e.payload.questionId]: cost } }
+      const cost = e.payload.costUsd, detail = e.payload.kind === 'detail'
+      const costs = cost === null ? m.costs : { ...m.costs, [detail ? `${e.payload.questionId}:detail` : e.payload.questionId]: cost }
+      if (m.question && e.payload.questionId !== m.question.id) return { ...m, costs } // late partials of an older question's answer or detail are dropped
+      if (detail) return { ...m, detail: e.payload, detailNote: null, costs }
+      // More of the same answer keeps its detail; a new request (follow-up, clarify, re-answer) starts without the old one.
+      const sameAnswer = e.payload.reqId === undefined ? m.suggestion?.questionId === e.payload.questionId : m.suggestion?.reqId === e.payload.reqId
+      return { ...m, suggestion: e.payload, detail: sameAnswer && m.detail?.questionId === e.payload.questionId ? m.detail : null, costs, error: m.error?.kind === 'engine' ? null : m.error }
     }
     case 'copilotHealth': return { ...m, health: { ...m.health, [e.payload.source]: e.payload }, error: e.payload.status === 'ok' && m.error?.kind === 'capture' ? null : m.error }
-    case 'copilotError': return { ...m, error: e.payload }
+    case 'copilotError': return e.payload.kind === 'detail' ? { ...m, detailNote: e.payload.message } : { ...m, error: e.payload }
     case 'copilotScreen': return { ...m, screen: e.payload }
-    case 'copilotCleared': return { ...m, question: null, suggestion: null, screen: { state: 'idle' }, error: m.error?.kind === 'engine' ? null : m.error }
+    case 'copilotCleared': return { ...m, question: null, suggestion: null, detail: null, detailNote: null, screen: { state: 'idle' }, error: m.error?.kind === 'engine' ? null : m.error }
     case 'copilotLevel': return { ...m, levels: { ...m.levels, [e.payload.source]: e.payload.level } }
   }
 }
@@ -63,7 +73,8 @@ export function deriveView(m: OverlayModel): OverlayViewState {
   if (s === 'stopped') return 'stopped'
   if (m.error && m.error.kind !== 'hotkey') return 'error' // a rejected shortcut is reported in Settings, it must not cover the answer
   if (Object.values(m.health).some(h => h && h.status !== 'ok')) return 'permission'
-  if (m.suggestion) return m.suggestion.done ? 'answered' : 'answering'
+  const shown = m.suggestion ?? (m.detail?.questionId === m.question?.id ? m.detail : null) // More detail pressed before any answer still shows
+  if (shown) return shown.done ? 'answered' : 'answering'
   return m.question ? 'question' : 'listening'
 }
 
