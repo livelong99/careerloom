@@ -16,6 +16,8 @@
   <img alt="Version" src="https://img.shields.io/badge/version-0.3.0-fbbf24">
 </p>
 
+<p align="center"><img src="docs/media/careerloom-launch.gif" alt="Careerloom: from 5,312 jobs to the one" width="720"></p>
+
 <p align="center"><img src="docs/screenshots/jobs.png" alt="Jobs screen" width="860"></p>
 
 ## What it does
