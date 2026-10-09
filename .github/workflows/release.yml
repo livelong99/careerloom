@@ -28,7 +28,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
+      # Tests run on every PR (ubuntu CI); several assume POSIX file modes, so they are not repeated on Windows here.
       # Windows installers embed portable Node/Python/Git (package:win runs scripts/fetch-runtime.mjs).
       - uses: actions/cache@v4
         if: matrix.os == 'windows-latest'
