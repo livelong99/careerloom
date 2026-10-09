@@ -1,6 +1,7 @@
 // API-key manager: one registry entry per provider. Secrets stay in safeStorage (`<name>.key`, via
 // context.readSecret/writeSecret); callers only ever get `hasKey` + the last four characters.
 import { readSecret, readSettings, writeSecret, writeSettings } from '../context'
+import { PROVIDER_IDS, PROVIDERS, validateProviderKey, type ProviderId } from '../llm/providers'
 import { KEY_IDS } from './prefs'
 import type { KeyId, KeyInfo, KeyTest } from './types'
 
@@ -17,12 +18,16 @@ type KeyDef = {
 
 const must = (re: RegExp, message: string) => (v: string) => { if (!re.test(v)) throw new Error(message) }
 
+const USED_BY: Partial<Record<ProviderId, string[]>> = { openrouter: ['API runner', 'Interview Copilot answers', 'Helper model calls'] }
+
+/** One entry per LLM provider, generated from the registry. */
+const providerDefs = Object.fromEntries(PROVIDER_IDS.map(id => [id, {
+  label: PROVIDERS[id].label, usedBy: USED_BY[id] ?? ['Interview Copilot answers', 'Helper model calls'], neededByRunners: id === 'openrouter' ? ['api'] : [],
+  optional: id !== 'openrouter', helpUrl: PROVIDERS[id].helpUrl, formatHint: PROVIDERS[id].keyFormatHint, validate: (v: string) => validateProviderKey(id, v),
+}])) as Record<ProviderId, KeyDef>
+
 export const KEY_DEFS: Record<KeyId, KeyDef> = {
-  openrouter: {
-    label: 'OpenRouter', usedBy: ['API runner', 'Interview Copilot answers'], neededByRunners: ['api'], optional: false,
-    helpUrl: 'https://openrouter.ai/keys', formatHint: 'Starts with sk-or-',
-    validate: must(/^sk-or-[\w-]{10,}$/, 'That does not look like an OpenRouter key (sk-or-…)'),
-  },
+  ...providerDefs,
   opencode: {
     label: 'OpenCode Zen', usedBy: ['OpenCode CLI (paid models)', 'OpenCode Zen runner'], neededByRunners: ['zen'], optional: true,
     helpUrl: 'https://opencode.ai/auth', formatHint: '16–200 characters: letters, digits, . _ -',
@@ -59,7 +64,7 @@ export function keyInfo(id: KeyId): KeyInfo {
   const def = KEY_DEFS[id]
   const value = readSecret(secretName(id))
   return {
-    id, label: def.label, hasKey: value !== null, tail: value ? value.slice(-4) : null, optional: def.optional,
+    id, label: def.label, group: (PROVIDER_IDS as readonly string[]).includes(id) ? 'ai' : 'tools', hasKey: value !== null, tail: value ? value.slice(-4) : null, optional: def.optional,
     usedBy: def.usedBy, neededByRunners: def.neededByRunners, helpUrl: def.helpUrl, formatHint: def.formatHint,
     lastTest: readSettings().keyMeta[id] ?? null,
   }

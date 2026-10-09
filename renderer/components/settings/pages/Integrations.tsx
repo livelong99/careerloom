@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Group, Note } from '../../copilot/Group'
 import { AddIntegrationDialog } from '../../integrations/AddIntegrationDialog'
 import { BrowserAcks } from '../../integrations/BrowserAcks'
-import { CategoryNav, type Category } from '../../integrations/CategoryNav'
 import { IntegrationDetailPanel } from '../../integrations/IntegrationDetailPanel'
 import { IntegrationTable } from '../../integrations/IntegrationTable'
 import { SetupSummary } from '../../integrations/SetupSummary'
@@ -29,16 +28,14 @@ const isRun = (value: unknown): value is Run => Boolean(value) && typeof value =
 const openPage = (section: 'boards' | 'settings', page?: string, focus?: string) =>
   window.dispatchEvent(new CustomEvent(NAVIGATE_EVENT, { detail: page ? { section, page, focus } : section }))
 
-/** Settings › Integrations: services, skills and plugins with health, config and actions; job sources live in Boards. */
+/** Settings › Integrations: services and skills with health, config and actions; job sources live in Boards. */
 // PageProps (settings, onChanged) come from the shell; the page loads its own data. `focus` is optional (the shell pulses the target itself).
 export function IntegrationsPage({ focus }: { settings?: unknown; onChanged?: () => void; focus?: string }) {
   const { generation, adopt } = useRuns()
   const list = usePolled(() => careerloom.listIntegrations(), [generation], { intervalMs: 20_000, memoKey: 'integrations' })
   // Job sources are managed in Boards; counted for the link, never listed here.
   const items = useMemo(() => (list.data ?? []).filter(i => i.kind !== 'source'), [list.data])
-  const sourceCount = (list.data ?? []).length - items.length
 
-  const [category, setCategory] = useState<Category>('all')
   const [expandedId, setExpandedId] = useState<string | undefined>(undefined)
   const [addOpen, setAddOpen] = useState(false)
   const [busy, setBusy] = useState<IntegrationAction | null>(null)
@@ -53,13 +50,6 @@ export function IntegrationsPage({ focus }: { settings?: unknown; onChanged?: ()
 
   const detail = usePolled<IntegrationDetail>(() => careerloom.getIntegration(expandedId!), [expandedId], { intervalMs: null, enabled: expandedId !== undefined })
 
-  const counts = useMemo(() => {
-    const base: Record<Category, number> = { all: items.length, skill: 0, source: sourceCount, service: 0, plugin: 0 }
-    for (const item of items) base[item.kind] += 1
-    return base
-  }, [items, sourceCount])
-
-  const shown = category === 'all' || category === 'source' ? items : items.filter(i => i.kind === category)
   const careerOps = items.find(i => i.id === CAREER_OPS)
 
   const fail = (err: unknown) => showToast(normalizeCliError(err).message, 'error', 6000)
@@ -119,7 +109,7 @@ export function IntegrationsPage({ focus }: { settings?: unknown; onChanged?: ()
             <Button variant="ghost" size="sm" disabled={list.loading} onClick={() => list.refresh()}>
               <RefreshCw className={list.loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} /> {list.loading ? 'Refreshing…' : 'Refresh'}
             </Button>
-            <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add skill or plugin</Button>
+            <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add skill</Button>
           </>
         )}
       >
@@ -136,7 +126,7 @@ export function IntegrationsPage({ focus }: { settings?: unknown; onChanged?: ()
               ))}
             </div>
           )}
-          <CategoryNav counts={counts} value={category} onChange={setCategory} onOpenSources={() => openPage('boards')} />
+          <p className="m-0 text-xs text-muted-foreground">Job sources are managed in <button type="button" className="underline underline-offset-2" onClick={() => openPage('boards')}>Boards</button>.</p>
         </div>
       </Group>
 
@@ -148,12 +138,12 @@ export function IntegrationsPage({ focus }: { settings?: unknown; onChanged?: ()
 
       {!list.data ? (
         <Skeleton className="h-64 w-full" />
-      ) : shown.length === 0 ? (
-        <EmptyState icon={Plug} message="Nothing here yet" description="Add a skill or plugin to get started." action="Add skill or plugin" onAction={() => setAddOpen(true)} />
+      ) : items.length === 0 ? (
+        <EmptyState icon={Plug} message="Nothing here yet" description="Add a skill to get started." action="Add skill" onAction={() => setAddOpen(true)} />
       ) : (
         <Group className="p-3">
           <IntegrationTable
-            items={shown}
+            items={items}
             expandedId={expandedId}
             onToggle={id => setExpandedId(prev => (prev === id ? undefined : id))}
             renderDetail={item => (

@@ -3,7 +3,9 @@
 import path from 'node:path'
 import type { DocsDefaults, KeyId, KeyTest, Prefs, PrefsPatch } from './types'
 
-export const KEY_IDS: readonly KeyId[] = ['openrouter', 'opencode', 'firecrawl', 'brave', 'exa', 'serper']
+import { PROVIDER_IDS } from '../llm/providers'
+
+export const KEY_IDS: readonly KeyId[] = [...PROVIDER_IDS, 'opencode', 'firecrawl', 'brave', 'exa', 'serper']
 export const MAX_RETENTION_DAYS = 3650
 
 export const defaultPrefs = (): Prefs => ({

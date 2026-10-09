@@ -48,7 +48,7 @@ export type Metrics = {
 }
 
 // Integrations
-export type IntegrationKind = 'skill' | 'source' | 'service' | 'plugin'
+export type IntegrationKind = 'skill' | 'source' | 'service'
 export type IntegrationStatus = 'ready' | 'needs_setup' | 'not_installed' | 'error' | 'off'
 export type IntegrationAction = 'install' | 'remove' | 'enable' | 'disable' | 'start' | 'stop' | 'check' | 'update' | 'configure'
 export type Integration = {

@@ -5,13 +5,7 @@ import { cn } from '@/lib/utils'
 import { StatusPill } from './StatusPill'
 import type { Integration } from '../../lib/types'
 
-const needsSetup = (i: Integration) => i.status === 'needs_setup' || i.status === 'error'
-/** Registry plugins the user hasn't installed yet — a distinct group from
- *  "needs setup" (which means installed-but-broken/unconfigured). */
-const isAvailable = (i: Integration) => i.status === 'not_installed'
-/** "yours" only for something the user actually installed — not a
- *  not-yet-installed registry entry, which merely *would* be user-owned. */
-const isUserOwned = (i: Integration) => i.installedBy === 'user' && !isAvailable(i)
+const isUserOwned = (i: Integration) => i.installedBy === 'user' && i.kind === 'skill'
 
 type Props = {
   items: Integration[]
@@ -20,13 +14,13 @@ type Props = {
   renderDetail: (item: Integration) => ReactNode
 }
 
-/** Rows grouped Needs setup / Ready / Available / Off, one accordion detail at a time. */
+/** Rows grouped by purpose (Core / Job data / Research / Extensions), one accordion detail at a time. */
 export function IntegrationTable({ items, expandedId, onToggle, renderDetail }: Props) {
   const groups: Array<[string, Integration[]]> = [
-    ['Needs setup', items.filter(needsSetup)],
-    ['Ready', items.filter(i => !needsSetup(i) && !isAvailable(i) && i.status !== 'off')],
-    ['Available', items.filter(isAvailable)],
-    ['Off', items.filter(i => i.status === 'off')],
+    ['Core', items.filter(i => i.id === 'skill:career-ops')],
+    ['Job data', items.filter(i => i.id === 'service:firecrawl' || i.id === 'service:browser')],
+    ['Research', items.filter(i => i.id === 'service:searxng')],
+    ['Extensions', items.filter(i => i.kind === 'skill' && i.id !== 'skill:career-ops')],
   ]
 
   return (

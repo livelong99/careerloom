@@ -21,7 +21,7 @@ vi.mock('electron', () => ({ app: { getPath: () => os.tmpdir() }, BrowserWindow:
 vi.mock('../context', async orig => ({
   ...(await orig<object>()),
   careerOpsRoot: () => root, dataRoot: () => root,
-  readSettings: () => ({ runner: 'claude', models: {}, helperModels: {}, prefs: { evalPipeline: { enabled: true } } }),
+  readSettings: () => ({ runner: 'claude', models: {}, helperModels: {}, prefs: { evalPipeline: { enabled: true } }, llm: { helper: null, customBaseUrl: null } }),
   runScript: async (args: string[]) => {
     scripts.push(args)
     if (args[0] === 'reserve-report-num.mjs' && args[1] === '--count') { const n = Number(args[2]); const lo = next + 1; next += n; return { code: 0, stdout: n === 1 ? `${String(lo).padStart(3, '0')}\n` : `${String(lo).padStart(3, '0')}-${String(next).padStart(3, '0')}\n`, stderr: '' } }

@@ -2,6 +2,8 @@ import { app } from 'electron'
 import fs from 'node:fs'
 
 import { userFile } from '../context'
+import { PROVIDER_IDS, type ProviderId } from '../llm/providers'
+import { isFastFor } from './fast-models'
 import { defaultHotkeys, migrateHotkey } from './hotkey-defaults'
 import { validateAccelerator } from './hotkeys'
 import { parseModelId } from './stt/hf-models'
@@ -42,6 +44,8 @@ const strOrNull = (v: unknown, d: string | null, max = 200): string | null => (v
 const text = (v: unknown, d: string, max = 500): string => (typeof v === 'string' && v.length <= max ? v : d)
 /** https only (the key goes with the request); anything else falls back. */
 const httpUrl = (v: unknown, d: string): string => (typeof v === 'string' && /^https:\/\/[^\s/]+(?:\/[^\s?#]*)?$/.test(v) && v.length <= 200 ? v.replace(/\/+$/, '') : d)
+/** The Copilot is live: a model that is not on the provider's fast list is dropped (null = the provider's default fast model). */
+const fastOnly = (provider: ProviderId, v: unknown): string | null => { const m = strOrNull(v, null); return m !== null && isFastFor(provider, m) ? m : null }
 const words = (v: unknown, d: string[]): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= 60).slice(0, 200) : d)
 
 const ANCHORS: readonly Anchor[] = ['tl', 'tc', 'tr', 'ml', 'c', 'mr', 'bl', 'bc', 'br']
@@ -65,6 +69,7 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
   const audio = obj(r.audio), stt = obj(r.stt), eng = obj(r.engine), or = obj(eng.openrouter), models = obj(eng.models), gt = obj(eng.gate)
   const co = obj(r.coaching), ov = obj(r.overlay), hk = obj(r.hotkeys), pr = obj(r.privacy), pm = obj(pr.mode), pc = obj(r.practice)
   const hf = obj(stt.hf), sttEngine = pick(stt.engine, ['moonshine', 'whisper-mlx', 'faster-whisper', 'parakeet', 'hf'] as const, d.stt.engine), sttModel = strOrNull(stt.model, d.stt.model)
+  const provider = pick<ProviderId>(eng.provider, PROVIDER_IDS, d.engine.provider)
   const accel = (k: keyof typeof d.hotkeys) => { const a = migrateHotkey(k, text(hk[k], d.hotkeys[k], 60) || d.hotkeys[k]); return validateAccelerator(a).ok ? a : d.hotkeys[k] }
   return {
     version: 1,
@@ -79,10 +84,10 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
       lastBenchmark: benchmark(stt.lastBenchmark), endSilenceMs: num(stt.endSilenceMs, d.stt.endSilenceMs, 200, 3000), vocab: words(stt.vocab, d.stt.vocab),
     },
     engine: {
-      tier: pick(eng.tier, ['fast', 'balanced', 'deep'], d.engine.tier), escalateForDesignCoding: bool(eng.escalateForDesignCoding, d.engine.escalateForDesignCoding), provider: 'openrouter',
+      tier: pick(eng.tier, ['fast', 'balanced', 'deep'], d.engine.tier), escalateForDesignCoding: bool(eng.escalateForDesignCoding, d.engine.escalateForDesignCoding), provider,
       // Files written before the default flipped (no marker) get 'allow' once; from then on the user's pick stands.
       openrouter: { dataCollection: or.policyMigrated === true ? pick(or.dataCollection, ['deny', 'allow'], d.engine.openrouter.dataCollection) : 'allow', policyMigrated: true, zdr: bool(or.zdr, d.engine.openrouter.zdr), sort: pick(or.sort, ['latency', 'price'], d.engine.openrouter.sort) },
-      models: { fast: strOrNull(models.fast, null), balanced: strOrNull(models.balanced, null), deep: strOrNull(models.deep, null) },
+      models: { fast: fastOnly(provider, models.fast), balanced: fastOnly(provider, models.balanced), deep: fastOnly(provider, models.deep) },
       factCheck: bool(eng.factCheck, d.engine.factCheck), vision: pick(eng.vision, ['vision', 'ocr'], d.engine.vision), screenshots: bool(eng.screenshots, d.engine.screenshots), autoAnswer: bool(eng.autoAnswer, d.engine.autoAnswer),
       speculativeStart: bool(eng.speculativeStart, d.engine.speculativeStart),
       gate: { engine: pick(gt.engine, ['heuristic', 'jev'], d.engine.gate.engine), baseUrl: httpUrl(gt.baseUrl, d.engine.gate.baseUrl), endpoint: pick(gt.endpoint, ['systemone', 'decisions'], d.engine.gate.endpoint) },
@@ -125,6 +130,10 @@ export function readCopilotConfig(): CopilotConfig {
 
 /** Validate-then-persist (temp file + rename, so a crash never leaves half a file). Returns the stored config. */
 export function writeCopilotConfig(patch: DeepPartial<CopilotConfig>): CopilotConfig {
+  const merged = normalizeConfig(merge(readCopilotConfig(), { ...patch, engine: { ...patch.engine, models: undefined } })) // provider first, so the slots below are judged against it
+  for (const [slot, m] of Object.entries(patch.engine?.models ?? {})) {
+    if (typeof m === 'string' && !isFastFor(merged.engine.provider, m)) throw new Error(`"${m}" is not a fast model for ${merged.engine.provider}. The Copilot answers live, so it only uses fast models (${slot} slot).`)
+  }
   const next = normalizeConfig(merge(readCopilotConfig(), patch))
   const file = userFile(FILE)
   fs.mkdirSync(app.getPath('userData'), { recursive: true })

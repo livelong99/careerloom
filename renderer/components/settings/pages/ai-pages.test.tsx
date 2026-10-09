@@ -9,6 +9,7 @@ vi.mock('../../../lib/ipc', async orig => ({
   careerloom: new Proxy({}, { get: (_t, k: string) => bridge.current[k] }),
 }))
 
+import { PROVIDER_IDS } from '../../../../electron/llm/providers'
 import { dismissToast } from '../../../lib/toast'
 import { KeyField } from '../KeyField'
 import { REGISTRY } from '../settings-registry'
@@ -32,7 +33,8 @@ beforeEach(() => {
 describe('registry points at real controls', () => {
   const cases: Array<[string, () => React.ReactNode]> = [['runners', () => <RunnersPage {...props()} />], ['keys', () => <KeysPage {...props()} />], ['local-models', () => <LocalModelsPage {...props()} />]]
   it.each(cases)('%s', async (page, ui) => {
-    bridge.current = fakeBridge({ keysList: ['openrouter', 'opencode', 'firecrawl', 'brave', 'exa', 'serper'].map(id => keyInfo(id)), listIntegrations: [], getReadiness: { root: '/r', checkedAt: 0, deps: true, clis: [] }, localModelStatus: { installed: false, model: 'm', dir: '/d', platform: 'darwin', arch: 'arm64', python: null, oldPython: null, downloadGb: { packages: 1, weights: 1 }, installRun: null } })
+    bridge.current = fakeBridge({ keysList: [...PROVIDER_IDS, 'opencode', 'firecrawl', 'brave', 'exa', 'serper'].map(id => keyInfo(id, { group: (PROVIDER_IDS as readonly string[]).includes(id) ? 'ai' : 'tools' })),
+      llmProviders: [], listIntegrations: [], getReadiness: { root: '/r', checkedAt: 0, deps: true, clis: [] }, localModelStatus: { installed: false, model: 'm', dir: '/d', platform: 'darwin', arch: 'arm64', python: null, oldPython: null, downloadGb: { packages: 1, weights: 1 }, installRun: null } })
     const { container } = mount(ui())
     await waitFor(() => expect(container.querySelector('[data-setting-id]')).toBeTruthy())
     const have = new Set([...container.querySelectorAll('[data-setting-id]')].map(n => (n as HTMLElement).dataset.settingId))
@@ -104,13 +106,6 @@ describe('Keys page', () => {
     await screen.findByText('OpenRouter')
     await userEvent.click(within(document.querySelector('[data-setting-id="key:openrouter"]') as HTMLElement).getByRole('button', { name: 'Test' }))
     expect(await screen.findByText(/Invalid key — OpenRouter rejected it · 90 ms/)).toBeTruthy()
-  })
-  it('lists plugin keys read-only with a link to Integrations', async () => {
-    bridge.current = fakeBridge({ keysList: list, listIntegrations: [{ id: 'plugin:x', kind: 'plugin', name: 'Plugin X', status: 'needs_setup', statusText: 'Missing keys: X_KEY' }, { id: 'service:a', kind: 'service', name: 'Svc', status: 'ready', statusText: 'Ready' }] })
-    mount(<KeysPage {...props()} />)
-    expect(await screen.findByText('Plugin X')).toBeTruthy()
-    expect(screen.getByText('Missing keys: X_KEY')).toBeTruthy()
-    expect(screen.queryByText('Svc')).toBeNull()
   })
 })
 

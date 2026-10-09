@@ -2,6 +2,7 @@
 // services/ai/gemini-service.js, the action lock from main-process/features/assistant/ipc.js (latest request wins).
 // Streams a grounded answer as partial Suggestions, then a final guarded one. No tool loop, no agent CLIs.
 import { debugLog } from '../debug-log'
+import { PROVIDERS, type ProviderId } from '../llm/providers'
 import recommended from './recommended-models.json'
 import { createCostMeter, type CostMeter } from './cost'
 import { parseClassification, CLASSIFY_MAX_TOKENS, CLASSIFY_SYSTEM, type Classify } from './detector'
@@ -54,8 +55,17 @@ type Tier = Suggestion['tier']
 type Recommended = { tiers: Record<Tier, Array<{ id: string; vision?: boolean }>> }
 const REC = recommended as Recommended
 export const defaultModelFor = (tier: Tier): string => REC.tiers[tier][0]!.id
+/** The model for a tier: the user's pick, else the provider's default (OpenRouter's recommended list, or the provider's first fast model). */
+export function tierModel(engine: CopilotConfig['engine'], tier: Tier): string {
+  const picked = engine.models[tier]
+  if (picked) return picked
+  if (engine.provider === 'openrouter') return defaultModelFor(tier)
+  const first = PROVIDERS[engine.provider].fastModels[0]
+  if (!first) throw new LlmError('bad_request', `Choose a model for ${PROVIDERS[engine.provider].label} in Settings › Copilot`)
+  return first
+}
 export const recVision = (id: string): boolean => Object.values(REC.tiers).some(l => l.some(m => m.id === id && m.vision === true))
-const fallbacksFor = (tier: Tier, primary: string, ok: (id: string) => boolean = () => true): string[] => REC.tiers[tier].map(m => m.id).filter(id => id !== primary && ok(id)).slice(0, 2)
+const fallbacksFor = (provider: ProviderId, tier: Tier, primary: string, ok: (id: string) => boolean = () => true): string[] => (provider === 'openrouter' ? REC.tiers[tier].map(m => m.id) : PROVIDERS[provider].fastModels).filter(id => id !== primary && ok(id)).slice(0, 2)
 /** The error for sending an image to a model that can't read it, with a vision model to offer (offer, never switch); null when fine. */
 export function checkVision(model: string, tier: Tier, isVision: (id: string) => boolean = recVision): LlmError | null {
   if (isVision(model)) return null
@@ -147,7 +157,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
     req.signal.addEventListener('abort', onAbort, { once: true })
     try {
       const tier = req.route?.tier ?? pickTier(cfg.engine, req.question.type, req.kind)
-      const model = cfg.engine.models[tier] ?? defaultModelFor(tier)
+      const model = tierModel(cfg.engine, tier)
       const noVision = req.image ? checkVision(model, tier, isVision) : null
       if (noVision) throw noVision // never drop the image silently
       const g = await deps.grounding()
@@ -180,7 +190,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
       const maxTokens = Math.round(MAX_TOKENS[tier] * (req.route?.maxTokensScale ?? 1))
       const call = (m: string, signal: AbortSignal): AsyncGenerator<StreamItem> => requireFormat(deps.provider.stream({ system: prompt.system, messages, model: m, signal, maxTokens, sessionId: deps.sessionId?.(), onMark: k => { debugLog('engine', k, { model: m }); mark(k === 'first-byte' ? 'firstByteAt' : 'requestSentAt') } }), m)
       const hedgeAfterMs = deps.hedgeAfterMs ?? HEDGE_AFTER_MS
-      const stream = withFailover(modelOrder(model, fallbacksFor(tier, model, req.image ? isVision : undefined)), (m, others) => {
+      const stream = withFailover(modelOrder(model, fallbacksFor(cfg.engine.provider, tier, model, req.image ? isVision : undefined)), (m, others) => {
         usedModel = m
         return withHedge(m, others.find(o => o !== m), call, { afterMs: hedgeAfterMs, signal: ac.signal, onWin: w => { usedModel = w }, onHedge: b => debugLog('engine', 'hedge', { slow: m, backup: b }) })
       }, { signal: ac.signal, sleep: deps.sleep, onRetry: i => { debugLog('engine', 'retry', i); deps.onRetry?.(i) } })
@@ -199,7 +209,7 @@ export function createAnswerEngine(deps: EngineDeps): AnswerEngine {
         if (ac.signal.aborted || (e instanceof LlmError && e.code === 'aborted')) return // superseded or stopped: say nothing more
         if (text) yield snapshot(false) // keep what the user is already reading; the caller surfaces the error
         // Offer, never apply: the user decides whether a different model (and its data policy) is acceptable.
-        if (e instanceof LlmError && (e.code === 'policy' || e.code === 'model_unavailable')) e.suggestion = fallbacksFor(tier, usedModel)[0]
+        if (e instanceof LlmError && (e.code === 'policy' || e.code === 'model_unavailable')) e.suggestion = fallbacksFor(cfg.engine.provider, tier, usedModel)[0]
         throw e
       }
       if (ac.signal.aborted) return

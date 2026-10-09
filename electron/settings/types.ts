@@ -1,7 +1,14 @@
 // Settings-rebuild contract (types only). Re-exported by electron/contract.ts and renderer/lib/types.ts.
 // Secrets never appear here: the renderer only ever sees `hasKey` + the last four characters.
 
-export type KeyId = 'openrouter' | 'opencode' | 'firecrawl' | 'brave' | 'exa' | 'serper'
+import type { ProviderId } from '../llm/providers'
+
+export type { ProviderId } from '../llm/providers'
+export type { Assignment, LlmSettings } from '../llm/settings'
+/** One LLM provider as the Settings UI sees it (key presence only, never the key). */
+export type ProviderRow = { id: ProviderId; label: string; hasKey: boolean; keyOptional: boolean; /** Server address needed (custom) and not yet saved. */ needsBaseUrl: boolean }
+
+export type KeyId = ProviderId | 'opencode' | 'firecrawl' | 'brave' | 'exa' | 'serper'
 
 /** Result of one connection test (persisted in settings.json `keyMeta`, no secret in it). */
 export type KeyTest = { ok: boolean; latencyMs: number | null; detail: string; at: number }
@@ -9,6 +16,8 @@ export type KeyTest = { ok: boolean; latencyMs: number | null; detail: string; a
 export type KeyInfo = {
   id: KeyId
   label: string
+  /** 'ai' = an LLM provider (usable per feature); 'tools' = search / scrape / runner keys. */
+  group: 'ai' | 'tools'
   hasKey: boolean
   /** Last four characters of the saved key, null when unset. */
   tail: string | null

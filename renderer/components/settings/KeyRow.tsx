@@ -47,7 +47,7 @@ export function KeyRow({ info, activeRunner, onChanged }: { info: KeyInfo; activ
         </div>
         {!editing && (
           <div className="flex items-center gap-2">
-            {info.hasKey || info.id === 'firecrawl' ? <Button size="sm" variant="outline" disabled={testing} onClick={() => void test()}>{testing ? 'Testing…' : 'Test'}</Button> : null}
+            {info.hasKey || info.id === 'firecrawl' || info.id === 'custom' ? <Button size="sm" variant="outline" disabled={testing} onClick={() => void test()}>{testing ? 'Testing…' : 'Test'}</Button> : null}
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>{info.hasKey ? 'Replace' : 'Add key'}</Button>
             {info.hasKey && <Button size="sm" variant="outline" onClick={() => setRemoving(true)}>Remove</Button>}
           </div>

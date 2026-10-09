@@ -6,6 +6,7 @@ import path from 'node:path'
 import { app, BrowserWindow, desktopCapturer, screen, shell, systemPreferences } from 'electron'
 
 import { broadcast, readApiKey, userFile } from '../context'
+import { hasLlmKey } from '../llm/resolve'
 import { readCv } from '../resume-agent'
 import { jobContext } from '../job-view/handlers'
 import { asPermStatus, ensureMic, micSettingsPath, screenStatus, settingsUrl } from './audio-perms'
@@ -16,7 +17,7 @@ import { createCostMeter } from './cost'
 import { createTraceLog } from './trace'
 import { createDetector } from './detector'
 import { e2eHooks } from './e2e-hooks'
-import { createAnswerEngine, createLlmClassifier, defaultModelFor, recVision, type AnswerEngine } from './engine'
+import { createAnswerEngine, createLlmClassifier, recVision, tierModel, type AnswerEngine } from './engine'
 import type { CopilotDeps, createCopilot } from './handlers'
 import { createConfiguredClassify } from './gate/configured'
 import { createLiveWiring } from './live-wiring'
@@ -98,7 +99,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
   const e2e = lazy(e2eHooks)
   const provider = lazy(liveProvider)
   const context = lazy(() => createContextBuilder({ ...defaultContextDeps(), kbBlock: id => { try { return kbLive().block(id) } catch { return '' } } }))
-  const fastModel = (): string => readCopilotConfig().engine.models.fast ?? defaultModelFor('fast')
+  const fastModel = (): string => tierModel(readCopilotConfig().engine, 'fast')
   const cv = (): string => readCv()?.markdown ?? ''
   const names = (): string[] => nameFromCv(cv())
   const mask = redactIfOn(readCopilotConfig, names)
@@ -157,7 +158,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
     },
     cv,
     permission: mediaStatus,
-    hasKey: () => e2e() !== null || readApiKey() !== null,
+    hasKey: () => e2e() !== null || hasLlmKey('copilot'),
     sttInstalled: sttReady,
     // Same provider, redaction and local-only rule as live answers: the transcript never goes to an agent CLI.
     call: createScoreCall({ provider, config: readCopilotConfig, model: fastModel, names }),

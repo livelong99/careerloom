@@ -3,9 +3,6 @@ import path from 'node:path'
 import { careerOpsRoot, dataRoot, launch, runScript, str, summary, type Handler, type RunSummary } from './context'
 import { spawnSpec } from './runner'
 import {
-  disablePlugin, enablePlugin, getPluginDetail, installPlugin, listPlugins, removePlugin, setPluginConfig,
-} from './integrations/plugins'
-import {
   firecrawlDetail, firecrawlPull, firecrawlStart, firecrawlStop, setFirecrawlConfig,
 } from './integrations/firecrawl'
 import { searxngDetail, searxngPull, searxngStart, searxngStop, setSearxngConfig } from './integrations/searxng'
@@ -20,7 +17,7 @@ import {
 } from './integrations/sources'
 import type { Integration, IntegrationAction, IntegrationDetail, InstallPreview } from './contract'
 
-// Integrations: skills, job sources, services (Firecrawl), career-ops plugins.
+// Integrations: skills, job sources, services (Firecrawl, SearXNG, browser login).
 // Contract: renderer/lib/types.ts (CareerloomBridge › Integrations). Owned by the Integrations builder.
 
 function portalsPath(): string {
@@ -45,12 +42,11 @@ async function listAll(): Promise<Integration[]> {
   const firecrawlRow: Integration = await firecrawlDetail().then(({ checks: _c, config: _cf, logTail: _l, path: _p, ...row }) => row)
   const { checks: _c, config: _cf, logTail: _l, path: _p, ...browserRow } = browserLoginDetail()
   const searxngRow: Integration = await searxngDetail().then(({ checks: _c, config: _cf, logTail: _l, path: _p, ...row }) => row)
-  return [...listSkills(), ...sources().map(sourceToIntegration), firecrawlRow, searxngRow, browserRow, ...listPlugins()]
+  return [...listSkills(), ...sources().map(sourceToIntegration), firecrawlRow, searxngRow, browserRow]
 }
 
 async function getDetail(id: string): Promise<IntegrationDetail> {
   if (id.startsWith('skill:')) return getSkillDetail(id)
-  if (id.startsWith('plugin:')) return getPluginDetail(id)
   if (id === 'service:firecrawl') return firecrawlDetail()
   if (id === 'service:searxng') return searxngDetail()
   if (id === 'service:browser') return browserLoginDetail()
@@ -163,13 +159,6 @@ async function integrationAction(rawId: string, rawAction: string): Promise<Inte
     return searxngDetail()
   }
   if (id === 'service:browser') return action === 'install' ? warmPlaywrightMcp() : testBrowserLogin()
-  if (id.startsWith('plugin:')) {
-    if (action === 'install') return installPlugin(id)
-    if (action === 'remove') return removePlugin(id)
-    if (action === 'enable') return enablePlugin(id)
-    if (action === 'disable') { disablePlugin(id); return getPluginDetail(id) }
-    return getPluginDetail(id) // 'check'
-  }
   throw new Error(`Unknown integration "${id}"`)
 }
 
@@ -179,7 +168,6 @@ function setIntegrationConfig(rawId: string, patch: unknown): IntegrationDetail 
   if (id === 'service:firecrawl') { setFirecrawlConfig(p); return firecrawlDetail() }
   if (id === 'service:searxng') { setSearxngConfig(p); return searxngDetail() }
   if (id === 'service:browser') { setBrowserLoginConfig(p); return browserLoginDetail() }
-  if (id.startsWith('plugin:')) { setPluginConfig(id, p); return getPluginDetail(id) }
   throw new Error(`"${id}" has no configuration`)
 }
 

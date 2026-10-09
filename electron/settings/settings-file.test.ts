@@ -20,12 +20,12 @@ afterEach(() => fs.rmSync(dir.value, { recursive: true, force: true }))
 describe('settings.json migration', () => {
   it('loads a v0.1.1 file unchanged and fills the new fields with defaults', () => {
     fs.writeFileSync(file(), JSON.stringify(V011))
-    expect(readSettings()).toEqual({ ...V011, prefs: defaultPrefs(), keyMeta: {} })
+    expect(readSettings()).toEqual({ ...V011, prefs: defaultPrefs(), keyMeta: {}, llm: { helper: null, customBaseUrl: null } })
   })
   it('missing file → defaults; corrupt file → defaults', () => {
     expect(readSettings().runner).toBe('claude')
     fs.writeFileSync(file(), '{not json')
-    expect(readSettings()).toEqual({ root: null, runner: 'claude', models: {}, helperModels: {}, prefs: defaultPrefs(), keyMeta: {} })
+    expect(readSettings()).toEqual({ root: null, runner: 'claude', models: {}, helperModels: {}, prefs: defaultPrefs(), keyMeta: {}, llm: { helper: null, customBaseUrl: null } })
   })
   it('a corrupt file falls back to the last good .bak', () => {
     fs.writeFileSync(file(), JSON.stringify(V011))
