@@ -3,6 +3,7 @@
 //   CDP_PORT=9444 node scripts/demo-seed/capture.mjs --out /private/tmp/shots-raw [--only jobs,boards] [--themes dark,light]
 // Every screen's visible text is scanned for real-looking personal data and the page console for errors.
 import fs from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 
 const PORT = Number(process.env.CDP_PORT || 9444)
@@ -12,6 +13,15 @@ const ONLY = arg('only', '') ? arg('only').split(',') : null
 const THEMES = arg('themes', 'dark,light').split(',')
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 const FORBIDDEN = /perkypanda|\/Users\/|gmail|vabhav|livelong/i
+
+// Full screen through macOS accessibility (needs the terminal allowed under Privacy > Accessibility): the window
+// gets the display's real size. Electron's CDP has no Browser.setWindowBounds.
+async function setFullScreen(on) {
+  const pid = arg('pid', '')
+  if (!pid) throw new Error('Pass --pid <Electron main process id>, or --viewport for the fixed 1440x900 mode')
+  execFileSync('osascript', ['-e', `tell application "System Events" to tell (first process whose unix id is ${pid}) to set value of attribute "AXFullScreen" of window 1 to ${on}`])
+  await sleep(3500)
+}
 
 async function attach() {
   const targets = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()
@@ -81,7 +91,12 @@ async function run(p, step) {
 
 fs.mkdirSync(OUT, { recursive: true })
 const p = await attach()
-await p.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false })
+// Full-screen window at the display's real size (no viewport override); --viewport keeps the old fixed 1440x900 at 2x.
+if (process.argv.includes('--viewport')) await p.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false })
+else {
+  await setFullScreen(true)
+  console.log('viewport', await p.evaluate('`${innerWidth}x${innerHeight}@${devicePixelRatio}`'))
+}
 const report = []
 for (const theme of THEMES) {
   await p.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] })
@@ -98,6 +113,7 @@ for (const theme of THEMES) {
     console.log(path.basename(file), leak ? `LEAK: ${leak[0]}` : 'clean')
   }
 }
+if (!process.argv.includes('--viewport')) await setFullScreen(false)
 console.log('console errors:', p.errors.length ? p.errors : 'none')
 fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify({ report, errors: p.errors }, null, 2))
 p.close()
