@@ -12,6 +12,7 @@ import type { SttBenchmark, SttDevice, SttEngineId } from '@/lib/types'
 import { Page } from '../resume/PageStub'
 
 const DEVICES: SttDevice[] = ['auto', 'cpu', 'coreml', 'cuda']
+const HF_LANGUAGES: ReadonlyArray<[string, string]> = [['en-US', 'English (US)'], ['en-GB', 'English (UK)'], ['en-IN', 'English (India)'], ['hi-IN', 'Hindi'], ['de-DE', 'German'], ['fr-FR', 'French'], ['es-ES', 'Spanish'], ['it-IT', 'Italian'], ['pt-BR', 'Portuguese (Brazil)'], ['ja-JP', 'Japanese'], ['ko-KR', 'Korean'], ['zh-CN', 'Chinese'], ['auto', 'Auto-detect language']]
 
 export function TranscriptionPage() {
   const { config, save } = useCopilotConfig()
@@ -27,8 +28,8 @@ export function TranscriptionPage() {
     const mine = listed?.filter(m => m.engine === engine.id) ?? []
     if (mine.length > 0) {
       return mine.map(m => {
-        const cat = engine.models.find(c => c.id === m.model)
-        return { model: m.model, label: cat?.label ?? m.model, hint: cat?.hint ?? '', sizeMb: m.sizeMb, installed: m.installed, p50FinalMs: m.lastBenchmark?.p50FinalMs ?? null, recommended: m.recommended }
+        const cat = engine.models.find(c => c.id === m.model || m.model.startsWith(`${c.id}@`))
+        return { model: m.model, label: cat?.label ?? m.model.split('@')[0]!, hint: cat?.hint ?? (engine.id === 'hf' ? 'added from Hugging Face' : ''), sizeMb: m.sizeMb, installed: m.installed, p50FinalMs: m.lastBenchmark?.p50FinalMs ?? null, recommended: m.recommended }
       })
     }
     return engine.models.map(c => ({ model: c.id, label: c.label, hint: c.hint, sizeMb: null, installed: null, p50FinalMs: null, recommended: c.recommended ?? false }))
@@ -81,6 +82,7 @@ export function TranscriptionPage() {
             {shown.wer !== null && <Chip>Word errors {Math.round(shown.wer * 1000) / 10}%</Chip>}</>}
         </Row>
         {engine.id === 'whisper-mlx' && selected?.installed === false && <Note tone="warn">Installing Whisper downloads about 1.3 GB of Python packages (PyTorch) plus the model, into a folder in your home directory. Nothing is bundled with the app.</Note>}
+        {engine.id === 'hf' && selected?.installed === false && <Note tone="warn">Installing downloads PyTorch (about 1 GB) and the model into a folder in your home directory. Add other models in Settings → Local models. Nothing is bundled with the app.</Note>}
         {engine.id === 'parakeet' && selected?.installed === false && <Note tone="warn">Installing downloads a model of about 640 MB plus small Python packages, into a folder in your home directory. Nothing is bundled with the app.</Note>}
         {engine.id === 'faster-whisper' && selected?.installed === false && <Note tone="warn">Installing downloads about 1.3 GB of NVIDIA runtime libraries (no PyTorch, no CUDA toolkit) plus the model, into a folder in your home directory. Needs an NVIDIA driver 527.41 or newer.</Note>}
         <Note>Speeds above come from a test with computer-generated speech, which is cleaner than a real call. Press Benchmark to measure this computer with the same audio.</Note>
@@ -88,9 +90,17 @@ export function TranscriptionPage() {
       </Group>
 
       <Group>
+        {engine.id === 'hf' ? (
+          <Row label="Language" hint="Locale passed to models that accept one. Auto-detect lets the model choose; language tags such as <en-US> are removed from the text." htmlFor="stt-lang">
+            <select id="stt-lang" className={selectClass} value={stt.hf?.language ?? 'en-US'} onChange={e => void save({ stt: { hf: { language: e.target.value, lookahead: stt.hf?.lookahead ?? 3 } } })}>
+              {HF_LANGUAGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              {stt.hf && !HF_LANGUAGES.some(([id]) => id === stt.hf?.language) && <option value={stt.hf.language}>{stt.hf.language}</option>}
+            </select>
+          </Row>
+        ) : (
         <Row label="Language" hint="English only for now. Accented English works, and you can check accuracy with the benchmark." htmlFor="stt-lang">
           <select id="stt-lang" className={selectClass} value="en" disabled><option value="en">English</option></select>
-        </Row>
+        </Row>)}
         <Row label="Wait after the interviewer stops" hint="Shorter is faster but may cut a question in half." htmlFor="stt-wait">
           <input id="stt-wait" type="range" className={rangeClass} min={200} max={3000} step={50} value={stt.endSilenceMs} onChange={e => void save({ stt: { endSilenceMs: Number(e.target.value) } })} />
           <span className="w-16 text-right font-mono text-xs text-muted-foreground">{stt.endSilenceMs} ms</span>

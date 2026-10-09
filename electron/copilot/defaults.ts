@@ -36,7 +36,8 @@ import { interviewPool } from '../interviewer/pool'
 import { getKbStore } from '../kb/runtime'
 import { endInterviewVoice, interviewSpeaker, micPausesWhileSpeaking, ttsRuntime } from '../kb/voice'
 import { gateAudioMsg, parseAudioMsg } from './audio-in'
-import { installStt } from './stt/install'
+import { checkHfModel, assertHfInstallable, isHfModel, type HfFetch } from './stt/hf-models'
+import { installStt, removeHfModel } from './stt/install'
 import { createProbeHub } from './stt/probe'
 import { defaultModel, findSttRuntime } from './stt/runtime'
 import type { SessionController } from './session'
@@ -50,6 +51,9 @@ const lazy = <T>(make: () => T): (() => T) => { let v: { value: T } | null = nul
 
 const SHOT_DIR = (): string => path.join(app.getPath('temp'), 'careerloom-copilot-shots')
 /** Crash recovery: frames a killed run left in the temp dir. Call once at startup (main.ts). */
+/** The only network call of the Hugging Face check: public model metadata from huggingface.co (hf-models.ts builds the URL from a validated id). */
+const hfFetch: HfFetch = (url, init) => fetch(url, init)
+
 export const sweepCopilotShots = (): number => sweepShotDir(SHOT_DIR())
 let shots: ScreenshotPipeline | null = null
 /** Deletes every held frame: session stop, panic, delete, quit. Also sweeps the directory, so nothing outlives the app. */
@@ -214,9 +218,12 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
       return probeHub.probe(source, ms)
     },
     installStt: async model => {
+      if (isHfModel(model)) { await assertHfInstallable(model!, hfFetch); return { runId: (await installStt('hf', model!)).id } } // re-checked here: the renderer's verdict is not trusted
       const { engine } = readCopilotConfig().stt
       return { runId: (await installStt(engine, model ?? defaultModel(engine))).id }
     },
+    hfCheck: input => checkHfModel(input, hfFetch),
+    removeStt: model => { removeHfModel(model); return { ok: true } },
     listLlmModels: () => listLiveModels(),
     testLlmModel: id => testLiveModel(id),
   }

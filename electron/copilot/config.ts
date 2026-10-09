@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import { userFile } from '../context'
 import { defaultHotkeys, migrateHotkey } from './hotkey-defaults'
 import { validateAccelerator } from './hotkeys'
-import { defaultEngine } from './stt/runtime'
+import { parseModelId } from './stt/hf-models'
+import { DEFAULT_HF_OPTIONS, defaultEngine } from './stt/runtime'
 import type { Anchor, CopilotConfig, DeepPartial, SttBenchmark } from './types'
 
 const FILE = 'copilot.json'
@@ -13,7 +14,7 @@ export const DEFAULT_CONFIG: CopilotConfig = {
   version: 1,
   audio: { micDeviceId: null, useSystem: false, systemSource: 'loopback', virtualDeviceId: null },
   // S2 bake-off: Whisper small on Apple silicon, Moonshine small elsewhere; 650 ms of quiet ends an utterance
-  stt: { engine: defaultEngine(), model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 650, vocab: [] },
+  stt: { engine: defaultEngine(), model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 650, vocab: [], hf: { ...DEFAULT_HF_OPTIONS } },
   engine: {
     tier: 'fast', escalateForDesignCoding: true, provider: 'openrouter',
     openrouter: { dataCollection: 'allow', zdr: false, sort: 'latency', policyMigrated: true }, // user-approved: free models (which may train) work out of the box
@@ -63,6 +64,7 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
   const r = obj(raw)
   const audio = obj(r.audio), stt = obj(r.stt), eng = obj(r.engine), or = obj(eng.openrouter), models = obj(eng.models), gt = obj(eng.gate)
   const co = obj(r.coaching), ov = obj(r.overlay), hk = obj(r.hotkeys), pr = obj(r.privacy), pm = obj(pr.mode), pc = obj(r.practice)
+  const hf = obj(stt.hf), sttEngine = pick(stt.engine, ['moonshine', 'whisper-mlx', 'faster-whisper', 'parakeet', 'hf'] as const, d.stt.engine), sttModel = strOrNull(stt.model, d.stt.model)
   const accel = (k: keyof typeof d.hotkeys) => { const a = migrateHotkey(k, text(hk[k], d.hotkeys[k], 60) || d.hotkeys[k]); return validateAccelerator(a).ok ? a : d.hotkeys[k] }
   return {
     version: 1,
@@ -71,7 +73,8 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
       systemSource: pick(audio.systemSource, ['loopback', 'virtual'], d.audio.systemSource), virtualDeviceId: strOrNull(audio.virtualDeviceId, d.audio.virtualDeviceId),
     },
     stt: {
-      engine: pick(stt.engine, ['moonshine', 'whisper-mlx', 'faster-whisper', 'parakeet'], d.stt.engine), model: strOrNull(stt.model, d.stt.model),
+      engine: sttEngine, model: sttEngine === 'hf' && sttModel !== null && !parseModelId(sttModel) ? null : sttModel, // hf: only `owner/name@<commit>` is a model
+      hf: { language: typeof hf.language === 'string' && /^(auto|[a-z]{2,3}-[A-Z]{2})$/.test(hf.language) ? hf.language : d.stt.hf!.language, lookahead: pick(hf.lookahead, [0, 3, 6, 13] as const, d.stt.hf!.lookahead) },
       device: pick(stt.device, ['auto', 'cpu', 'coreml', 'cuda'], d.stt.device), language: 'en',
       lastBenchmark: benchmark(stt.lastBenchmark), endSilenceMs: num(stt.endSilenceMs, d.stt.endSilenceMs, 200, 3000), vocab: words(stt.vocab, d.stt.vocab),
     },
