@@ -133,20 +133,21 @@ describe('Runners page', () => {
     await waitFor(() => expect(bridge.current.setRunner).toHaveBeenCalledWith('opencode'))
     expect(p.onChanged).toHaveBeenCalled()
   })
-  it('model and helper model save through their own setters; bad ids are blocked', async () => {
-    bridge.current = fakeBridge({ getReadiness: readiness, setModel: {}, setHelperModel: {}, listModels: [] })
+  it('model dropdowns are filled from the runner and save through their own setters; typed ids work', async () => {
+    globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as never
+    Element.prototype.scrollIntoView ??= () => {}
+    bridge.current = fakeBridge({ getReadiness: readiness, setModel: {}, setHelperModel: {}, listModels: [{ id: 'sonnet', label: 'Sonnet (latest)' }, { id: 'claude-x', label: 'claude-x' }] })
     mount(<RunnersPage {...props({ models: { claude: 'opus' } })} />)
     const claude = await screen.findByRole('region', { name: 'Claude Code' })
-    const model = within(claude).getByLabelText('Model') as HTMLInputElement
-    expect(model.value).toBe('opus')
-    await userEvent.clear(model)
-    await userEvent.type(model, 'sonnet{Enter}')
-    await waitFor(() => expect(bridge.current.setModel).toHaveBeenCalledWith('claude', 'sonnet'))
-    const helper = within(claude).getByLabelText('Helper model')
-    await userEvent.type(helper, 'bad id!')
-    expect(within(claude).getByRole('alert').textContent).toMatch(/Letters, digits/)
-    await userEvent.type(helper, '{Enter}')
-    expect(bridge.current.setHelperModel).not.toHaveBeenCalled()
+    const model = within(claude).getByRole('combobox', { name: 'Model for claude' })
+    expect(model.textContent).toContain('opus')
+    await userEvent.click(model)
+    await userEvent.click(await screen.findByText('claude-x'))
+    await waitFor(() => expect(bridge.current.setModel).toHaveBeenCalledWith('claude', 'claude-x'))
+    await userEvent.click(within(claude).getByRole('combobox', { name: 'Helper model for claude' }))
+    await userEvent.type(await screen.findByPlaceholderText('Search or type a model id'), 'my-model')
+    await userEvent.click(await screen.findByText('Use “my-model”'))
+    await waitFor(() => expect(bridge.current.setHelperModel).toHaveBeenCalledWith('claude', 'my-model'))
   })
   it('Test on an API runner runs the key test and shows its result', async () => {
     bridge.current = fakeBridge({ getReadiness: readiness, keysTest: { ok: true, latencyMs: 300, detail: 'Key accepted', at: Date.now() } })

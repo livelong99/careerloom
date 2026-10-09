@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { useCopilotConfig } from '../copilot/api'
 import { usePolled } from '../../hooks/usePolled'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
@@ -12,9 +11,9 @@ import { copilotSupportedHere } from '../../lib/platform'
 import { showToast } from '../../lib/toast'
 import type { ProviderId, ProviderRow, Settings } from '../../lib/types'
 import { Group, Note } from '../kit/Group'
-import { MODEL_ID } from './ModelField'
+import { ModelCombobox } from './ModelCombobox'
 
-const SELECT = 'h-8 max-w-60 rounded-md border border-input bg-background px-2 text-sm text-foreground'
+const SELECT = 'h-8 w-full min-w-0 max-w-60 rounded-md border border-input bg-background px-2 text-sm text-foreground'
 
 /** Providers without a key are disabled (the saved choice stays selectable); a hint links to the key. */
 export function ProviderSelect({ id, label, value, rows, noneLabel, onChange }: { id: string; label: string; value: ProviderId | null; rows: ProviderRow[]; noneLabel?: string; onChange: (p: ProviderId | null) => void }) {
@@ -31,23 +30,11 @@ export function ProviderSelect({ id, label, value, rows, noneLabel, onChange }: 
   )
 }
 
-/** Free text with the provider's own model list as suggestions; empty = the provider's fast default. */
+/** The provider's own model list (its /models endpoint); empty = the provider's fast default. */
 function HelperModel({ provider, value, onSave }: { provider: ProviderId; value: string; onSave: (m: string | null) => void }) {
-  const [draft, setDraft] = useState(value)
-  const [options, setOptions] = useState<string[] | null>(null)
-  useEffect(() => setDraft(value), [value])
-  useEffect(() => setOptions(null), [provider])
-  const next = draft.trim()
-  const invalid = next !== '' && !MODEL_ID.test(next)
-  const load = () => { if (!options) void careerloom.llmModels(provider).then(m => setOptions(m.map(x => x.id)), () => setOptions([])) }
   return (
-    <div className="flex items-center gap-2">
-      <Input aria-label="Helper model" list="llm-helper-models" className="h-8 max-w-72" placeholder="Provider default" value={draft} aria-invalid={invalid || undefined} onFocus={load} onChange={e => setDraft(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter' && !invalid) onSave(next || null); if (e.key === 'Escape') setDraft(value) }} />
-      <datalist id="llm-helper-models">{(options ?? []).map(o => <option key={o} value={o} />)}</datalist>
-      {next !== value && !invalid && <Button size="sm" onClick={() => onSave(next || null)}>Save</Button>}
-      {invalid && <span role="alert" className="text-xs" style={{ color: 'var(--bad)' }}>Letters, digits and . _ : / @ - only</span>}
-    </div>
+    <ModelCombobox ariaLabel="Helper model" value={value} defaultLabel="Provider default" scope={provider}
+      load={() => careerloom.llmModels(provider).then(m => m.map(x => ({ id: x.id, label: x.name ?? x.id })))} onChange={id => onSave(id || null)} />
   )
 }
 
@@ -64,7 +51,8 @@ export function LlmAssignments({ settings, onChanged }: { settings: Settings; on
   return (
     <Group title="Models by feature" focus="llm-assignments">
       <Note>Pick which provider answers each feature. Add the provider's key first (Settings › API keys). The Interview Copilot only offers fast models, because answers are read live.</Note>
-      <table className="mt-3 w-full text-sm">
+      <table className="prose-table mt-3 w-full table-fixed text-sm">
+        <colgroup><col className="w-[36%]" /><col className="w-[30%]" /><col className="w-[34%]" /></colgroup>
         <thead><tr className="text-left text-xs text-muted-foreground"><th className="pb-2 pr-3 font-medium">Feature</th><th className="pb-2 pr-3 font-medium">Provider</th><th className="pb-2 font-medium">Model</th></tr></thead>
         <tbody>
           <tr className="border-t border-border align-top">

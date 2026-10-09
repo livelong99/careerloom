@@ -14,7 +14,7 @@ const row = (id: string, label: string, hasKey: boolean, over = {}) => ({ id, la
 const ROWS = [row('openrouter', 'OpenRouter', true), row('openai', 'OpenAI', true), row('groq', 'Groq', false), row('custom', 'Custom', false, { keyOptional: true, needsBaseUrl: true })]
 const CONFIG = { engine: { provider: 'openrouter', models: { fast: null, balanced: null, deep: null } } }
 
-beforeEach(() => { bridge.current = fakeBridge({ llmProviders: ROWS, copilotGetConfig: CONFIG, copilotSetConfig: CONFIG, llmSet: {}, llmModels: [{ id: 'gpt-4.1' }] }) })
+beforeEach(() => { globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as never; Element.prototype.scrollIntoView ??= () => {}; bridge.current = fakeBridge({ llmProviders: ROWS, copilotGetConfig: CONFIG, copilotSetConfig: CONFIG, llmSet: {}, llmModels: [{ id: 'gpt-4.1' }] }) })
 afterEach(cleanup)
 
 describe('LlmAssignments', () => {
@@ -46,9 +46,9 @@ describe('LlmAssignments', () => {
 
   it('saves a typed helper model for the chosen provider', async () => {
     render(<LlmAssignments settings={settingsFixture({ llm: { helper: { provider: 'openai', model: null }, customBaseUrl: null } })} onChanged={() => {}} />)
-    const input = await screen.findByLabelText('Helper model')
-    fireEvent.change(input, { target: { value: 'gpt-4.1-mini' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Helper model' }))
+    fireEvent.change(await screen.findByPlaceholderText('Search or type a model id'), { target: { value: 'gpt-4.1-mini' } })
+    fireEvent.click(await screen.findByText('Use “gpt-4.1-mini”'))
     await waitFor(() => expect(bridge.current.llmSet).toHaveBeenCalledWith({ helper: { provider: 'openai', model: 'gpt-4.1-mini' } }))
   })
 

@@ -72,13 +72,17 @@ describe('Interview prep settings', () => {
     expect(saved()).toEqual([{ research: { budgetUsd: 1.5 } }])
   })
 
-  it('model: blank means the helper tier (null); an invalid id is not saved', async () => {
-    mount()
-    const model = await screen.findByLabelText('Model for reading pages')
-    await userEvent.type(model, 'bad id!'); await userEvent.tab()
-    expect(model).toHaveAttribute('aria-invalid', 'true')
+  it('model: a dropdown fed by the helper source; typed ids save, an invalid id is not offered, default clears to null', async () => {
+    globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as never
+    Element.prototype.scrollIntoView ??= () => {}
+    mount({ getSettings: { llm: { helper: null, customBaseUrl: null }, runner: 'claude' }, listModels: [{ id: 'sonnet', label: 'Sonnet' }] })
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Model for reading pages' }))
+    const search = await screen.findByPlaceholderText('Search or type a model id')
+    await userEvent.type(search, 'bad id!')
+    expect(screen.queryByText(/^Use “/)).toBeNull()
     expect(saved()).toEqual([])
-    await userEvent.clear(model); await userEvent.type(model, 'vendor/small-1'); await userEvent.tab()
+    await userEvent.clear(search); await userEvent.type(search, 'vendor/small-1')
+    await userEvent.click(await screen.findByText('Use “vendor/small-1”'))
     await waitFor(() => expect(saved()).toEqual([{ research: { model: 'vendor/small-1' } }]))
   })
 
