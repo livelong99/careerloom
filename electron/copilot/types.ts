@@ -1,6 +1,7 @@
 // Interview Copilot contract (plan.md §4–§7). FROZEN at gate G-A: changes go through the WP0 owner only.
 // Types only, so both the main process and the renderer can import it.
 import type { InterviewPlan, InterviewRecord } from '../interviewer/types'
+import type { ProviderId } from '../llm/providers'
 
 export type CopilotMode = 'practice' | 'live'
 export type Speaker = 'interviewer' | 'you'
@@ -76,7 +77,7 @@ export type CopilotConfig = {
   audio: { micDeviceId: string | null; useSystem: boolean; systemSource: 'loopback' | 'virtual'; virtualDeviceId: string | null }
   stt: { engine: SttEngineId; model: string | null; device: SttDevice; language: 'en'; lastBenchmark: SttBenchmark | null; endSilenceMs: number; vocab: string[]; hf?: SttHfOptions }
   engine: {
-    tier: 'fast' | 'balanced' | 'deep'; escalateForDesignCoding: boolean; provider: 'openrouter'
+    tier: 'fast' | 'balanced' | 'deep'; escalateForDesignCoding: boolean; provider: ProviderId
     /** `policyMigrated`: the one-time move of older saved 'deny' to the user-approved 'allow' default has run; after it, the user's choice is respected. */
     openrouter: { dataCollection: 'deny' | 'allow'; zdr: boolean; sort: 'latency' | 'price'; policyMigrated: boolean }
     models: Record<'fast' | 'balanced' | 'deep', string | null>

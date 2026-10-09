@@ -1,6 +1,7 @@
 // One single-shot, text-only agent call: no file or shell tools, answers from the prompt alone.
 // `helper` = the cheap model tier (structuring, humanizing); `main` = the runner's configured model.
 import { readSettings, startAgentPrompt, type ModelRunner, type Settings } from '../context'
+import { directHelper } from '../llm/helper'
 import type { ModelCall } from './jdStructure'
 
 /** Cheapest verified option per runner (from each CLI's own model list); unset = the CLI default.
@@ -17,6 +18,9 @@ export function modelFor(s: Settings, tier: 'helper' | 'main'): string | undefin
 }
 
 export function runText(prompt: string, o: { tier: 'helper' | 'main'; label: string; jobId?: string }): ReturnType<ModelCall> {
+  let direct: ReturnType<typeof directHelper> = null
+  try { direct = o.tier === 'helper' ? directHelper() : null } catch (err) { return Promise.reject(err) } // a provider the user assigned in Settings › Runners
+  if (direct) return direct('You follow the instructions in the message exactly.', prompt).then(r => ({ text: r.text, tokens: r.inputTokens !== null && r.outputTokens !== null ? r.inputTokens + r.outputTokens : null, model: r.model }))
   const model = modelFor(readSettings(), o.tier)
   return new Promise((resolve, reject) => {
     try {

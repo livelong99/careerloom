@@ -21,7 +21,7 @@ export type RootCheck = { ok: true; root: string; dataRoot: string } | { ok: fal
 export type CliRunner = Exclude<RunnerId, 'api' | 'zen'>
 /** Runners with a model setting. */
 export type ModelRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; helperModels: Partial<Record<ModelRunner, string>>; hasApiKey: boolean; hasOpencodeKey: boolean; rootCheck: RootCheck | null; prefs: Prefs; keyMeta: Partial<Record<KeyId, KeyTest>> }
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; helperModels: Partial<Record<ModelRunner, string>>; hasApiKey: boolean; hasOpencodeKey: boolean; rootCheck: RootCheck | null; prefs: Prefs; llm: LlmSettings; keyMeta: Partial<Record<KeyId, KeyTest>> }
 export type ModelOption = { id: string; label: string }
 export type RunnerStatus = Record<'claude' | 'codex' | 'antigravity' | 'opencode' | 'node' | 'git', string | null>
 export type ProfileStatus = { cv: boolean; profile: boolean; portals: boolean }
@@ -51,7 +51,8 @@ export type CareerloomBridge = {
   getSettings(): Promise<Settings>
   setRoot(root: string): Promise<RootCheck>
   setRunner(runner: RunnerId): Promise<unknown>
-  setApiKey(key: string | null, provider?: 'openrouter' | 'opencode'): Promise<boolean>
+  /** `provider`: any LLM provider id or 'opencode' (default OpenRouter). */
+  setApiKey(key: string | null, provider?: ProviderId | 'opencode'): Promise<boolean>
   /** Model for one CLI runner; null = that CLI's default. */
   setModel(runner: ModelRunner, model: string | null): Promise<unknown>
   listModels(runner: ModelRunner): Promise<ModelOption[]>
@@ -198,6 +199,12 @@ export type CareerloomBridge = {
   keysSet(id: KeyId, value: string | null): Promise<KeyInfo>
   /** Cheapest possible call (no tokens); persists the result as the key's last test. */
   keysTest(id: KeyId): Promise<KeyTest>
+  /** Providers with key presence only. */
+  llmProviders(): Promise<ProviderRow[]>
+  /** Strict patch: { helper: {provider, model} | null, customBaseUrl }. */
+  llmSet(patch: { helper?: { provider: ProviderId; model: string | null } | null; customBaseUrl?: string | null }): Promise<LlmSettings>
+  /** Everything the provider lists (cached 24 h); rejects with a readable reason when it cannot be listed. */
+  llmModels(provider: ProviderId): Promise<LlmModelInfo[]>
   prefsGet(): Promise<Prefs>
   prefsSet(patch: PrefsPatch): Promise<Prefs>
   browserAcks(): Promise<string[]>
@@ -260,6 +267,6 @@ export type SpendFlow = {
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
 import type { BootstrapStatus, BootstrapStepId } from '../../electron/contract'
-import type { CopilotBridge, KbBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
+import type { CopilotBridge, KbBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, LlmModelInfo, LlmSettings, ProviderId, ProviderRow, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
 import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
 import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'

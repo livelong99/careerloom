@@ -2,7 +2,7 @@
 // session recorder (plan §3). Pure: every collaborator is injected, so the whole live flow is unit-testable with fakes.
 import { createAutoAsk } from './auto-ask'
 import { continuesQuestion, heuristicHint, questionType, type QuestionDetector } from './detector'
-import { checkVision, defaultModelFor, type AnswerEngine } from './engine'
+import { checkVision, tierModel, type AnswerEngine } from './engine'
 import type { PromptKind } from './prompts'
 import { friendlyLlmError } from './providers/errors'
 import { debugLog } from '../debug-log'
@@ -117,7 +117,7 @@ export function createLiveWiring(d: WiringDeps) {
     const cfg = d.config().engine
     if (!cfg.screenshots) return { reason: 'off' }
     if (cfg.vision === 'ocr') return { reason: 'ocr' } // ponytail: OCR needs a dependency (tesseract.js) we don't ship; add when someone needs offline screen reading
-    const e = checkVision(cfg.models[tier] ?? defaultModelFor(tier), tier, d.screen!.isVision)
+    const e = checkVision(tierModel(d.config().engine, tier), tier, d.screen!.isVision)
     return e ? { reason: 'no-vision', suggestion: e.suggestion } : null
   }
   const noVisionText = (m: string, s?: string): string => `${m}${s ? ` Try ${s}.` : ''}`

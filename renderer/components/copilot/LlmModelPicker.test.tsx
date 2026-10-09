@@ -39,10 +39,10 @@ describe('LlmModelPicker', () => {
   })
   it('without a list, says so and still takes a valid typed id; rejects an invalid one', () => {
     const onChange = vi.fn()
-    render(<LlmModelPicker tier="Fast" value={null} models={null} onChange={onChange} />)
+    render(<LlmModelPicker tier="Fast" value={null} models={null} onChange={onChange} allowTyped />)
     fireEvent.click(screen.getByRole('button', { name: /Change/ }))
     expect(screen.getByText('Model list unavailable: type a model id')).toBeTruthy()
-    const input = screen.getByLabelText('OpenRouter model id')
+    const input = screen.getByLabelText('Model id')
     fireEvent.change(input, { target: { value: 'bad id' } })
     fireEvent.click(screen.getByRole('button', { name: 'Use this id' }))
     expect(onChange).not.toHaveBeenCalled()

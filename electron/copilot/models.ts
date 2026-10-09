@@ -52,7 +52,7 @@ export async function listLlmModels(deps: ModelListDeps): Promise<LlmModelInfo[]
 export type TestResult = { firstTokenMs: number | null; ok: boolean; message?: string; code?: string; actions?: ErrorAction[] }
 
 /** One tiny streamed call: reports time to first token or why it failed. Costs a fraction of a cent. */
-export async function testLlmModel(provider: AnswerProvider, model: string, ctx: { dataCollection: 'deny' | 'allow' } = { dataCollection: 'deny' }, now: () => number = Date.now): Promise<TestResult> {
+export async function testLlmModel(provider: AnswerProvider, model: string, ctx: { dataCollection: 'deny' | 'allow'; label?: string } = { dataCollection: 'deny' }, now: () => number = Date.now): Promise<TestResult> {
   const ac = new AbortController()
   const start = now()
   let first: number | null = null

@@ -76,6 +76,7 @@ choose **More info → Run anyway** in SmartScreen.
 
 - [Node.js](https://nodejs.org) 18 or newer and [Git](https://git-scm.com)
 - One agent CLI from the table above, an OpenCode Zen API key, or an OpenRouter API key
+- Optional: your own key for other model providers (OpenAI, Anthropic, Google Gemini, Groq, Mistral, DeepSeek, xAI, Together AI, Fireworks AI, Cerebras, or any OpenAI-compatible server such as Ollama or LM Studio), chosen per feature in Settings › Runners & models. The Interview Copilot only offers fast models.
 - Optional: [Docker](https://www.docker.com) for self-hosted Firecrawl
 - Optional: Python 3.10 or newer for the local pre-screen model (installed from onboarding, about 1.4 GB)
 

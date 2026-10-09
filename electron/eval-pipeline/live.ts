@@ -7,6 +7,7 @@ import { parseCv } from '../ats/model'
 import { careerOpsRoot, dataRoot, launchTask, readSettings, runScript, startAgentPrompt, summary, type RunRecord, type RunSummary } from '../context'
 import type { JobListing } from '../contract'
 import { modelFor } from '../job-view/agent'
+import { directHelper } from '../llm/helper'
 import { evaluateSelected, mergeTracker, prefetchJd, profileProblems } from '../jobs-batch'
 import { defaultPolicy, profileHash, readProfile, readStore, writeStore, type PrescreenEntry } from '../prescreen-core'
 import { parseRange } from './stage4-write'
@@ -31,7 +32,14 @@ export function buildCandidate(): Candidate {
 
 /** The configured runner as a one-shot, text-only model call on its cheap (helper) tier. */
 function agentLlm(): LlmCall {
-  return req => new Promise((resolve, reject) => {
+  return async req => {
+    const direct = directHelper() // a provider assigned in Settings › Runners answers instead of the agent CLI
+    if (direct) return direct(req.system, req.user).then(r => ({ text: r.text, inputTokens: r.inputTokens ?? Math.ceil((req.system.length + req.user.length) / 4), outputTokens: r.outputTokens ?? Math.ceil(r.text.length / 4), model: r.model, usd: r.usd }))
+    return agentRun(req)
+  }
+}
+function agentRun(req: Parameters<LlmCall>[0]): ReturnType<LlmCall> {
+  return new Promise((resolve, reject) => {
     const model = req.model ?? modelFor(readSettings(), 'helper')
     try {
       startAgentPrompt('Triage batch', 'evaluate-batch', `${req.system}\n\n${req.user}`, null, {

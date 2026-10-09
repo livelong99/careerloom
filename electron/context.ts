@@ -9,6 +9,7 @@ import path from 'node:path'
 
 import { dropRunLines } from './runs-prune'
 import { defaultPrefs, normalizeKeyMeta, normalizePrefs } from './settings/prefs'
+import { defaultLlm, normalizeLlm, type LlmSettings } from './llm/settings'
 import type { KeyId, KeyTest, Prefs } from './settings/types'
 import { agyDenied, ensureAgyProject } from './agy-project'
 import { checkRoot } from './careerops'
@@ -30,8 +31,8 @@ export const str = (v: unknown, name: string): string => {
 export type { CliRunner }
 /** Runners with a model setting (every one but career-ops' OpenRouter script). */
 export type ModelRunner = Exclude<RunnerId, 'api'>
-export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; /** Cheap model per runner for structuring/humanizing calls (unset = built-in default). */ helperModels: Partial<Record<ModelRunner, string>>; /** Operational preferences (additive: a v0.1.1 file has none). */ prefs: Prefs; /** Last connection test per key — never the key. */ keyMeta: Partial<Record<KeyId, KeyTest>> }
-const defaultSettings = (): Settings => ({ root: null, runner: 'claude', models: {}, helperModels: {}, prefs: defaultPrefs(), keyMeta: {} })
+export type Settings = { root: string | null; runner: RunnerId; models: Partial<Record<ModelRunner, string>>; /** Cheap model per runner for structuring/humanizing calls (unset = built-in default). */ helperModels: Partial<Record<ModelRunner, string>>; /** Operational preferences (additive: a v0.1.1 file has none). */ prefs: Prefs; /** Last connection test per key — never the key. */ keyMeta: Partial<Record<KeyId, KeyTest>>; /** Provider assignment for helper calls + custom server address. */ llm: LlmSettings }
+const defaultSettings = (): Settings => ({ root: null, runner: 'claude', models: {}, helperModels: {}, prefs: defaultPrefs(), keyMeta: {}, llm: defaultLlm() })
 
 export const userFile = (name: string) => path.join(app.getPath('userData'), name)
 
@@ -45,6 +46,7 @@ function parseSettings(raw: Partial<Settings>): Settings {
     helperModels: modelMap(raw.helperModels),
     prefs: normalizePrefs(raw.prefs),
     keyMeta: normalizeKeyMeta(raw.keyMeta),
+    llm: normalizeLlm(raw.llm),
   }
 }
 

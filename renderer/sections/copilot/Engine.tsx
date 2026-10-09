@@ -7,12 +7,12 @@ import { Group, Note, Row } from '@/components/copilot/Group'
 import { LlmModelPicker } from '@/components/copilot/LlmModelPicker'
 import { accelLabel } from '@/components/copilot/PrivacyModeGroup'
 import { TierCards, type TierPrice } from '@/components/copilot/TierCards'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { careerloom } from '@/lib/ipc'
 import type { LlmModelInfo } from '@/lib/types'
+import { ProviderSelect } from '@/components/settings/LlmAssignments'
 import { Page } from '../resume/PageStub'
 
 import { defaultPrices } from '../../../electron/copilot/cost'
@@ -20,8 +20,9 @@ import { defaultPrices } from '../../../electron/copilot/cost'
 export function EnginePage() {
   const { config, save, error } = useCopilotConfig()
   // null = the list is unavailable (not wired, offline): the picker then takes a typed id.
-  const list = useAsync<LlmModelInfo[] | null>(() => careerloom.copilotListLlmModels().then(orNull), [])
+  const list = useAsync<LlmModelInfo[] | null>(() => careerloom.copilotListLlmModels().then(orNull), [config?.engine.provider])
   const models = list.data ?? null
+  const providers = useAsync(() => careerloom.llmProviders(), [])
 
   if (!config) return <Page title="Answer engine" blurb="The model that writes suggestions.">{error ? <Note tone="warn">{error}</Note> : null}</Page>
   const e = config.engine
@@ -42,8 +43,11 @@ export function EnginePage() {
         </Row></div>
       </Group>
       <Group>
-        <Row label="Provider" hint="OpenRouter streams words as they are written. The text of the conversation is sent to it."><Badge variant="brand">OpenRouter</Badge></Row>
-        <ApiKeyRow />
+        <Row label="Provider" hint="Words stream in as they are written. The text of the conversation is sent to this provider with your own key.">
+          <ProviderSelect id="copilot-provider" label="Answer provider" value={e.provider} rows={Array.isArray(providers.data) ? providers.data : []} onChange={p => { if (p) { patch({ provider: p, models: { fast: null, balanced: null, deep: null } }) } }} />
+        </Row>
+        <ApiKeyRow provider={e.provider} />
+        {e.provider === 'openrouter' && <>
         <Row label="Providers may keep or train on your text" hint="On: every model works, including free ones, but a provider may keep or train on the conversation text. Off: only providers that promise not to, which rules out most free models.">
           <ToggleSwitch aria-label="Providers may keep or train on your text" checked={e.openrouter.dataCollection === 'allow'} onCheckedChange={v => patch({ openrouter: { ...e.openrouter, dataCollection: v ? 'allow' : 'deny' } })} />
         </Row>
@@ -53,12 +57,13 @@ export function EnginePage() {
         <Row label="Prefer" hint="How OpenRouter picks among providers for the same model.">
           <SegTabs options={[{ value: 'latency', label: 'Fastest' }, { value: 'price', label: 'Cheapest' }]} value={e.openrouter.sort} onChange={v => patch({ openrouter: { ...e.openrouter, sort: v as 'latency' | 'price' } })} />
         </Row>
+        </>}
         <Row label="Answer automatically" hint={<>Off: press <Kbd>{accelLabel(config.hotkeys.answer)}</Kbd> when you want a suggestion. On: a suggestion starts when a question is detected. Needs the interviewer's audio on its own channel, so it does nothing with the microphone alone.</>}>
           <ToggleSwitch aria-label="Auto answer" checked={e.autoAnswer} onCheckedChange={v => patch({ autoAnswer: v })} />
         </Row>
-        <Row label="Models" hint="One model per speed tier. Search the OpenRouter list, then test how fast it starts." stack>
+        <Row label="Models" hint="Fast models only: answers are read live, so a slower model is not offered. Test shows how quickly it starts." stack>
           <div className="flex w-full flex-col gap-2">
-            {TIERS.map(t => <LlmModelPicker key={t.id} tier={t.label} value={e.models[t.id]} models={models} dataCollection={e.openrouter.dataCollection} onAllowTraining={() => patch({ openrouter: { ...e.openrouter, dataCollection: 'allow' } })} onChange={id => patch({ models: { ...e.models, [t.id]: id } })} />)}
+            {TIERS.map(t => <LlmModelPicker key={t.id} provider={e.provider} allowTyped={e.provider === 'custom'} tier={t.label} value={e.models[t.id]} models={models} dataCollection={e.openrouter.dataCollection} onAllowTraining={() => patch({ openrouter: { ...e.openrouter, dataCollection: 'allow' } })} onChange={id => patch({ models: { ...e.models, [t.id]: id } })} />)}
           </div>
         </Row>
         <Row label="Check answers against your résumé" hint="Flags numbers, tools and names that aren't in your résumé or stories.">

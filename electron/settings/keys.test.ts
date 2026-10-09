@@ -12,6 +12,7 @@ vi.mock('electron', () => ({
 }))
 
 import { readSettings } from '../context'
+import { PROVIDER_IDS } from '../llm/providers'
 import { keyInfo, keysList, setKey } from './keys'
 import { testKey, type KeyTestDeps } from './keys-test'
 
@@ -24,7 +25,8 @@ afterEach(() => fs.rmSync(dir.value, { recursive: true, force: true }))
 describe('key manager', () => {
   it('lists every provider unset with the runners that need it', () => {
     const rows = keysList()
-    expect(rows.map(r => [r.id, r.hasKey, r.tail])).toEqual([['openrouter', false, null], ['opencode', false, null], ['firecrawl', false, null], ['brave', false, null], ['exa', false, null], ['serper', false, null]])
+    expect(rows.map(r => [r.id, r.hasKey, r.tail])).toEqual([...PROVIDER_IDS, 'opencode', 'firecrawl', 'brave', 'exa', 'serper'].map(id => [id, false, null]))
+    expect(rows.filter(r => r.group === 'ai').map(r => r.id)).toEqual([...PROVIDER_IDS])
     expect(rows.filter(r => ['brave', 'exa', 'serper'].includes(r.id)).map(r => [r.optional, r.neededByRunners])).toEqual([[true, []], [true, []], [true, []]])
     expect(rows.find(r => r.id === 'openrouter')?.neededByRunners).toEqual(['api'])
     expect(rows.find(r => r.id === 'opencode')?.neededByRunners).toEqual(['zen'])
@@ -137,5 +139,51 @@ describe('connection tests (cheapest call, no tokens)', () => {
     const down = await testKey('firecrawl', deps((async () => { throw new Error('ECONNREFUSED') }) as typeof fetch))
     expect(down).toMatchObject({ ok: false })
     expect(down.detail).toMatch(/reach/i)
+  })
+})
+
+describe('LLM provider keys', () => {
+  it('validates loosely, strictly only where the vendor documents a prefix', () => {
+    expect(() => setKey('openai', 'x y z 12345678')).toThrow(/OpenAI/)
+    expect(() => setKey('anthropic', 'not-anthropic-key-12345')).toThrow(/Anthropic/)
+    expect(setKey('anthropic', 'sk-ant-api03-abcdefghij').hasKey).toBe(true)
+    expect(setKey('google', 'AIzaSyA-abcdefghijklmnop').hasKey).toBe(true)
+    expect(setKey('groq', 'gsk_abcdefghijklmnop').group).toBe('ai')
+    expect(() => setKey('openai', 'short')).toThrow()
+  })
+  it('error text never echoes the rejected value', () => {
+    try { setKey('xai', 'bad key SENTINEL-VALUE') } catch (e) { expect(String(e)).not.toContain('SENTINEL-VALUE') }
+  })
+  it('stores each provider under its own secret file', () => {
+    setKey('mistral', 'm'.repeat(32))
+    expect(fs.existsSync(path.join(dir.value, 'mistral.key'))).toBe(true)
+  })
+  it.each([['openai', 'https://api.openai.com/v1/models'], ['groq', 'https://api.groq.com/openai/v1/models'], ['google', 'https://generativelanguage.googleapis.com/v1beta/openai/models']] as const)('%s: GET the models endpoint with the bearer', async (id, url) => {
+    setKey(id, id === 'groq' ? 'gsk_abcdefghijklmnop' : 'k'.repeat(24))
+    const f = vi.fn(reply(200, { data: [] }))
+    expect((await testKey(id, deps(f))).ok).toBe(true)
+    expect(f.mock.calls[0]![0]).toBe(url)
+    expect((f.mock.calls[0]![1] as RequestInit).headers).toMatchObject({ Authorization: expect.stringMatching(/^Bearer /) })
+  })
+  it('anthropic also sends x-api-key and the version header', async () => {
+    setKey('anthropic', 'sk-ant-api03-abcdefghij')
+    const f = vi.fn(reply(200, { data: [] }))
+    await testKey('anthropic', deps(f))
+    expect((f.mock.calls[0]![1] as RequestInit).headers).toMatchObject({ 'x-api-key': 'sk-ant-api03-abcdefghij', 'anthropic-version': '2023-06-01' })
+  })
+  it('a rejected provider key reads as invalid with the provider name', async () => {
+    setKey('deepseek', 'd'.repeat(24))
+    const res = await testKey('deepseek', deps(reply(401)))
+    expect(res).toMatchObject({ ok: false, detail: expect.stringMatching(/DeepSeek rejected/) })
+  })
+  it('custom server: needs its address, key optional, probes <address>/models', async () => {
+    const f = vi.fn(reply(200, { data: [] }))
+    expect((await testKey('custom', deps(f))).ok).toBe(false) // no address saved: nothing to reach
+    expect(f).not.toHaveBeenCalled()
+    const { writeSettings } = await import('../context')
+    writeSettings({ llm: { helper: null, customBaseUrl: 'http://localhost:11434/v1' } })
+    expect((await testKey('custom', deps(f))).ok).toBe(true)
+    expect(f.mock.calls[0]![0]).toBe('http://localhost:11434/v1/models')
+    expect((f.mock.calls[0]![1] as RequestInit).headers).toEqual({})
   })
 })

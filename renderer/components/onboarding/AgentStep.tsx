@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { usePolled } from '../../hooks/usePolled'
 import { careerloom } from '../../lib/ipc'
-import type { CliCheck, RunnerId, Settings } from '../../lib/types'
+import type { CliCheck, ProviderId, RunnerId, Settings } from '../../lib/types'
 import { ApiKeyField, BTN, Command, Download, ENGINES, ErrorLine, Footer, LINK, OPENCODE_KEYS, OPENROUTER_KEYS, PRIMARY, StepHeader, errorText } from './parts'
 
 function cliStatus(c: CliCheck | undefined): string {
@@ -77,8 +77,9 @@ export function AgentStep({ settings, onChanged, onNext }: { settings: Settings;
         </label>
         {!settings.hasApiKey && (
           <div className="flex flex-col gap-2 pl-7">
-            <ApiKeyField hasKey={false} onSaved={() => void pick('api')} />
+            <ApiKeyField selectable hasKey={false} onSaved={p => { if (p === 'openrouter') void pick('api'); else void careerloom.llmSet({ helper: { provider: p as ProviderId, model: null } }).then(onChanged) }} />
             <Download label="Get an OpenRouter key" url={OPENROUTER_KEYS} />
+            <span className="text-[length:var(--fs-meta)] text-muted-foreground">Other providers: the key is used for helper calls and the Interview Copilot. Choose models in Settings › Runners &amp; models.</span>
           </div>
         )}
       </fieldset>

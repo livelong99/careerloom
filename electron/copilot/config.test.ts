@@ -43,9 +43,9 @@ describe('write / read round trip', () => {
     expect(JSON.parse(fs.readFileSync(file, 'utf8')).version).toBe(1)
   })
   it('can set and clear nullable fields', () => {
-    writeCopilotConfig({ privacy: { retentionDays: null }, engine: { models: { fast: 'vendor/model-a' } } })
+    writeCopilotConfig({ privacy: { retentionDays: null }, engine: { models: { fast: 'openai/gpt-4.1-nano' } } })
     expect(readCopilotConfig().privacy.retentionDays).toBeNull()
-    expect(readCopilotConfig().engine.models.fast).toBe('vendor/model-a')
+    expect(readCopilotConfig().engine.models.fast).toBe('openai/gpt-4.1-nano')
     writeCopilotConfig({ engine: { models: { fast: null } } })
     expect(readCopilotConfig().engine.models.fast).toBeNull()
   })
@@ -62,7 +62,7 @@ describe('write / read round trip', () => {
 describe('schema validation', () => {
   it('rejects bad values per field and keeps the good ones', () => {
     const c = normalizeConfig({
-      engine: { tier: 'turbo', autoAnswer: true, models: { fast: 7, deep: 'a/b' } },
+      engine: { tier: 'turbo', autoAnswer: true, models: { fast: 7, deep: 'openai/gpt-4.1-nano' } },
       overlay: { anchor: 'nowhere', width: 99999, opacity: 0.1, fontPx: 'big', displayId: 2 },
       privacy: { retentionDays: -5, redact: 'yes' },
       stt: { engine: 'whisper-mlx', endSilenceMs: 5, language: 'fr', vocab: ['ok', 3, ''] },
@@ -70,7 +70,7 @@ describe('schema validation', () => {
     })
     expect(c.engine.tier).toBe('fast')
     expect(c.engine.autoAnswer).toBe(true)
-    expect(c.engine.models).toEqual({ fast: null, balanced: null, deep: 'a/b' })
+    expect(c.engine.models).toEqual({ fast: null, balanced: null, deep: 'openai/gpt-4.1-nano' })
     expect(c.overlay.anchor).toBe('tr')
     expect(c.overlay.width).toBeLessThanOrEqual(1200)
     expect(c.overlay.opacity).toBe(0.6)

@@ -8,6 +8,7 @@ import { showToast } from '../../../lib/toast'
 import type { CliCheck, KeyTest, ModelRunner, RunnerId, Settings } from '../../../lib/types'
 import { Group, Note, Row } from '../../kit/Group'
 import { Command, Download, ENGINES } from '../../onboarding/parts'
+import { LlmAssignments } from '../LlmAssignments'
 import { ModelField } from '../ModelField'
 import { ReadinessBadge, TestResult, type ReadyState } from '../kit'
 import type { PageProps } from '../pages'
@@ -113,12 +114,14 @@ export function RunnersPage({ settings, onChanged }: PageProps) {
         )
       })}
 
+      <LlmAssignments settings={settings} onChanged={onChanged} />
+
       <Group title="Which model does what" focus="routing">
         <Note>Read-only. Tasks follow your active runner; the helper tier is cheaper and used for tidying and humanizing text.</Note>
         <div className="mt-2">
           <Row label="Evaluate, scan, résumé edits, Agent chat" hint="The main model"><code className="text-xs">{activeModel}</code></Row>
           <Row label="Tidy job postings, humanize documents" hint="The helper model"><code className="text-xs">{helperModel}</code></Row>
-          <Row label="Interview Copilot answers" hint="OpenRouter, configured on the Copilot page"><Button size="sm" variant="outline" onClick={() => goToSettings('copilot')}>Copilot →</Button></Row>
+          <Row label="Interview Copilot answers" hint="Provider and fast model, configured on the Copilot page"><Button size="sm" variant="outline" onClick={() => goToSettings('copilot')}>Copilot →</Button></Row>
           <Row label="Job pre-screen and speech to text" hint="On-device models, no runner involved"><Button size="sm" variant="outline" onClick={() => goToSettings('local-models')}>Local models →</Button></Row>
         </div>
       </Group>

@@ -10,6 +10,7 @@ export const settingsFixture = (over: Partial<Settings> = {}): Settings => ({
   rootCheck: { ok: true, root: '/home/me/career-ops', dataRoot: '/home/me/career-ops/data' },
   prefs: { updates: { enabled: true }, retention: { runLogDays: null }, docs: { tone: 'concise', length: 'standard', humanize: true }, debug: { dir: null }, evalPipeline: { enabled: false } },
   keyMeta: {},
+  llm: { helper: null, customBaseUrl: null },
   ...over,
 })
 

@@ -20,6 +20,8 @@ import { copilotHandlers } from './copilot/handlers'
 import { kbHandlers } from './kb/handlers'
 import { onTtsPlayback } from './kb/voice'
 import { redactLog } from './log-redact'
+import { llmHandlers } from './llm/handlers'
+import { isProviderId } from './llm/providers'
 import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
 import { setKey } from './settings/keys'
 import { isAllowedPermission } from './copilot/audio-perms'
@@ -120,7 +122,7 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
 } // stays under promptFor's 20k input ceiling
 
 // Feature modules own their handlers; names must not collide (checked at registration).
-const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, kbHandlers, settingsHandlers]
+const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, kbHandlers, settingsHandlers, llmHandlers]
 
 /** Folders returned by the native picker this session; setRoot accepts only these. */
 const pickedDirs = new Set<string>()
@@ -160,7 +162,7 @@ const handlers: Record<string, Handler> = {
     throw new Error('Unknown runner')
   },
   setApiKey: (key: unknown, provider: unknown) => {
-    return setKey(provider === 'opencode' ? 'opencode' : 'openrouter', key === null ? null : str(key, 'key')).hasKey
+    return setKey(isProviderId(provider) || provider === 'opencode' ? provider : 'openrouter', key === null ? null : str(key, 'key')).hasKey
   },
   chooseDirectory: async () => {
     const res = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })

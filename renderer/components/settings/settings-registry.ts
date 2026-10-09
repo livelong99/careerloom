@@ -1,5 +1,6 @@
 // Search index for Settings: one entry per control that can be deep-linked (`navigate('settings', { page, focus })`).
 // `focus` must equal the `data-setting-id` attribute on the control; settings-registry.test.ts checks pages B owns.
+import { PROVIDER_IDS, PROVIDERS } from '../../../electron/llm/providers'
 import type { PageId } from './pages'
 
 export type RegistryEntry = { page: PageId; focus?: string; label: string; keywords: string[] }
@@ -19,9 +20,11 @@ export const REGISTRY: readonly RegistryEntry[] = [
   e('runners', 'runner:antigravity', 'Antigravity', 'runner', 'agy', 'google'),
   e('runners', 'runner:opencode', 'OpenCode', 'runner', 'cli'),
   e('runners', 'runner:zen', 'OpenCode Zen (API)', 'runner', 'zen'),
+  e('runners', 'llm-assignments', 'Models by feature', 'provider', 'model', 'openai', 'anthropic', 'gemini', 'groq', 'ollama', 'helper', 'copilot', 'llm'),
   e('runners', 'runner:api', 'API key runner', 'runner', 'openrouter'),
   e('keys', undefined, 'API keys', 'secret', 'keychain', 'token'),
   e('keys', 'key:openrouter', 'OpenRouter key', 'api key', 'sk-or', 'copilot answers'),
+  ...PROVIDER_IDS.filter(id => id !== 'openrouter').map(id => e('keys', `key:${id}`, `${PROVIDERS[id].label} key`, 'api key', 'llm', 'provider', id, 'copilot answers')),
   e('keys', 'key:opencode', 'OpenCode Zen key', 'api key', 'zen'),
   e('keys', 'key:firecrawl', 'Firecrawl key', 'api key', 'scrape'),
   e('keys', 'key:brave', 'Brave Search key', 'api key', 'search', 'research', 'knowledge base'),

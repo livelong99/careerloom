@@ -2,7 +2,8 @@ import { useState, type ReactNode } from 'react'
 
 import { useRuns } from '../../hooks/useRuns'
 import { careerloom, normalizeCliError } from '../../lib/ipc'
-import type { CliRunner } from '../../lib/types'
+import type { CliRunner, ProviderId } from '../../lib/types'
+import { PROVIDER_IDS, PROVIDERS } from '../../../electron/llm/providers'
 import { RunLog } from '../RunLog'
 import { KeyField } from '../settings/KeyField'
 
@@ -66,15 +67,24 @@ export function ErrorLine({ message }: { message: string | null }) {
   return message ? <p role="alert" className="m-0 text-destructive">{message}</p> : null
 }
 
-/** OpenRouter / OpenCode Zen key: saved to the OS keychain through the shared Settings KeyField; never read back. */
-export function ApiKeyField({ hasKey, onSaved, provider = 'openrouter' }: { hasKey: boolean; onSaved: () => void; provider?: 'openrouter' | 'opencode' }) {
-  const label = provider === 'opencode' ? 'OpenCode Zen API key' : 'OpenRouter API key'
+/** An LLM provider / OpenCode Zen key: saved to the OS keychain through the shared Settings KeyField; never read back. `selectable` lets the user pick the provider (default OpenRouter). */
+export function ApiKeyField({ hasKey, onSaved, provider = 'openrouter', selectable = false }: { hasKey: boolean; onSaved: (provider: ProviderId | 'opencode') => void; provider?: ProviderId | 'opencode'; selectable?: boolean }) {
+  const [chosen, setChosen] = useState<ProviderId | 'opencode'>(provider)
+  const name = chosen === 'opencode' ? 'OpenCode Zen' : PROVIDERS[chosen].label
+  const label = `${name} API key`
   return (
-    <KeyField
-      label={label}
-      placeholder={hasKey ? 'Key saved. Paste a new one to replace it' : provider === 'opencode' ? label : 'OpenRouter API key (sk-or-…)'}
-      onSubmit={async v => { await careerloom.setApiKey(v, provider); onSaved() }}
-    />
+    <div className="flex flex-col gap-2">
+      {selectable && (
+        <select aria-label="Provider" className="h-8 max-w-60 rounded-md border border-input bg-background px-2 text-sm" value={chosen} onChange={e => setChosen(e.target.value as ProviderId)}>
+          {PROVIDER_IDS.map(id => <option key={id} value={id}>{PROVIDERS[id].label}</option>)}
+        </select>
+      )}
+      <KeyField
+        label={label}
+        placeholder={hasKey ? 'Key saved. Paste a new one to replace it' : chosen === 'openrouter' ? 'OpenRouter API key (sk-or-…)' : label}
+        onSubmit={async v => { await careerloom.setApiKey(v, chosen); onSaved(chosen) }}
+      />
+    </div>
   )
 }
 
