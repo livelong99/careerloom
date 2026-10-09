@@ -31,10 +31,21 @@ def pick_device(want):
     return ('mps', None) if mps else ('cpu', None)
 
 class Model:
-    def __init__(self, pipe, language):
+    def __init__(self, pipe, language, path=None):
         self.pipe, self.language = pipe, language
         self.kind = getattr(getattr(pipe, 'model', None), 'config', None) and pipe.model.config.model_type
         self.lang_ok = language not in (None, 'auto')
+        # Prompt-conditioned models (Nemotron 3.5 ASR): the pipeline drops the language and runs auto-detect, which measured
+        # worse; their processor takes it, so decode through the processor with the widest right context (whole chunks).
+        self.proc = None
+        try:
+            from transformers import AutoProcessor
+            p = AutoProcessor.from_pretrained(path or pipe.model.name_or_path, local_files_only=True)
+            if getattr(p, 'prompt_dictionary', None):
+                self.proc = p
+                if hasattr(p, 'supported_num_lookahead_tokens') and p.supported_num_lookahead_tokens: p.set_num_lookahead_tokens(max(p.supported_num_lookahead_tokens))
+        except Exception:
+            self.proc = None
 
     def kwargs(self):
         if not self.lang_ok: return {}
@@ -42,6 +53,13 @@ class Model:
         return {'generate_kwargs': {'language': self.language}}
 
     def run(self, x):
+        if self.proc is not None:
+            import torch
+            m = self.pipe.model
+            inp = self.proc(x, sampling_rate=16000, language=self.language if self.lang_ok else 'auto', return_tensors='pt').to(m.device, dtype=m.dtype)
+            with torch.no_grad(): out = m.generate(**inp, return_dict_in_generate=True)
+            r = self.proc.decode(out.sequences, skip_special_tokens=True)
+            return TAG.sub('', r[0] if isinstance(r, list) else r).strip()
         arg = {'raw': x, 'sampling_rate': 16000}
         try:
             out = self.pipe(arg, **self.kwargs())
@@ -66,7 +84,7 @@ def load(path, want, language):
     from transformers import pipeline
     device, reason = pick_device(want)
     pipe = pipeline('automatic-speech-recognition', model=path, device=device, trust_remote_code=False)
-    m = Model(pipe, language)
+    m = Model(pipe, language, path)
     noise = (np.random.default_rng(0).standard_normal(16000) * 200).astype('<i2').tobytes()
     for _ in range(2): decode(m, noise)  # warm the kernels before ready is reported
     return m, device, reason
