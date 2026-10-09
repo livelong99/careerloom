@@ -210,16 +210,16 @@ describe('hf engine', () => {
     const steps = installCommands('hf', '/s.py', '/cache', CUSTOM, false, 'darwin', 'arm64')
     expect(steps.map(([l]) => l.split(' ')[0])).toEqual(['PyTorch', 'Packages', 'Model', 'Self-test'])
     for (const [, argv] of steps) { expect(Array.isArray(argv)).toBe(true); for (const a of argv) expect(typeof a).toBe('string') }
-    expect(steps[0]![1]).toEqual(['-m', 'pip', 'install', '--disable-pip-version-check', 'torch==2.9.1'])
+    expect(steps[0]![1]).toEqual(['-m', 'pip', 'install', '--disable-pip-version-check', 'torch==2.14.1'])
     expect(steps[1]![1]).toContain(PINS.hf)
     expect(steps[2]![1]).toEqual(['/s.py', 'fetch', 'acme/asr', SHA, '/cache'])
     expect(steps[3]![1]).toEqual(['/s.py', 'selftest', 'acme/asr', SHA, '/cache', 'auto'])
   })
   it('torch comes from the CUDA index with a usable GPU, the CPU index on Linux without one, plain PyPI on macOS/Windows', () => {
     const torch = (cuda: boolean, platform: NodeJS.Platform) => installCommands('hf', '/s', '/c', CUSTOM, cuda, platform, 'x64')[0]![1].slice(4)
-    expect(torch(true, 'win32')).toEqual(['torch==2.9.1', '--index-url', 'https://download.pytorch.org/whl/cu128'])
-    expect(torch(false, 'linux')).toEqual(['torch==2.9.1', '--index-url', 'https://download.pytorch.org/whl/cpu'])
-    expect(torch(false, 'win32')).toEqual(['torch==2.9.1'])
+    expect(torch(true, 'win32')).toEqual(['torch==2.14.1', '--index-url', 'https://download.pytorch.org/whl/cu128'])
+    expect(torch(false, 'linux')).toEqual(['torch==2.14.1', '--index-url', 'https://download.pytorch.org/whl/cpu'])
+    expect(torch(false, 'win32')).toEqual(['torch==2.14.1'])
     expect(installCommands('hf', '/s', '/c', CUSTOM, true, 'linux', 'x64')[3]![1].at(-1)).toBe('cuda')
   })
   it('refuses a model id that is not repo@commit, even one that looks like a flag or a path', () => {
