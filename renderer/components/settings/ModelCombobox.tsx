@@ -40,7 +40,7 @@ export function ModelCombobox({ value, onChange, load, defaultLabel, ariaLabel, 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" role="combobox" aria-expanded={open} aria-label={ariaLabel} disabled={disabled} className="h-8 w-72 justify-between font-normal">
+        <Button variant="outline" size="sm" role="combobox" aria-expanded={open} aria-label={ariaLabel} disabled={disabled} className="h-8 w-full min-w-0 max-w-72 justify-between font-normal">
           <span className={value ? 'truncate' : 'truncate text-muted-foreground'}>{value || defaultLabel}</span>
           <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>

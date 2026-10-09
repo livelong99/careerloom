@@ -13,7 +13,7 @@ import type { ProviderId, ProviderRow, Settings } from '../../lib/types'
 import { Group, Note } from '../kit/Group'
 import { ModelCombobox } from './ModelCombobox'
 
-const SELECT = 'h-8 max-w-60 rounded-md border border-input bg-background px-2 text-sm text-foreground'
+const SELECT = 'h-8 w-full min-w-0 max-w-60 rounded-md border border-input bg-background px-2 text-sm text-foreground'
 
 /** Providers without a key are disabled (the saved choice stays selectable); a hint links to the key. */
 export function ProviderSelect({ id, label, value, rows, noneLabel, onChange }: { id: string; label: string; value: ProviderId | null; rows: ProviderRow[]; noneLabel?: string; onChange: (p: ProviderId | null) => void }) {
@@ -51,7 +51,8 @@ export function LlmAssignments({ settings, onChanged }: { settings: Settings; on
   return (
     <Group title="Models by feature" focus="llm-assignments">
       <Note>Pick which provider answers each feature. Add the provider's key first (Settings › API keys). The Interview Copilot only offers fast models, because answers are read live.</Note>
-      <table className="mt-3 w-full text-sm">
+      <table className="prose-table mt-3 w-full table-fixed text-sm">
+        <colgroup><col className="w-[36%]" /><col className="w-[30%]" /><col className="w-[34%]" /></colgroup>
         <thead><tr className="text-left text-xs text-muted-foreground"><th className="pb-2 pr-3 font-medium">Feature</th><th className="pb-2 pr-3 font-medium">Provider</th><th className="pb-2 font-medium">Model</th></tr></thead>
         <tbody>
           <tr className="border-t border-border align-top">
