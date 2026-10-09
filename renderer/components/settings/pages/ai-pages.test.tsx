@@ -105,13 +105,6 @@ describe('Keys page', () => {
     await userEvent.click(within(document.querySelector('[data-setting-id="key:openrouter"]') as HTMLElement).getByRole('button', { name: 'Test' }))
     expect(await screen.findByText(/Invalid key — OpenRouter rejected it · 90 ms/)).toBeTruthy()
   })
-  it('lists plugin keys read-only with a link to Integrations', async () => {
-    bridge.current = fakeBridge({ keysList: list, listIntegrations: [{ id: 'plugin:x', kind: 'plugin', name: 'Plugin X', status: 'needs_setup', statusText: 'Missing keys: X_KEY' }, { id: 'service:a', kind: 'service', name: 'Svc', status: 'ready', statusText: 'Ready' }] })
-    mount(<KeysPage {...props()} />)
-    expect(await screen.findByText('Plugin X')).toBeTruthy()
-    expect(screen.getByText('Missing keys: X_KEY')).toBeTruthy()
-    expect(screen.queryByText('Svc')).toBeNull()
-  })
 })
 
 describe('cliState', () => {

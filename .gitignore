@@ -7,7 +7,7 @@
 .codex/
 
 # Careerloom build output
-node_modules/
+node_modules
 dist/
 release/
 graft/

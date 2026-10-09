@@ -21,26 +21,19 @@ beforeEach(() => {
     row('service:firecrawl', 'service', 'Firecrawl (self-hosted)', { actions: ['start', 'check'] }),
     row('service:browser', 'service', 'Browser login'),
     row('skill:career-ops', 'skill', 'career-ops', { actions: ['check', 'update'] }),
-    row('plugin:x', 'plugin', 'Plugin X', { status: 'needs_setup', statusText: 'Missing keys: X_KEY' }),
+    row('service:searxng', 'service', 'SearXNG (self-hosted)'),
     row('source:acme', 'source', 'Acme'),
   ])
 })
 
 describe('IntegrationsPage', () => {
-  it('lists services, skills and plugins; job sources are a link, not rows', async () => {
+  it('groups rows by purpose; job sources are a link, not rows', async () => {
     render(<IntegrationsPage />)
     await screen.findByText('Firecrawl (self-hosted)')
-    expect(screen.getByText('Plugin X')).toBeTruthy()
+    for (const g of ['Core', 'Job data', 'Research']) expect(screen.getByText(g)).toBeTruthy()
+    expect(screen.getByText('SearXNG (self-hosted)')).toBeTruthy()
     expect(screen.queryByText('Acme')).toBeNull()
-    expect(screen.getByRole('button', { name: /Job sources/ })).toBeTruthy()
-  })
-
-  it('filters by tab', async () => {
-    render(<IntegrationsPage />)
-    await screen.findByText('Plugin X')
-    fireEvent.click(screen.getByRole('button', { name: /^Plugins/ }))
-    expect(screen.queryByText('Browser login')).toBeNull()
-    expect(screen.getByText('Plugin X')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Boards' })).toBeTruthy()
   })
 
   it('Firecrawl detail hides the key field and links to API keys', async () => {

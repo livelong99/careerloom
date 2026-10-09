@@ -13,7 +13,7 @@ export const PAGE_GROUPS: ReadonlyArray<{ label: string; pages: ReadonlyArray<{ 
       { id: 'local-models', label: 'Local models', blurb: 'On-device models for pre-screening and Copilot transcription.' },
     ],
   },
-  { label: 'Connections', pages: [{ id: 'integrations', label: 'Integrations', blurb: 'Services, browser login, skills and plugins.' }] },
+  { label: 'Connections', pages: [{ id: 'integrations', label: 'Integrations', blurb: 'career-ops, job-data services, research search and extra skills.' }] },
   {
     label: 'Workflows',
     pages: [

@@ -20,7 +20,7 @@ const KIND_OF_MODE: Record<string, (typeof KINDS)[number]> = {
 }
 /** What the user thinks of the run as: evaluate, scan, resume, copilot, research (job knowledge base), setup (installs, updates) or agent (everything else). */
 export function kindOf(run: Pick<Run, 'mode'>): (typeof KINDS)[number] {
-  return KIND_OF_MODE[run.mode] ?? (/^(skill|source|plugin)-/.test(run.mode) ? 'setup' : 'agent')
+  return KIND_OF_MODE[run.mode] ?? (/^(skill|source)-/.test(run.mode) ? 'setup' : 'agent')
 }
 
 const DAY = 86_400_000
