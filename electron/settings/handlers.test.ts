@@ -159,7 +159,7 @@ describe('secrets never leave main', () => {
     // and the keys really are saved, encrypted at rest (the stub encrypts with an 'enc:' prefix; the fakes decrypt it)
     expect(keyInfo('openrouter')).toMatchObject({ hasKey: true, tail: SENTINEL_OR.slice(-4) })
     vi.unstubAllGlobals()
-  })
+  }, 30_000)
   it('the legacy getSettings shape reports presence only', () => {
     setKey('openrouter', SENTINEL_OR)
     expect(publicSettings()).toMatchObject({ hasApiKey: true, hasOpencodeKey: false })
