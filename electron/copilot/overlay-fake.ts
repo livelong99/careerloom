@@ -1,5 +1,5 @@
 // Dev-only event generator that drives the overlay through all 8 states until WP2/WP3 publish real events
-// (CL_COPILOT_FAKE=cycle|<state>). It speaks only the frozen contract; the sample copy is original.
+// (CL_COPILOT_FAKE=cycle|<state>|detail; detail = the answered card, then More detail streaming under it). It speaks only the frozen contract; the sample copy is original.
 import type { CopilotEvents, OverlayViewState, Suggestion } from './types'
 
 export type FakeEvent = { [K in keyof CopilotEvents]: { name: K; payload: CopilotEvents[K] } }[keyof CopilotEvents]
@@ -58,8 +58,24 @@ export function fakeEventsFor(target: OverlayViewState): FakeEvent[] {
   }
 }
 
-export type FakeSpec = 'cycle' | OverlayViewState
-export const parseFakeSpec = (v: string | undefined): FakeSpec | null => (v === 'cycle' ? 'cycle' : FAKE_STATES.find(s => s === v) ?? null)
+const DETAIL_SAY = 'I reset the scope, not the date. Six weeks out, the migration plan put on-call at risk after a rough quarter, so I split the release: the core path on the original date, the long tail two weeks later. I brought the incident count and a rollout risk table to the PM and the director, and asked them to choose with me rather than for me. We shipped the core path on time and had no Sev-1s in the first month.'
+const DETAIL_BULLETS = [
+  'Scope vs date: move scope, keep the date, so trust in the plan holds.',
+  'Evidence first: incident count and a risk table make it a shared decision.',
+  'Likely follow-up: "What would you do differently?" Agree the split a week earlier.',
+  'Likely follow-up: "How did the PM react?" Relieved: they owned the choice.',
+]
+/** More detail for the answered card, streamed in four steps. */
+export function fakeDetailStream(): FakeSuggestionEvent[] {
+  const d = (over: Partial<Suggestion>): Suggestion => ({ ...base(0), kind: 'detail', tier: 'balanced', model: 'fake/balanced', firstTokenMs: 1400, ...over })
+  return [
+    d({ say: DETAIL_SAY.slice(0, 80) }), d({ say: DETAIL_SAY }), d({ say: DETAIL_SAY, bullets: DETAIL_BULLETS.slice(0, 2) }),
+    d({ say: DETAIL_SAY, bullets: DETAIL_BULLETS, done: true, totalMs: 3600, costUsd: 0.004 }),
+  ].map((payload): FakeSuggestionEvent => ({ name: 'copilotSuggestion', payload }))
+}
+
+export type FakeSpec = 'cycle' | 'detail' | OverlayViewState
+export const parseFakeSpec = (v: string | undefined): FakeSpec | null => (v === 'cycle' || v === 'detail' ? v : FAKE_STATES.find(s => s === v) ?? null)
 
 /** Plays `spec` through `publish`; returns stop(). Streams the answer at ~350 ms per chunk and jiggles the level meters. */
 export function runFake(publish: (e: FakeEvent) => void, spec: FakeSpec, opts: { holdMs?: number } = {}): () => void {
@@ -81,6 +97,7 @@ export function runFake(publish: (e: FakeEvent) => void, spec: FakeSpec, opts: {
   const order: OverlayViewState[] = ['idle', 'listening', 'question', 'answering', 'answered', 'permission', 'error', 'stopped']
   const cycle = (i: number): void => play(order[i % order.length]!, () => cycle(i + 1))
   if (spec === 'cycle') cycle(0)
+  else if (spec === 'detail') { play('answered'); fakeDetailStream().forEach((e, i) => later(900 + i * 400, () => publish(e))) }
   else play(spec)
 
   levels = setInterval(() => {

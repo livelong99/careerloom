@@ -31,7 +31,7 @@ const typedText = (v: unknown): string => {
   if (typeof v !== 'string' || v.length > TYPED_MAX) throw new Error(`typed answer must be text up to ${TYPED_MAX} characters`)
   return v
 }
-const ANSWER_KINDS = ['answer', 'followup', 'clarify', 'summarise'] as const
+const ANSWER_KINDS = ['answer', 'followup', 'clarify', 'summarise', 'detail'] as const
 const DEBRIEF_ACTIONS = ['resume-bullet', 'job-note'] as const
 const PANES = ['microphone', 'system-audio', 'screen'] as const
 const RESCORE_COOLDOWN_MS = 60_000
@@ -281,7 +281,7 @@ export function createCopilot(deps: CopilotDeps) {
     const d = store.get(id)
     // Contract has no "score now" call: an ended, answered, unscored session is (re)scored when opened, at most once a minute.
     if (d && d.endedAt !== null && d.scorecard === null && d.transcript.some(l => l.speaker === 'you') && now() - (lastScoreTry.get(id) ?? 0) > RESCORE_COOLDOWN_MS) score(id)
-    return d && { ...d, latency: summarizeTraces(d.suggestions.flatMap(x => (x.done && x.trace ? [x.trace] : []))) }
+    return d && { ...d, latency: summarizeTraces(d.suggestions.flatMap(x => (x.done && x.trace && x.kind !== 'detail' ? [x.trace] : []))) }
   }
 
   const impl: Record<string, (...a: unknown[]) => unknown> = {

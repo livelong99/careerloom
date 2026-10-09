@@ -77,7 +77,10 @@ function Footer({ d }: { d: OverlayViewData }) {
 }
 
 function Body({ d, on, hideQuestion }: { d: OverlayViewData; on: OverlayActions; hideQuestion?: boolean }) {
-  const acts = <ActionRow keys={d.keys} screen={d.screen} on={{ answer: on.answer, screenshot: on.screenshot, fixScreen: on.fixScreen }} />
+  const note = d.detailNote ? <p className="scr-note" role="status">{d.detailNote}</p> : null
+  const actsOnly = <ActionRow keys={d.keys} screen={d.screen} on={{ answer: on.answer, screenshot: on.screenshot, fixScreen: on.fixScreen }} />
+  const acts = <>{note}{actsOnly}</>
+  const more = on.answer ? () => on.answer?.('detail') : undefined
   const tr = <Transcript lines={d.lines} />
   const q = hideQuestion ? null : d.question
   switch (d.state) {
@@ -88,7 +91,7 @@ function Body({ d, on, hideQuestion }: { d: OverlayViewData; on: OverlayActions;
     case 'question':
       return <>{q ? <QuestionBanner type={q.type} text={q.text} /> : null}<div className="sug plain"><p className="hint">Looks like a question. Answer now, or keep listening for a follow-up.</p></div>{acts}{tr}<Footer d={d} /></>
     case 'answering': case 'answered':
-      return <>{q ? <QuestionBanner type={q.type} text={q.text} /> : null}{d.suggestion ? <SuggestionCard s={d.suggestion} /> : null}{acts}{tr}<Footer d={d} /></>
+      return <>{q ? <QuestionBanner type={q.type} text={q.text} /> : null}{d.suggestion ? <SuggestionCard s={d.suggestion} compact={d.detail !== null} onMore={d.suggestion.done && !d.suggestion.kind ? more : undefined} moreKbd={d.keys.detail} note={d.detail ? null : d.detailNote} /> : null}{d.detail ? <SuggestionCard s={d.detail} note={d.detailNote} /> : null}{d.suggestion ? actsOnly : acts}{tr}<Footer d={d} /></>
     case 'error': case 'permission':
       return <>{d.problem ? <ProblemPanel problem={d.problem} on={on} /> : null}{tr}</>
     case 'stopped':

@@ -18,6 +18,10 @@ export type OverlayViewData = {
   cost: string
   question: { type: string; text: string } | null
   suggestion: Suggestion | null
+  /** More detail on the current answer (shown under it). */
+  detail: Suggestion | null
+  /** Why More detail could not run. */
+  detailNote: string | null
   lines: OverlayLine[]
   levels: { mic: number; system: number }
   engine: string
@@ -26,7 +30,7 @@ export type OverlayViewData = {
   savedMinutes: number
   problem: OverlayProblem | null
   /** Accelerator labels shown on buttons (⌃⌥A). */
-  keys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'expand' | 'listen' | 'panic', string>
+  keys: Record<'answer' | 'followup' | 'clarify' | 'screenshot' | 'summarise' | 'detail' | 'expand' | 'listen' | 'panic', string>
   /** The Screenshot action: progress and why it can't run (never an error panel). */
   screen: { state: 'idle' | 'capturing' | 'sent' | 'ready' | 'blocked'; reason?: 'permission' | 'off' | 'ocr' | 'no-vision' | 'budget' | 'failed'; message?: string }
   /** Quick hide: the text is gone from the screen while the session keeps running. */
@@ -35,7 +39,7 @@ export type OverlayViewData = {
 
 /** Optional: a missing handler renders its button disabled (the backing call does not exist yet). */
 export type OverlayActions = Partial<{
-  answer(kind: 'answer' | 'followup' | 'clarify' | 'summarise'): void
+  answer(kind: 'answer' | 'followup' | 'clarify' | 'summarise' | 'detail'): void
   screenshot(): void
   /** Open System Settings → Screen Recording. */
   fixScreen(): void

@@ -64,7 +64,7 @@ export type WiringDeps = {
 }
 
 const MAX_LINES = 200
-const ANSWER_KINDS: ReadonlySet<string> = new Set<PromptKind>(['answer', 'followup', 'clarify', 'summarise'])
+const ANSWER_KINDS: ReadonlySet<string> = new Set<PromptKind>(['answer', 'followup', 'clarify', 'summarise', 'detail'])
 const SUMMARISE_PROMPT = 'Summarise the conversation so far'
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 const upsert = (list: TranscriptLine[], l: TranscriptLine): TranscriptLine[] => {
@@ -82,12 +82,18 @@ export function createLiveWiring(d: WiringDeps) {
   let lastQuestion: DetectedQuestion | null = null
   let turn: TranscriptLine[] = []
   let manual = 0
+  let reqSeq = 0 // stamps every published suggestion with its request
+  let answering: { qid: string; done: Promise<void> } | null = null // the answer still streaming: More detail waits for it
   const answeredLines = new Set<string>() // transcript lines already answered on demand: their final is not a new question
   let current: AbortController | null = null
+  let currentDetail: AbortController | null = null // More detail streams beside the answer it expands
+  const shownFor = new Map<string, { say: string; bullets: string[]; star: Suggestion['star'] }>() // the answer on screen per question: what More detail builds on
   let tail: { q: DetectedQuestion; text: string; at: number; asked: boolean } | null = null // the last interviewer final that became a question
   let gen = 0 // bumped by reset/Clear: a detection that was already awaiting the detector when it happened is dropped
   let deferred: ReturnType<typeof setTimeout> | null = null // an auto-ask waiting out the min gap
-  let lastAsk: { key: string; at: number; live: boolean; failed: boolean } | null = null // the answer most recently started, for the same-question dedupe
+  type Ask = { key: string; at: number; live: boolean; failed: boolean }
+  let lastAsk: Ask | null = null // the answer most recently started, for the same-question dedupe
+  let lastDetail: Ask | null = null // the same for More detail, kept apart so it never unblocks a repeated answer
   const auto = createAutoAsk({ now })
   const spec = createSpeculator({ engine: d.engine, transcript: () => lines, config: d.config, now })
 
@@ -154,14 +160,17 @@ export function createLiveWiring(d: WiringDeps) {
 
   const unschedule = (): void => { if (deferred) clearTimeout(deferred); deferred = null }
   const undefer = (): void => { gen++; unschedule() } // gen: detections already awaiting the detector are dropped (reset, Clear, stop, panic)
-  const reset = (): void => { dropScreen(); lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; tail = null; lastAsk = null; undefer(); d.detector.reset(); auto.reset(); spec.cancel() }
+  const reset = (): void => { dropScreen(); lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; currentDetail?.abort(); currentDetail = null; shownFor.clear(); tail = null; lastAsk = null; lastDetail = null; undefer(); d.detector.reset(); auto.reset(); spec.cancel() }
   const error = (message: string, extra: { actions?: CopilotEvents['copilotError']['actions']; suggestion?: string } = {}): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false, ...extra })
   const engineError = (e: unknown): void => {
     if (!(e instanceof LlmError)) return error(msg(e))
     const f = friendlyLlmError(e, { dataCollection: d.config().engine.openrouter.dataCollection })
     error(f.message, { actions: f.actions, ...(f.suggestion ? { suggestion: f.suggestion } : {}) })
   }
-  const addQuestion = (q: DetectedQuestion): void => { questions.set(q.id, q); lastQuestion = q; d.recorder.question(q); d.host.publish('copilotQuestion', q) }
+  const endDetail = (): void => { currentDetail?.abort(); currentDetail = null; lastDetail = null }
+  const addQuestion = (q: DetectedQuestion): void => { endDetail(); questions.set(q.id, q); lastQuestion = q; d.recorder.question(q); d.host.publish('copilotQuestion', q) }
+  /** More detail problems are a note under the answer, never the error panel that would cover it. */
+  const detailNote = (message: string): void => d.host.publish('copilotError', { kind: 'detail', message, retrying: false })
 
   /** Mic-only live has no interviewer channel: the mic hears both sides, so its finals are candidates too (rules filter chatter). */
   const detectable = (l: TranscriptLine): boolean => mode === 'live' && l.final && !answeredLines.has(l.id) && (l.speaker === 'interviewer' || !sources.includes('system'))
@@ -212,6 +221,8 @@ export function createLiveWiring(d: WiringDeps) {
 
   async function answer(kind: PromptKind, questionId?: string, extra: { route?: Route; run?: SpecRun; marks?: TraceMarks; info?: TurnInfo; press?: boolean } = {}): Promise<void> {
     let q = (questionId ? questions.get(questionId) : undefined) ?? lastQuestion
+    const detail = kind === 'detail'
+    if (!q && detail) return detailNote('Nothing to expand yet: answer a question first.')
     if (!q) {
       // Flush what is still being said: the key is often pressed before the engine has finalised the question.
       const heard = kind === 'summarise' ? undefined : [...lines].reverse().find(l => l.text.trim() !== '' && !answeredLines.has(l.id))
@@ -222,15 +233,22 @@ export function createLiveWiring(d: WiringDeps) {
       addQuestion(q)
     }
     const key = `${kind}|${norm(q.text)}`
-    if (!extra.press && lastAsk?.key === key && !lastAsk.failed && (lastAsk.live || now() - lastAsk.at < DEDUPE_MS)) { // a good answer still streaming is never restarted, however long it takes
+    const prev = detail ? lastDetail : lastAsk
+    if (!extra.press && prev?.key === key && !prev.failed && (prev.live || now() - prev.at < DEDUPE_MS)) { // a good answer still streaming is never restarted, however long it takes
       debugLog('copilot', 'answer deduped', { kind, questionId: q.id })
       return extra.run?.abort()
     }
-    const ask: NonNullable<typeof lastAsk> = { key, at: now(), live: true, failed: false }
-    lastAsk = ask
-    current?.abort()
+    const ask: Ask = { key, at: now(), live: true, failed: false }
+    if (detail) lastDetail = ask; else lastAsk = ask
+    // More detail replaces only an older More detail; anything else also stops a More detail still streaming (it is stale).
+    if (detail) currentDetail?.abort(); else { endDetail(); current?.abort() }
     const ac = new AbortController()
-    current = ac
+    if (detail) currentDetail = ac; else current = ac
+    const reqId = ++reqSeq
+    // The press is seen at once: a status in the answer's label row (no extra height), cleared when the detail card arrives.
+    if (detail) detailNote(answering?.qid === q.id ? 'More detail after this answer…' : 'Writing more detail…')
+    let finished = (): void => undefined
+    if (!detail) { const done = new Promise<void>(r => { finished = r }); answering = { qid: q.id, done } }
     debugLog('copilot', 'answer start', { kind, questionId: q.id, text: q.text, manual: !extra.route })
     let shown = 0
     const run = extra.run
@@ -238,7 +256,7 @@ export function createLiveWiring(d: WiringDeps) {
     try {
       const route = extra.route ?? routeQuestion(q, d.config().engine, kind)
       const info: TurnInfo = extra.info ?? { kind: route.kind, tier: route.tier, auto: q.auto, spec: null, gate: q.hint?.source ?? null, gateMs: q.hint?.gateMs ?? null }
-      const frame = await screenFor(route, extra.press === true)
+      const frame = detail ? null : await screenFor(route, extra.press === true) // ponytail: More detail is text-only; the answer it expands already saw the screen
       if (frame === 'stop') return
       if (ac.signal.aborted) return
       const image = frame ? { jpeg: frame.jpeg, captureMs: frame.timings.captureMs, encodeMs: frame.timings.encodeMs } : undefined
@@ -246,18 +264,24 @@ export function createLiveWiring(d: WiringDeps) {
         Object.assign(run.marks, extra.marks); Object.assign(run.info, { gate: info.gate, gateMs: info.gateMs })
         run.release()
       }
-      for await (const s of run?.stream ?? d.engine.answer({ question: q, transcript: lines.filter(l => l.final), kind, signal: ac.signal, route, marks: extra.marks, info, ...(image ? { image } : {}) })) {
+      if (detail && answering?.qid === q.id) await answering.done // expand the whole answer, not the half streamed so far
+      if (ac.signal.aborted) return
+      const prior = detail ? shownFor.get(q.id) : undefined
+      for await (const s of run?.stream ?? d.engine.answer({ question: q, transcript: lines.filter(l => l.final), kind, signal: ac.signal, route, marks: extra.marks, info, ...(image ? { image } : {}), ...(prior ? { prior } : {}) })) {
         shown++
+        if (!detail && kind !== 'summarise') shownFor.set(q.id, { say: s.say, bullets: s.bullets, star: s.star })
         d.recorder.suggestion(s)
-        d.host.publish('copilotSuggestion', s)
+        d.host.publish('copilotSuggestion', { ...s, reqId, ...(kind === 'clarify' || kind === 'summarise' ? { kind } : {}) })
       }
       debugLog('copilot', shown ? 'answer end' : 'answer ended with nothing shown (superseded or stopped)', { kind, questionId: q.id, suggestions: shown, aborted: ac.signal.aborted })
     } catch (e) {
       ask.failed = true
       debugLog('copilot', 'answer failed', { kind, questionId: q.id, error: e, code: e instanceof LlmError ? e.code : undefined })
-      if (e instanceof LlmError && e.code === 'no_vision') block('no-vision', { message: noVisionText("This model can't read images.", e.suggestion), suggestion: e.suggestion })
+      if (detail) detailNote(`More detail failed: ${e instanceof LlmError ? friendlyLlmError(e, { dataCollection: d.config().engine.openrouter.dataCollection }).message : msg(e)}`)
+      else if (e instanceof LlmError && e.code === 'no_vision') block('no-vision', { message: noVisionText("This model can't read images.", e.suggestion), suggestion: e.suggestion })
       else engineError(e)
     } finally {
+      finished()
       ask.live = false
       if (!shown) ask.failed = true // nothing reached the user (blocked, empty, stopped): the next press may try again
     }
@@ -265,7 +289,7 @@ export function createLiveWiring(d: WiringDeps) {
 
   /** The Clear shortcut: stop what is being answered and forget the unanswered question, so a stray line cannot be answered by the next press. */
   function clearPending(): void {
-    current?.abort(); current = null
+    current?.abort(); current = null; endDetail(); shownFor.clear()
     d.engine.cancelAll(); spec.cancel(); dropScreen()
     for (const l of lines) if (l.final) answeredLines.add(l.id)
     questions = new Map(); lastQuestion = null; tail = null; lastAsk = null; undefer()
@@ -328,7 +352,7 @@ export function createLiveWiring(d: WiringDeps) {
     metrics: () => ({ speculation: spec.stats() }),
     /** The session controller arrives after the wiring (it needs `emit`): the kill switch closes over it. */
     bindSession(ctl: { stop(reason: StopReason): Promise<void> }): void {
-      d.host.setSessionHooks({ stopCapture: () => ctl.stop('panic'), abortRequests: () => { d.engine.cancelAll(); current?.abort(); dropScreen(); undefer() } })
+      d.host.setSessionHooks({ stopCapture: () => ctl.stop('panic'), abortRequests: () => { d.engine.cancelAll(); current?.abort(); currentDetail?.abort(); dropScreen(); undefer() } })
     },
   }
 }

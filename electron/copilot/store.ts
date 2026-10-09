@@ -152,7 +152,7 @@ export function createRecorder(store: SessionStore, now: () => number = Date.now
       cur = { ...cur, questionsList, questions: questionsList.length }
       save()
     },
-    suggestion(s) { if (cur) cur = { ...cur, suggestions: upsert(cur.suggestions, s, x => x.questionId === s.questionId) } },
+    suggestion(s) { if (cur) cur = { ...cur, suggestions: upsert(cur.suggestions, s, x => x.questionId === s.questionId && x.kind === s.kind) } },
     end() {
       if (!cur) return null
       const endedAt = now()

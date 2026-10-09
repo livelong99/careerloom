@@ -26,9 +26,9 @@ export type HostDeps = {
 }
 
 type OverlayCmd = Parameters<CopilotApi['copilotOverlay']>[0]
-const ACTIONS = new Set<HotkeyAction>(['answer', 'followup', 'clarify', 'screenshot', 'summarise', 'listen', 'clear'])
+const ACTIONS = new Set<HotkeyAction>(['answer', 'followup', 'clarify', 'screenshot', 'summarise', 'detail', 'listen', 'clear'])
 const REPEAT_MS = 400 // a held key auto-repeats (Windows especially): one press = one request (or one toggle)
-const ACTION_NAME: Partial<Record<HotkeyAction, string>> = { answer: 'Answer', followup: 'Follow-up', clarify: 'Clarify', screenshot: 'Screenshot', summarise: 'Summarise', expand: 'Expand or collapse', listen: 'Listen', toggle: 'Show or hide', quickHide: 'Quick hide', clear: 'Clear', panic: 'Stop' }
+const ACTION_NAME: Partial<Record<HotkeyAction, string>> = { answer: 'Answer', followup: 'Follow-up', clarify: 'Clarify', screenshot: 'Screenshot', summarise: 'Summarise', detail: 'More detail', expand: 'Expand or collapse', listen: 'Listen', toggle: 'Show or hide', quickHide: 'Quick hide', clear: 'Clear', panic: 'Stop' }
 const REASON_TEXT = { 'in-use': 'is in use by another app', reserved: 'is reserved by the system', invalid: 'is not a valid shortcut' } as const
 const configKey = (c: CopilotConfig): string => JSON.stringify([c.overlay, c.privacy, c.hotkeys])
 
@@ -78,7 +78,10 @@ export function createOverlayHost(deps: HostDeps) {
     }
     else if (action === 'quickHide') { quickHidden = !quickHidden; deps.overlay.apply({ quickHide: quickHidden }) }
     else if (action === 'listen' && capturing) return // already listening: nothing to start (there is no pause)
-    else if (ACTIONS.has(action)) for (const cb of actionListeners) cb(action)
+    else if (ACTIONS.has(action)) {
+      if (action === 'detail' && deps.getConfig().overlay.layout === 'strip') deps.overlay.apply({ collapse: false }) // the detail needs the panel
+      for (const cb of actionListeners) cb(action)
+    }
   }
 
   /** `idle`: the overlay is open but not capturing: only Listen is registered (it starts a session), the other keys stay with other apps. */

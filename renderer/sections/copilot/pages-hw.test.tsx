@@ -225,10 +225,10 @@ describe('AppearancePage', () => {
 })
 
 describe('HotkeysPage', () => {
-  it('lists ten editable rows and the fixed stop row', async () => {
+  it('lists eleven editable rows and the fixed stop row', async () => {
     render(<HotkeysPage />)
     await screen.findByText('Answer the last question')
-    expect(screen.getAllByRole('button', { name: /^Change / })).toHaveLength(10)
+    expect(screen.getAllByRole('button', { name: /^Change / })).toHaveLength(11)
     expect(screen.getByText('Stop everything now')).toBeTruthy()
     expect(screen.getByText('⌃⌥⇧X')).toBeTruthy()
   })

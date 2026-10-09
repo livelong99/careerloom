@@ -94,6 +94,14 @@
   .sug { padding: 12px 14px 18px 16px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; animation: ov-rise .2s ease-out;
     -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); }
   .sug.plain { max-height: none; mask-image: none; -webkit-mask-image: none; padding-bottom: 12px; }
+  /* More detail: the answer shrinks to its headline and the detail takes the card's place (the window is 700 px) */
+  .sug.compact { max-height: none; mask-image: none; -webkit-mask-image: none; padding-bottom: 4px; }
+  .sug.compact .say { margin-bottom: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .sug.detail { max-height: 280px; border-top: 1px solid var(--line); }
+  .sug .lbl .more.note { cursor: default; color: var(--mut); min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: right; }
+  .sug .lbl .more.note + .more { margin-left: 4px; }
+  .sug .lbl .more { all: unset; margin-left: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; color: var(--accent-text); border-radius: 6px; padding: 1px 4px; }
+  .sug .lbl .more:hover, .sug .lbl .more:focus-visible { background: var(--fill); outline: none; }
   .sug .lbl { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: var(--fw-med); color: var(--mut); margin: 0 0 4px; }
   .sug .say { font-size: 1.12em; font-weight: var(--fw-sub); line-height: 1.4; letter-spacing: -.005em; margin: 0 0 10px; }
   .sug .hint { margin: 0; color: var(--mut); }

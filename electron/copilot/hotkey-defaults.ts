@@ -5,11 +5,11 @@ import type { CopilotConfig } from './types'
 
 type Hotkeys = CopilotConfig['hotkeys']
 const MAC: Hotkeys = {
-  answer: 'Control+Alt+A', followup: 'Control+Alt+F', clarify: 'Control+Alt+C', screenshot: 'Control+Alt+S', summarise: 'Control+Alt+M',
+  answer: 'Control+Alt+A', followup: 'Control+Alt+F', clarify: 'Control+Alt+C', screenshot: 'Control+Alt+S', summarise: 'Control+Alt+M', detail: 'Control+Alt+D',
   expand: 'Control+Alt+E', listen: 'Control+Alt+L', toggle: 'Control+Alt+H', quickHide: 'Control+Alt+Shift+H', clear: 'Control+Alt+K', panic: 'Control+Alt+Shift+X',
 }
 const WIN: Hotkeys = {
-  answer: 'Alt+Shift+A', followup: 'Alt+Shift+F', clarify: 'Alt+Shift+C', screenshot: 'Alt+Shift+S', summarise: 'Alt+Shift+M',
+  answer: 'Alt+Shift+A', followup: 'Alt+Shift+F', clarify: 'Alt+Shift+C', screenshot: 'Alt+Shift+S', summarise: 'Alt+Shift+M', detail: 'Alt+Shift+D',
   expand: 'Alt+Shift+E', listen: 'Alt+Shift+L', toggle: 'Alt+Shift+H', quickHide: 'Alt+Shift+Q', clear: 'Alt+Shift+K', panic: 'Alt+Shift+X',
 }
 const MAC_INTERRUPT = 'Control+Alt+I'
