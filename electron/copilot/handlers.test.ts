@@ -19,6 +19,8 @@ import type { ConsentRecord, SessionDetail } from './types'
 
 const setPlatform = (p: string) => Object.defineProperty(process, 'platform', { value: p })
 const real = process.platform
+const realArch = process.arch
+const setArch = (a: string) => Object.defineProperty(process, 'arch', { value: a })
 const JOB = { id: 'job-1', title: 'Senior Platform Engineer', company: 'Northwind Labs', report: null, posting: null }
 const CV = '# Ada\n- Led migration of 40 services to Kubernetes\n'
 
@@ -37,8 +39,8 @@ const consent = (over: Partial<ConsentRecord> = {}): ConsentRecord => ({
   sources: ['mic'], sttProvider: 'moonshine', llmProvider: 'openrouter', transcriptSaved: true, privacyMode: false, indicator: 'chip', ...over,
 })
 
-beforeEach(() => { setPlatform('darwin'); sent.length = 0 })
-afterEach(() => setPlatform(real))
+beforeEach(() => { setPlatform('darwin'); setArch('arm64'); sent.length = 0 })
+afterEach(() => { setPlatform(real); setArch(realArch) })
 
 describe('registration and platform guard', () => {
   it('registers every CopilotApi method (25 + 2 config), all prefixed copilot', () => {
