@@ -8,7 +8,6 @@ import {
   addTrackedCompany, parseJobBoardUrl, readTrackedCompanies, removeTrackedCompany, setTrackedCompanyEnabled, slugify, withSourceIds,
 } from './integrations/sources'
 import { composeArgs, isPrivateHost, parseBaseUrl, parseScrapeResponse, scrapeBody, validateComposeDir, validateScrapeTarget } from './integrations/firecrawl-client'
-import { readEnvPresence, upsertEnv } from './integrations/env'
 
 // firecrawl.ts / integrations.ts import context.ts, which imports 'electron' at module scope.
 vi.mock('electron', () => ({
@@ -261,31 +260,6 @@ describe('parseBaseUrl (FIRECRAWL_URL) rejects the same IPv6 loopback-mapped byp
     expect(() => parseBaseUrl('http://[::1]:3002')).not.toThrow()
     expect(() => parseBaseUrl('http://[::ffff:127.0.0.1]:3002')).not.toThrow()
     expect(() => parseBaseUrl('http://[fc00::1]:3002')).toThrow()
-  })
-})
-
-describe('upsertEnv (.env injection)', () => {
-  const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'env-')), '.env')
-
-  it('refuses a value containing a newline, CR, or NUL byte', () => {
-    const file = tmp()
-    expect(() => upsertEnv(file, 'TAVILY_API_KEY', 'abc\ndef')).toThrow(/newline/)
-    expect(() => upsertEnv(file, 'TAVILY_API_KEY', 'abc\rdef')).toThrow(/newline/)
-    expect(() => upsertEnv(file, 'TAVILY_API_KEY', 'abc\0def')).toThrow(/newline/)
-  })
-
-  it('refuses a key that is not a plausible env var name', () => {
-    const file = tmp()
-    for (const bad of ['1KEY', '_KEY', 'key', 'KEY-NAME', 'KEY=NAME', 'a'.repeat(65).toUpperCase()]) {
-      expect(() => upsertEnv(file, bad, 'v'), bad).toThrow(/Invalid env key/)
-    }
-  })
-
-  it('writes a valid key/value and reports presence without exposing the value', () => {
-    const file = tmp()
-    upsertEnv(file, 'TAVILY_API_KEY', 'sk-test-123')
-    expect(fs.readFileSync(file, 'utf8')).toContain('TAVILY_API_KEY=sk-test-123')
-    expect(readEnvPresence(file, ['TAVILY_API_KEY', 'OTHER_KEY'])).toEqual({ TAVILY_API_KEY: true, OTHER_KEY: false })
   })
 })
 

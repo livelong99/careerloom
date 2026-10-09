@@ -41,7 +41,7 @@ career-ops' files and scripts into a visual workflow.
   ATS-readability, and export with live PDF previews of templates.
 - **Agent** — a chat for anything outside the fixed flows, with streamed tool steps and resumable threads.
 - **Monitoring** — runs, success rate, cost and token usage, and the health of your search.
-- **Integrations** — job sources, skills, career-ops plugins and services in one place.
+- **Integrations** — career-ops, job-data services (Firecrawl, browser login), research search (SearXNG) and extra skills, grouped by purpose.
 
 | | |
 |---|---|

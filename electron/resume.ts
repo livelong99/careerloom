@@ -232,7 +232,7 @@ function exportResume(format: unknown): RunSummary {
     return finishedRun('export', `Export CV (${EXPORT_LABEL.md})`, null)
   }
   if (fmt === 'docx' && !existsSync(join(careerOpsRoot(), 'plugins', 'docx'))) {
-    throw new Error('DOCX export needs the docx plugin — install it from Integrations first.')
+    throw new Error('DOCX export needs career-ops\' docx plugin — update career-ops from Settings › Integrations.')
   }
   const prompt = `/career-ops export my cv to ${fmt} using ${EXPORT_HOW[fmt]} with the active template `
     + '(see cv-templates.mjs), writing the result under output/. Use only cv.md and config/profile.yml as source content.'
