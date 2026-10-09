@@ -41,3 +41,11 @@ Users paste a Hugging Face model id or link in **Settings → Local models → A
 - Whether `pipeline("automatic-speech-recognition")` accepts a raw-array dict for `AutoModelForRNNT` (Nemotron), whether it takes a `language` option, and how it expects the `<xx-XX>` tag, are unknown; the sidecar falls back to a call without `language` on `TypeError/ValueError`. The 20 s partial / 50 s segment limits in `buffer.ts` were tuned for other engines.
 - MPS behaviour/speed, the CUDA path, Windows, and benchmark numbers for `hf` are untested. The 16 GB memory check (`assertMemory`) is the existing one, not sized per model.
 - The size/licence/language fields come from the HF API shape as documented (`siblings[].size` with `?blobs=true`, `cardData`, `config.auto_map`, `gated`); only mocked responses were tested. Licence text is shown by name (`cardData.license_name`/`license`), not the full text; the card links nothing.
+
+## Real run (lead, 2026-10-09)
+
+`hf-script.ts` was run for real with Nemotron 3.5 at the pinned commit and the pinned package versions (see
+`docs/qa/asr-model-eval.md`): `fetch` → `selftest` (mps) → `serve` over the framing, 14 real clips, 8.6 % WER, 245 ms
+median decode. One bug fixed: the ASR pipeline ignored the language for prompt-conditioned models and ran auto-detect;
+those models now decode through their processor with the chosen language and the widest right context. `NEMOTRON_REV`
+and the pins are filled. Still not run: the installer's own pip step, Windows, CUDA.
