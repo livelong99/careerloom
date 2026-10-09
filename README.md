@@ -18,15 +18,15 @@
 
 <p align="center"><img src="docs/media/careerloom-launch.gif" alt="Careerloom: from 5,312 jobs to the one" width="720"></p>
 
-<p align="center"><img src="docs/screenshots/jobs.png" alt="Jobs screen" width="860"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/jobs-dark.png"><img src="docs/screenshots/jobs-light.png" alt="Jobs screen" width="860"></picture></p>
 
 <p align="center"><sub>All screens show fictional demo data. Light and dark follow your GitHub theme.</sub></p>
 
 <table>
 <tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png"><img src="docs/screenshots/overview-light.png" alt="Overview" width="420"></picture><br><sub>Overview</sub></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/job-dark.png"><img src="docs/screenshots/job-light.png" alt="Job page: verdict and scores" width="420"></picture><br><sub>Job page: verdict and scores</sub></td></tr>
 <tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/job-match-dark.png"><img src="docs/screenshots/job-match-light.png" alt="Job match and keywords" width="420"></picture><br><sub>Job match and keywords</sub></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/knowledge-base-dark.png"><img src="docs/screenshots/knowledge-base-light.png" alt="Interview question base" width="420"></picture><br><sub>Interview question base</sub></td></tr>
-<tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/resume-dark.png"><img src="docs/screenshots/resume-light.png" alt="Resume and ATS scores" width="420"></picture><br><sub>Resume and ATS scores</sub></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/agent.png"><img src="docs/screenshots/agent-light.png" alt="Agent chat" width="420"></picture><br><sub>Agent chat</sub></td></tr>
-<tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/monitoring.png"><img src="docs/screenshots/monitoring-light.png" alt="Monitoring" width="420"></picture><br><sub>Monitoring</sub></td><td align="center"><img src="docs/screenshots/integrations.png" alt="Integrations" width="420"><br><sub>Integrations</sub></td></tr>
+<tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/resume-dark.png"><img src="docs/screenshots/resume-light.png" alt="Resume and ATS scores" width="420"></picture><br><sub>Resume and ATS scores</sub></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/agent-dark.png"><img src="docs/screenshots/agent-light.png" alt="Agent chat" width="420"></picture><br><sub>Agent chat</sub></td></tr>
+<tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/monitoring-dark.png"><img src="docs/screenshots/monitoring-light.png" alt="Monitoring" width="420"></picture><br><sub>Monitoring</sub></td><td align="center"><img src="docs/screenshots/integrations-dark.png" alt="Integrations" width="420"><br><sub>Integrations</sub></td></tr>
 </table>
 
 
@@ -69,6 +69,30 @@ career-ops' files and scripts into a visual workflow.
 
 Pick a runner and a model per runner in **Settings**. Careerloom checks each CLI's install and sign-in status
 when you choose your career-ops folder.
+
+## Supported model providers
+
+Bring your own key for any of these (Settings › API keys), then choose the provider and model for each feature in
+Settings › Runners & models. Model lists come from each provider's own models endpoint.
+
+| Provider | Key | Notes |
+|---|---|---|
+| [OpenRouter](https://openrouter.ai) | `sk-or-…` | One key, hundreds of models; the API-key runner uses it |
+| [OpenAI](https://platform.openai.com) | OpenAI API key | |
+| [Anthropic](https://console.anthropic.com) | Anthropic API key | Also fills Claude Code's model list |
+| [Google Gemini](https://ai.google.dev) | Gemini API key | Via Google's OpenAI-compatible endpoint |
+| [Groq](https://console.groq.com) | `gsk_…` | Very fast; good for the Interview Copilot |
+| [Mistral](https://console.mistral.ai) | Mistral API key | |
+| [DeepSeek](https://platform.deepseek.com) | DeepSeek API key | |
+| [xAI](https://console.x.ai) | `xai-…` | |
+| [Together AI](https://api.together.ai) | Together API key | |
+| [Fireworks AI](https://fireworks.ai) | Fireworks API key | |
+| [Cerebras](https://cloud.cerebras.ai) | `csk-…` | Very fast; good for the Interview Copilot |
+| [OpenCode Zen](https://opencode.ai/docs/zen/) | Zen API key | Powers the built-in Zen runner |
+| Custom server | optional | Any OpenAI-compatible server (Ollama, LM Studio, vLLM); HTTPS, or HTTP on localhost only |
+
+The Interview Copilot offers fast models only, because answers are read live. Keys are stored in your operating
+system's secure storage and never leave the app except in requests to the provider you picked.
 
 ## Install
 
