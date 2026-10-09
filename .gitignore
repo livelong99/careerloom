@@ -14,11 +14,9 @@ graft/
 .DS_Store
 
 # Local AI/agent tooling (not part of the app)
-.claude/*
-!.claude/memory/
-!.claude/commands/
-.claude/commands/*
-!.claude/commands/cloud-setup.md
+.claude/
+CLAUDE.md
+docs/plans/
 .claude-flow/
 .agents/
 .swarm/

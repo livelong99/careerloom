@@ -313,10 +313,10 @@ export type AtsAnalyzeInput = { jd?: string; jobId?: string; templateId?: string
 export type { JobPosting, JobView, KeywordStatus, JobViewMeta, MatchStatus, ReportBlock, ReportGap, ReportSection, ReportView } from './job-view/types'
 export type { Artifact, DocKind, DocsEvent, DocsOptions } from './docs-gen/types'
 
-// ————— Interview Copilot (frozen contract, docs/plans/interview-copilot/plan.md §4) —————
+// ————— Interview Copilot (frozen contract) —————
 export type * from './copilot/types'
 
-// ————— Job knowledge base + AI interviewer (frozen contract, docs/plans/job-knowledge-base/plan.md §4) —————
+// ————— Job knowledge base + AI interviewer (frozen contract) —————
 export type * from './kb/types'
 export type * from './interviewer/types'
 
