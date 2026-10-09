@@ -104,6 +104,25 @@ describe('schema validation', () => {
   })
 })
 
+describe('hf engine settings', () => {
+  const SHA = 'e'.repeat(40)
+  it('accepts the hf engine with a pinned model and keeps its language and look-ahead', () => {
+    const c = normalizeConfig({ stt: { engine: 'hf', model: `acme/asr@${SHA}`, hf: { language: 'de-DE', lookahead: 13 } } }).stt
+    expect(c).toMatchObject({ engine: 'hf', model: `acme/asr@${SHA}`, hf: { language: 'de-DE', lookahead: 13 } })
+  })
+  it('drops a hf model that is not owner/name@<40-hex> (a branch, a path, a flag)', () => {
+    for (const model of ['acme/asr', 'acme/asr@main', '../x@' + SHA, '--flag', 'small']) expect(normalizeConfig({ stt: { engine: 'hf', model } }).stt.model, model).toBeNull()
+  })
+  it('defaults to en-US / 3 and rejects a bad language tag or look-ahead; "auto" is allowed', () => {
+    expect(DEFAULT_CONFIG.stt.hf).toEqual({ language: 'en-US', lookahead: 3 })
+    expect(normalizeConfig({ stt: { hf: { language: 'english; rm', lookahead: 4 } } }).stt.hf).toEqual({ language: 'en-US', lookahead: 3 })
+    expect(normalizeConfig({ stt: { hf: { language: 'auto', lookahead: 0 } } }).stt.hf).toEqual({ language: 'auto', lookahead: 0 })
+  })
+  it('other engines keep their plain model names', () => {
+    expect(normalizeConfig({ stt: { engine: 'whisper-mlx', model: 'small' } }).stt.model).toBe('small')
+  })
+})
+
 describe('migration safety', () => {
   it('reads a file from an older/newer version without throwing, and rewrites as version 1', () => {
     fs.writeFileSync(file, JSON.stringify({ version: 0, overlay: { anchor: 'bl' }, legacyField: 1 }))

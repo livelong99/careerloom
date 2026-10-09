@@ -53,10 +53,14 @@ export type SessionDetail = SessionSummary & { transcript: TranscriptLine[]; que
 export type StartRequest = { mode: CopilotMode; jobId: string; interviewType: InterviewType; consent: ConsentRecord | null /* required for live */; questionIds?: string[]; custom?: string[]; /** practice only: AI-interviewer plan from the job knowledge base; absent = the report-question path. Additive. */ interview?: InterviewPlan }
 /** `start` restarts the last practice session, `retry` reopens speech recognition for the running one, `debrief` opens the last session in Careerloom (overlay buttons). Additive. */
 export type OverlayCommand = { collapse?: boolean; hide?: boolean; quickHide?: boolean; passive?: boolean; moveTo?: Anchor; start?: boolean; retry?: boolean; debrief?: boolean; /** AI interviewer controls (practice with an interview plan). Additive. */ interviewer?: 'replay' | 'skip' | 'hint'; /** Typed answer when speech recognition is unavailable (practice with an interview plan). Additive. */ typed?: string }
-export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper' | 'parakeet'
+export type SttEngineId = 'moonshine' | 'whisper-mlx' | 'faster-whisper' | 'parakeet' | 'hf'
 export type SttDevice = 'auto' | 'cpu' | 'coreml' | 'cuda'
 /** p95FinalMs: tail of end-of-speech → final text. faster-whisper adds the device that really ran and per-decode p50/p95 (GPU time without the endpoint wait). */
 export type SttBenchmark = { at: number; p50FinalMs: number; realTimeFactor: number; ramMb: number | null; wer: number | null; p95FinalMs?: number; p50DecodeMs?: number; p95DecodeMs?: number; device?: 'cuda' | 'cpu' }
+/** Verdict for a Hugging Face model id: `refuse` blocks the install, `warn` allows it with the reasons shown. */
+export type HfCheck = { model: string; repo: string; rev: string; pipelineTag: string | null; license: string | null; sizeBytes: number | null; languages: string[]; formats: string[]; verdict: 'ok' | 'warn' | 'refuse'; reasons: string[] }
+/** `hf` engine settings: `language` is a locale like en-US, or 'auto'; `lookahead` is the streaming look-ahead in frames (80 ms each, kept in the sidecar config; v1 decodes through the chunker). */
+export type SttHfOptions = { language: string; lookahead: 0 | 3 | 6 | 13 }
 export type SttModelInfo = { engine: SttEngineId; model: string; sizeMb: number | null; installed: boolean; devices: Array<'cpu' | 'coreml' | 'cuda'>; lastBenchmark: SttBenchmark | null; recommended: boolean }
 /** What the user can do about a model/provider error (rendered as buttons). */
 export type ErrorAction = 'change-model' | 'privacy-settings' | 'manage-key'
@@ -70,7 +74,7 @@ export type ContextPreview = { tokens: number; posting: number; strengths: numbe
 export type CopilotConfig = {
   version: 1
   audio: { micDeviceId: string | null; useSystem: boolean; systemSource: 'loopback' | 'virtual'; virtualDeviceId: string | null }
-  stt: { engine: SttEngineId; model: string | null; device: SttDevice; language: 'en'; lastBenchmark: SttBenchmark | null; endSilenceMs: number; vocab: string[] }
+  stt: { engine: SttEngineId; model: string | null; device: SttDevice; language: 'en'; lastBenchmark: SttBenchmark | null; endSilenceMs: number; vocab: string[]; hf?: SttHfOptions }
   engine: {
     tier: 'fast' | 'balanced' | 'deep'; escalateForDesignCoding: boolean; provider: 'openrouter'
     /** `policyMigrated`: the one-time move of older saved 'deny' to the user-approved 'allow' default has run; after it, the user's choice is respected. */
@@ -119,6 +123,10 @@ export interface CopilotApi {
   copilotBenchmarkStt(sel: { engine: SttEngineId; model: string; device: SttDevice }): SttBenchmark
   /** Starts the optional local speech-model install (a run in the run history). Additive. */
   copilotInstallStt(model?: string): { runId: string }
+  /** Looks up a Hugging Face model id or URL (metadata only, nothing is downloaded) and says whether it can be installed. */
+  copilotHfCheck(input: string): HfCheck
+  /** Deletes an installed speech model's files (the engine stays installed). */
+  copilotRemoveStt(model: string): { ok: boolean }
   copilotListLlmModels(): LlmModelInfo[]
   copilotTestLlmModel(id: string): { firstTokenMs: number | null; ok: boolean; message?: string; code?: string; actions?: ErrorAction[] }
   copilotCheckHotkey(accel: string): { ok: boolean; reason?: 'in-use' | 'reserved' | 'invalid' }

@@ -6,6 +6,7 @@ import { percentile } from './bench'
 import { loadFixture, type BenchFixture } from './bench-fixture'
 import { runBenchmark, type BenchClock } from './bench-run'
 import { readFwTrace, resetFwTrace } from './faster-whisper'
+import { isHfModel } from './hf-models'
 import { defaultModel, STT_MODELS } from './runtime'
 
 export type Selection = { engine: SttEngineId; model: string; device: SttDevice }
@@ -14,8 +15,8 @@ export const BENCH_BUDGET_MS = 60_000
 
 export function parseSelection(raw: unknown): Selection {
   const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
-  if (s.engine !== 'moonshine' && s.engine !== 'whisper-mlx' && s.engine !== 'faster-whisper') throw new Error('That speech engine cannot be benchmarked here')
-  if (typeof s.model !== 'string' || !STT_MODELS[s.engine].includes(s.model)) throw new Error('Unknown speech model')
+  if (s.engine !== 'moonshine' && s.engine !== 'whisper-mlx' && s.engine !== 'faster-whisper' && s.engine !== 'hf') throw new Error('That speech engine cannot be benchmarked here')
+  if (typeof s.model !== 'string' || !(s.engine === 'hf' ? isHfModel(s.model) : STT_MODELS[s.engine].includes(s.model))) throw new Error('Unknown speech model')
   if (!DEVICES.includes(s.device as SttDevice)) throw new Error('Unknown compute device')
   return { engine: s.engine, model: s.model, device: s.device as SttDevice }
 }
@@ -43,7 +44,7 @@ export async function benchmarkStt(raw: unknown, d: BenchDeps): Promise<SttBench
   if (d.busy()) throw new Error('Stop the running session before running the benchmark')
   if (!d.installed(sel.engine, sel.model)) throw new Error('Install the speech model first, then run the benchmark')
   const stt = { ...d.cfg, ...sel, lastBenchmark: null }
-  const budget = d.budgetMs ?? (sel.engine === 'faster-whisper' ? 2 * BENCH_BUDGET_MS : BENCH_BUDGET_MS) // two passes = two CUDA model loads
+  const budget = d.budgetMs ?? (sel.engine === 'faster-whisper' || sel.engine === 'hf' ? 2 * BENCH_BUDGET_MS : BENCH_BUDGET_MS) // faster-whisper: two passes = two CUDA model loads; hf: a first load of a large model
   let timer: ReturnType<typeof setTimeout> | undefined
   const limit = new Promise<never>((_, reject) => { timer = setTimeout(() => { d.kill(); reject(new Error('The benchmark took too long and was stopped')) }, budget) })
   try {

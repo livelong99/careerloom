@@ -12,11 +12,12 @@ import { Group, Note, Row } from '../../kit/Group'
 import { LocalModelSetup } from '../../onboarding/ModelStep'
 import { openRuns } from '@/lib/nav'
 import { ReadinessBadge } from '../kit'
+import { HfModelCard } from './HfModelCard'
 import type { PageProps } from '../pages'
 
 const gb = (n: number) => (n / 1024 ** 3).toFixed(1)
 const engineLabel = (id: string) => STT_ENGINES.find(e => e.id === id)?.label ?? id
-const modelLabel = (m: SttModelInfo) => STT_ENGINES.find(e => e.id === m.engine)?.models.find(c => c.id === m.model)?.label ?? m.model
+const modelLabel = (m: SttModelInfo) => STT_ENGINES.find(e => e.id === m.engine)?.models.find(c => c.id === m.model || m.model.startsWith(`${c.id}@`))?.label ?? m.model.split('@')[0]!
 
 export function LocalModelsPage(_props: PageProps) {
   const [pre, setPre] = useState<LocalModelStatus | null>(null)
@@ -87,9 +88,9 @@ export function LocalModelsPage(_props: PageProps) {
           {stt.data === null && <p className="m-0 text-xs text-muted-foreground">The speech engines are not available in this build yet.</p>}
           {(stt.data ?? []).map(m => {
             const key = `${m.engine}:${m.model}`
-            const canInstall = !m.installed && m.engine === engine
+            const canInstall = !m.installed && (m.engine === engine || m.engine === 'hf') // hf installs by model id, whichever engine is selected
             return (
-              <Row key={key} label={`${engineLabel(m.engine)} · ${modelLabel(m)}`} hint={`${m.sizeMb === null ? 'size shown after install' : `about ${m.sizeMb} MB`}${m.recommended ? ' · recommended' : ''}${!m.installed && m.engine !== engine ? ' · switch the engine in Copilot to install' : ''}`}>
+              <Row key={key} label={`${engineLabel(m.engine)} · ${modelLabel(m)}`} hint={`${m.sizeMb === null ? 'size shown after install' : `about ${m.sizeMb} MB`}${m.recommended ? ' · recommended' : ''}${!m.installed && m.engine !== engine && m.engine !== 'hf' ? ' · switch the engine in Copilot to install' : ''}`}>
                 <ReadinessBadge state={m.installed ? 'ready' : 'off'} label={m.installed ? 'Installed' : 'Not installed'} />
                 {canInstall && <Button size="sm" disabled={installing !== null} onClick={() => void installStt(m)}>{installing === key ? 'Starting…' : 'Install'}</Button>}
               </Row>
@@ -98,6 +99,7 @@ export function LocalModelsPage(_props: PageProps) {
         </div>
         <div className="mt-2"><Note>{engine === 'faster-whisper' ? 'Whisper on an NVIDIA GPU installs about 1.3 GB of NVIDIA runtime libraries (no PyTorch, no CUDA toolkit) plus the model' : 'Whisper installs about 1.3 GB of Python packages (PyTorch) plus the model'} into a folder in your home directory. Nothing is bundled with the app.</Note></div>
       </Group>
+      <HfModelCard models={stt.data ?? []} onChanged={stt.refresh} />
     </>
   )
 }

@@ -8,9 +8,11 @@ import { assertMemory, findPython, MIN_PYTHON } from '../../prescreen-model'
 import { spawnSpec, startRun, type SpawnSpec } from '../../runner'
 import type { SttEngineId } from '../types'
 import { SCRIPT as FASTER_WHISPER_SCRIPT } from './faster-whisper-script'
+import { SCRIPT as HF_SCRIPT } from './hf-script'
+import { parseModelId } from './hf-models'
 import { SCRIPT as PARAKEET_SCRIPT } from './parakeet-script'
 import { usableGpu } from './gpu'
-import { engineDir, FASTER_WHISPER_CUDA_PACKAGES, FASTER_WHISPER_MODELS, FASTER_WHISPER_PACKAGES, findSttRuntime, PARAKEET_MODELS, parakeetPackages, PINS, readyFile, STT_MODELS, venvPython, WHISPER_MODELS, type SttRuntime } from './runtime'
+import { engineDir, FASTER_WHISPER_CUDA_PACKAGES, FASTER_WHISPER_MODELS, FASTER_WHISPER_PACKAGES, findSttRuntime, HF_PACKAGES, HF_TORCH, HF_TORCH_INDEX, PARAKEET_MODELS, parakeetPackages, PINS, readyFile, STT_MODELS, sttDir, venvPython, WHISPER_MODELS, type SttRuntime } from './runtime'
 import { sidecarScript, writeScript } from './sidecar-script'
 import { SCRIPT as WHISPER_SCRIPT } from './whisper-script'
 
@@ -25,6 +27,17 @@ export function installCommands(engine: SttEngineId, script: string, cache: stri
       [cuda ? 'Packages (about 1.3 GB: NVIDIA CUDA libraries, no CUDA toolkit needed)' : 'Packages', [...PIP, PINS['faster-whisper'], ...FASTER_WHISPER_PACKAGES, ...(cuda ? FASTER_WHISPER_CUDA_PACKAGES : [])]],
       ['Model', [script, 'fetch', m.repo, m.rev, cache]],
       [`Self-test (${cuda ? 'GPU, falls back to CPU if CUDA fails' : 'CPU'})`, [script, 'selftest', m.repo, m.rev, cache, device, cuda ? 'float16' : 'int8']],
+    ]
+  }
+  if (engine === 'hf') {
+    const m = parseModelId(model)
+    if (!m) throw new Error(`Not a pinned Hugging Face model id: ${model}`)
+    const torchIndex = cuda ? HF_TORCH_INDEX.cuda : platform === 'linux' ? HF_TORCH_INDEX.cpu : null
+    return [
+      [cuda ? 'PyTorch (NVIDIA GPU build, large)' : 'PyTorch (about 1 GB)', [...PIP, HF_TORCH, ...(torchIndex ? ['--index-url', torchIndex] : [])]],
+      ['Packages', [...PIP, PINS.hf, ...HF_PACKAGES]],
+      ['Model (safetensors only, pinned to the checked commit)', [script, 'fetch', m.repo, m.rev, cache]],
+      ['Self-test', [script, 'selftest', m.repo, m.rev, cache, cuda ? 'cuda' : 'auto']],
     ]
   }
   if (engine === 'parakeet') {
@@ -59,15 +72,24 @@ export function restoreReady(dir: string, prev: SttRuntime | null) {
 /** Remove one repo's snapshot from the HF cache: a corrupt or truncated file would otherwise fail every retry the same way. */
 export const dropModelCache = (cache: string, repo: string) => fs.rmSync(path.join(cache, `models--${repo.replace('/', '--')}`), { recursive: true, force: true })
 
+/** Remove an installed Hugging Face model: its cache folder and its entry in ready.json (the venv stays). */
+export function removeHfModel(model: string, root = sttDir()) {
+  const m = parseModelId(model)
+  if (!m) throw new Error('Not a Hugging Face model id')
+  const dir = engineDir('hf', root), prev = findSttRuntime('hf', root)
+  dropModelCache(path.join(dir, 'models'), m.repo)
+  if (prev) restoreReady(dir, { ...prev, models: prev.models.filter(x => parseModelId(x)?.repo !== m.repo) })
+}
+
 export async function installStt(engine: SttEngineId, model: string) {
-  if (!STT_MODELS[engine].includes(model)) throw new Error(`Unknown ${engine} model: ${model}`)
+  if (engine === 'hf' ? !parseModelId(model) : !STT_MODELS[engine].includes(model)) throw new Error(`Unknown ${engine} model: ${model}`)
   if (installRun && runs.get(installRun)?.status === 'running') return summary(runs.get(installRun)!)
   const { ok } = await findPython()
   if (!ok) throw new Error(`Python ${MIN_PYTHON.join('.')} or newer is needed — install it, then check again`)
   await assertMemory()
   const dir = engineDir(engine)
-  const script = engine === 'whisper-mlx' ? writeScript(path.join(dir, 'bin'), WHISPER_SCRIPT) : engine === 'parakeet' ? writeScript(path.join(dir, 'bin'), PARAKEET_SCRIPT) : engine === 'faster-whisper' ? writeScript(path.join(dir, 'bin'), FASTER_WHISPER_SCRIPT) : sidecarScript(path.join(dir, 'bin'))
-  const cuda = engine === 'faster-whisper' && usableGpu() !== null
+  const script = engine === 'whisper-mlx' ? writeScript(path.join(dir, 'bin'), WHISPER_SCRIPT) : engine === 'parakeet' ? writeScript(path.join(dir, 'bin'), PARAKEET_SCRIPT) : engine === 'faster-whisper' ? writeScript(path.join(dir, 'bin'), FASTER_WHISPER_SCRIPT) : engine === 'hf' ? writeScript(path.join(dir, 'bin'), HF_SCRIPT) : sidecarScript(path.join(dir, 'bin'))
+  const cuda = (engine === 'faster-whisper' || engine === 'hf') && usableGpu() !== null
   const cache = path.join(dir, 'models')
   fs.mkdirSync(dir, { recursive: true })
   const prev = findSttRuntime(engine)
@@ -77,7 +99,7 @@ export async function installStt(engine: SttEngineId, model: string) {
     ['Python', spawnSpec(ok.bin, [...ok.pre, '-m', 'venv', path.join(dir, 'venv')])],
     ...installCommands(engine, script, cache, model, cuda).map(([label, args]): [string, SpawnSpec] => [label, { bin: venvPython(dir), args, env }]),
   ]
-  const repo = engine === 'parakeet' ? PARAKEET_MODELS.v3.repo : engine === 'whisper-mlx' ? WHISPER_MODELS[model as keyof typeof WHISPER_MODELS]?.repo : engine === 'faster-whisper' ? FASTER_WHISPER_MODELS[model as keyof typeof FASTER_WHISPER_MODELS]?.repo : null
+  const repo = engine === 'hf' ? parseModelId(model)?.repo : engine === 'parakeet' ? PARAKEET_MODELS.v3.repo : engine === 'whisper-mlx' ? WHISPER_MODELS[model as keyof typeof WHISPER_MODELS]?.repo : engine === 'faster-whisper' ? FASTER_WHISPER_MODELS[model as keyof typeof FASTER_WHISPER_MODELS]?.repo : null
   const run = launchTask({ runner: 'setup', mode: 'setup', label: 'Install local speech model', input: `${engine} ${model}` }, async (log, run) => {
     let done = false
     try {

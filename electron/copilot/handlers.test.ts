@@ -41,8 +41,8 @@ beforeEach(() => { setPlatform('darwin'); sent.length = 0 })
 afterEach(() => setPlatform(real))
 
 describe('registration and platform guard', () => {
-  it('registers every CopilotApi method (23 + 2 config), all prefixed copilot', () => {
-    expect(Object.keys(copilotHandlers)).toHaveLength(25)
+  it('registers every CopilotApi method (25 + 2 config), all prefixed copilot', () => {
+    expect(Object.keys(copilotHandlers)).toHaveLength(27)
     expect(Object.keys(copilotHandlers).every(k => k.startsWith('copilot'))).toBe(true)
   })
   it('refuses every call off macOS and Windows', async () => {
@@ -333,6 +333,16 @@ describe('integration slots (WP1–3 bound through CopilotDeps)', () => {
     expect(installStt).toHaveBeenCalledWith('small')
     await c.handlers.copilotAnswer('answer', 'q1')
     expect(answer).toHaveBeenCalledWith('answer', 'q1')
+  })
+
+  it('Hugging Face check and model removal go to their slots with validated strings', async () => {
+    const hfCheck = vi.fn(async () => ({ verdict: 'ok' })), removeStt = vi.fn(() => ({ ok: true }))
+    const { c } = setup({ hfCheck, removeStt })
+    expect(await c.handlers.copilotHfCheck('acme/asr')).toEqual({ verdict: 'ok' })
+    expect(hfCheck).toHaveBeenCalledWith('acme/asr')
+    expect(await c.handlers.copilotRemoveStt('acme/asr@' + 'a'.repeat(40))).toEqual({ ok: true })
+    await expect(c.handlers.copilotHfCheck(42)).rejects.toThrow()
+    await expect(c.handlers.copilotRemoveStt(undefined)).rejects.toThrow()
   })
 
   it('the privacy notice ack goes through the overlay host slot when bound, and setConfig cannot forge it', async () => {

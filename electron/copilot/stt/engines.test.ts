@@ -4,8 +4,10 @@ import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { createSttAdapter, listSttModels } from './engines'
-import { installCommands } from './install'
-import { defaultEngine, defaultModel, engineDir, FASTER_WHISPER_MODELS, findSttRuntime, PINS, readyFile, STT_MODELS, venvPython, WHISPER_MODELS } from './runtime'
+import { installCommands, removeHfModel } from './install'
+import { parseSelection } from './benchmark'
+import { defaultEngine, defaultModel, engineDir, FASTER_WHISPER_MODELS, findSttRuntime, NEMOTRON_MODEL, NEMOTRON_REPO, NEMOTRON_REV, PINS, readyFile, STT_MODELS, venvPython, WHISPER_MODELS } from './runtime'
+import { SCRIPT as HF_SCRIPT } from './hf-script'
 import { SCRIPT as FW_SCRIPT } from './faster-whisper-script'
 import { SCRIPT as WHISPER_SCRIPT } from './whisper-script'
 
@@ -13,7 +15,7 @@ const GPU = { name: 'RTX 4060', vramMb: 8188, driver: '551.23', computeCap: 8.9 
 const tmp: string[] = []
 afterEach(() => { for (const d of tmp.splice(0)) fs.rmSync(d, { recursive: true, force: true }) })
 
-function fakeInstall(engine: 'moonshine' | 'whisper-mlx' | 'faster-whisper' | 'parakeet', pin: string, models: string[], extra: object = {}) {
+function fakeInstall(engine: 'moonshine' | 'whisper-mlx' | 'faster-whisper' | 'parakeet' | 'hf', pin: string, models: string[], extra: object = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cl-stt-rt-')); tmp.push(root)
   const dir = engineDir(engine, root)
   fs.mkdirSync(path.dirname(venvPython(dir)), { recursive: true }); fs.writeFileSync(venvPython(dir), '')
@@ -178,5 +180,70 @@ describe('install rollback', () => {
     fs.mkdirSync(blob, { recursive: true }); fs.mkdirSync(path.join(cache, 'models--other--keep'), { recursive: true })
     dropModelCache(cache, 'istupakov/parakeet-tdt-0.6b-v3-onnx')
     expect(fs.readdirSync(cache)).toEqual(['models--other--keep'])
+  })
+})
+
+describe('hf engine', () => {
+  const SHA = 'd'.repeat(40), CUSTOM = `acme/asr@${SHA}`
+  const cfg = { engine: 'hf' as const, model: null, device: 'auto' as const, language: 'en' as const, lastBenchmark: null, endSilenceMs: 650, vocab: [] }
+  it('Nemotron is the curated default on the hf engine, pinned by a full 40-char commit', () => {
+    expect(NEMOTRON_REV).toMatch(/^[0-9a-f]{40}$/)
+    expect(NEMOTRON_REPO).toBe('nvidia/nemotron-3.5-asr-streaming-0.6b')
+    expect(STT_MODELS.hf).toEqual([NEMOTRON_MODEL]); expect(defaultModel('hf')).toBe(NEMOTRON_MODEL)
+    expect(PINS.hf).toMatch(/^transformers==5\.1\d/)
+  })
+  it('lists the curated model plus every installed custom one; CUDA only with a usable GPU', () => {
+    const root = fakeInstall('hf', PINS.hf, [CUSTOM])
+    process.env.CAREERLOOM_STT_DIR = root
+    try {
+      const rows = listSttModels(cfg, 'whisper-mlx', true).filter(r => r.engine === 'hf')
+      expect(rows.map(r => [r.model, r.installed, r.devices])).toEqual([[NEMOTRON_MODEL, false, ['cpu', 'cuda']], [CUSTOM, true, ['cpu', 'cuda']]])
+      expect(listSttModels(cfg, 'whisper-mlx', false).filter(r => r.engine === 'hf')[0]!.devices).toEqual(['cpu'])
+    } finally { delete process.env.CAREERLOOM_STT_DIR }
+  })
+  it('adapter: pinned ids only', () => {
+    expect(createSttAdapter({ ...cfg, model: CUSTOM }).id).toBe('hf')
+    expect(createSttAdapter(cfg).id).toBe('hf')
+    expect(() => createSttAdapter({ ...cfg, model: 'owner/name' })).toThrow(/Unknown Hugging Face model/)
+  })
+  it('install steps are argv arrays pinned to repo + commit, never a shell string; safetensors only is enforced by the script', () => {
+    const steps = installCommands('hf', '/s.py', '/cache', CUSTOM, false, 'darwin', 'arm64')
+    expect(steps.map(([l]) => l.split(' ')[0])).toEqual(['PyTorch', 'Packages', 'Model', 'Self-test'])
+    for (const [, argv] of steps) { expect(Array.isArray(argv)).toBe(true); for (const a of argv) expect(typeof a).toBe('string') }
+    expect(steps[0]![1]).toEqual(['-m', 'pip', 'install', '--disable-pip-version-check', 'torch==2.9.1'])
+    expect(steps[1]![1]).toContain(PINS.hf)
+    expect(steps[2]![1]).toEqual(['/s.py', 'fetch', 'acme/asr', SHA, '/cache'])
+    expect(steps[3]![1]).toEqual(['/s.py', 'selftest', 'acme/asr', SHA, '/cache', 'auto'])
+  })
+  it('torch comes from the CUDA index with a usable GPU, the CPU index on Linux without one, plain PyPI on macOS/Windows', () => {
+    const torch = (cuda: boolean, platform: NodeJS.Platform) => installCommands('hf', '/s', '/c', CUSTOM, cuda, platform, 'x64')[0]![1].slice(4)
+    expect(torch(true, 'win32')).toEqual(['torch==2.9.1', '--index-url', 'https://download.pytorch.org/whl/cu128'])
+    expect(torch(false, 'linux')).toEqual(['torch==2.9.1', '--index-url', 'https://download.pytorch.org/whl/cpu'])
+    expect(torch(false, 'win32')).toEqual(['torch==2.9.1'])
+    expect(installCommands('hf', '/s', '/c', CUSTOM, true, 'linux', 'x64')[3]![1].at(-1)).toBe('cuda')
+  })
+  it('refuses a model id that is not repo@commit, even one that looks like a flag or a path', () => {
+    for (const bad of ['small', 'acme/asr', '--index-url=http://x@' + SHA, '../../etc@' + SHA, `acme/asr; rm -rf ~@${SHA}`]) expect(() => installCommands('hf', '/s', '/c', bad)).toThrow(/pinned/)
+  })
+  it('remove deletes only that repo\'s cache folder and its ready.json entry', () => {
+    const other = `acme/other@${SHA}`
+    const root = fakeInstall('hf', PINS.hf, [CUSTOM, other])
+    const cache = path.join(engineDir('hf', root), 'models')
+    for (const d of ['models--acme--asr', 'models--acme--other']) fs.mkdirSync(path.join(cache, d), { recursive: true })
+    removeHfModel(CUSTOM, root)
+    expect(fs.existsSync(path.join(cache, 'models--acme--asr'))).toBe(false)
+    expect(fs.existsSync(path.join(cache, 'models--acme--other'))).toBe(true)
+    expect(findSttRuntime('hf', root)?.models).toEqual([other])
+    expect(() => removeHfModel('../x', root)).toThrow()
+  })
+  it('the sidecar never trusts remote code, never downloads pickle or .py files, and loads the local snapshot only', () => {
+    expect(HF_SCRIPT).toContain('trust_remote_code=False'); expect(HF_SCRIPT).not.toMatch(/trust_remote_code\s*=\s*True/)
+    for (const p of ["'*.bin'", "'*.pt'", "'*.ckpt'", "'*.pkl'", "'*.py'"]) expect(HF_SCRIPT).toContain(p)
+    expect(HF_SCRIPT).toContain("cfg['cache'], True)") // serve: local_files_only
+    expect(HF_SCRIPT).toContain('auto_map')
+  })
+  it('benchmark accepts an hf selection only for a pinned id', () => {
+    expect(parseSelection({ engine: 'hf', model: CUSTOM, device: 'auto' })).toEqual({ engine: 'hf', model: CUSTOM, device: 'auto' })
+    expect(() => parseSelection({ engine: 'hf', model: 'small', device: 'auto' })).toThrow(/Unknown speech model/)
   })
 })

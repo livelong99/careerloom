@@ -56,6 +56,8 @@ export type CopilotDeps = {
   sttModels?(): unknown
   benchmark?(sel: unknown): Promise<unknown> | unknown
   installStt?(model?: string): Promise<{ runId: string }> | { runId: string }
+  hfCheck?(input: string): Promise<unknown> | unknown
+  removeStt?(model: string): Promise<{ ok: boolean }> | { ok: boolean }
   // WP2: model list / test for the answer-model pickers
   listLlmModels?(): Promise<unknown> | unknown
   testLlmModel?(id: string): Promise<unknown> | unknown
@@ -354,6 +356,8 @@ export function createCopilot(deps: CopilotDeps) {
     copilotListLlmModels: () => deps.listLlmModels ? deps.listLlmModels() : notImplemented('copilotListLlmModels'),
     copilotTestLlmModel: (id: unknown) => deps.testLlmModel ? deps.testLlmModel(str(id, 'model id')) : notImplemented('copilotTestLlmModel'),
     copilotInstallStt: (model: unknown) => deps.installStt ? deps.installStt(model === undefined ? undefined : str(model, 'model')) : notImplemented('copilotInstallStt'),
+    copilotHfCheck: (input: unknown) => deps.hfCheck ? deps.hfCheck(str(input, 'model id or link')) : notImplemented('copilotHfCheck'),
+    copilotRemoveStt: (model: unknown) => deps.removeStt ? deps.removeStt(str(model, 'model')) : notImplemented('copilotRemoveStt'),
     copilotListSttModels: () => deps.sttModels ? deps.sttModels() : notImplemented('copilotListSttModels'),
     copilotBenchmarkStt: (sel: unknown) => deps.benchmark ? deps.benchmark(sel) : notImplemented('copilotBenchmarkStt'),
     copilotCheckHotkey: (accel: unknown) => {

@@ -11,6 +11,11 @@ export const STT_ENGINES: ReadonlyArray<{ id: SttEngineId; label: string; hint: 
     models: [{ id: 'v3', label: 'Parakeet TDT 0.6B v3', hint: 'default · int8 · runs several times faster than real time on a CPU', recommended: true }],
   },
   {
+    id: 'hf', label: 'Hugging Face model', hint: 'Any public speech-recognition model from Hugging Face (safetensors, no custom code), added in Settings → Local models. Runs on this computer with PyTorch (Apple GPU, NVIDIA GPU or CPU). Installs about 1 GB of Python packages plus the model.',
+    devices: ['cpu', 'cuda'],
+    models: [{ id: 'nvidia/nemotron-3.5-asr-streaming-0.6b', label: 'NVIDIA Nemotron 3.5 ASR (0.6B)', hint: 'curated · 40 locales · OpenMDW-1.1 licence · measure speed with Benchmark' }],
+  },
+  {
     id: 'whisper-mlx', label: 'Whisper (Apple silicon)', hint: 'Default on Apple silicon. Writes each sentence once you pause, about a second after the question ends. The first install is large because Whisper needs PyTorch (about 1.3 GB on top of the model).',
     devices: [],
     models: [
