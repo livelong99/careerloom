@@ -126,5 +126,4 @@ feature only on your own account, at a low rate, and at your own risk.
 ## License
 
 [MIT](LICENSE). Careerloom builds on other open-source work — see
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), including a set of UI files that remain under the AGPL-3.0
-until they are replaced.
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

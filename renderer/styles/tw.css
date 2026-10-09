@@ -1,4 +1,4 @@
-/* Tailwind v4 for components pulled from paperclip / VoiceStudio (shadcn-style).
+/* Tailwind v4 for shadcn-style components.
    No preflight: codeburn's plain.css stays the base. shadcn's color/radius tokens
    are mapped onto Careerloom's theme variables, so light/dark flip for free. */
 @layer theme, base, components, utilities;
@@ -49,8 +49,7 @@
   --font-mono: var(--mono);
 }
 
-/* Design-system variables the pulled components reference by name (paperclip's
-   generated --sz/--pct/--rad set, VoiceStudio's --chrome-*), mapped to our theme. */
+/* Design-token variables the components reference by name, mapped to our theme. */
 :root {
   --sz-calc-25: calc(100% - 2rem);
   --sz-calc-26: max(1rem, env(safe-area-inset-top));

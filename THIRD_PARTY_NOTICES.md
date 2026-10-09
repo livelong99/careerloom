@@ -42,33 +42,6 @@ Chat, command palette, board and card components are adapted from [Paperclip](ht
 
 Copyright (c) 2025 Paperclip AI — licensed under the MIT License (same terms as above).
 
-### VoiceStudio — AGPL-3.0-only (pending replacement)
-
-> [!WARNING]
-> The files below are adapted from VoiceStudio (Copyright 2024-present Palash Debnath and VoiceStudio contributors),
-> which is licensed under the **GNU Affero General Public License v3.0 only**. The MIT License in this repository
-> **does not apply to these files**; they remain under AGPL-3.0 until they are replaced with MIT-licensed
-> equivalents (e.g. upstream [shadcn/ui](https://github.com/shadcn-ui/ui)). Replacing them is tracked as a
-> known issue. Do not distribute builds that include them under terms incompatible with the AGPL-3.0.
-
-- `renderer/components/ui/badge.tsx`
-- `renderer/components/ui/button.tsx`
-- `renderer/components/ui/card.tsx`
-- `renderer/components/ui/dialog.tsx`
-- `renderer/components/ui/dropdown-menu.tsx`
-- `renderer/components/ui/input.tsx`
-- `renderer/components/ui/progress.tsx`
-- `renderer/components/ui/select.tsx`
-- `renderer/components/ui/slider.tsx`
-- `renderer/components/ui/table.tsx`
-- `renderer/components/ui/tabs.tsx`
-- `renderer/components/ui/textarea.tsx`
-- `renderer/components/ui/toggle-group.tsx`
-- `renderer/components/ui/toggle.tsx`
-- `renderer/components/ui/tooltip.tsx`
-- `renderer/lib/utils.ts`
-- `renderer/styles/tw.css`
-
 ## Bundled dependencies
 
 | Package | License |
@@ -82,8 +55,10 @@ Development-only dependencies (React, Vite, Tailwind CSS, Radix UI, TanStack, dn
 `package.json` under their own licenses; they are compiled into the renderer bundle where used.
 
 ### shadcn/ui registry components — MIT License
-`renderer/components/ui/{accordion,alert,button-group,empty,field,hover-card,item,kbd,radio-group,resizable,sonner,spinner}.tsx`
-were added from the official [shadcn/ui](https://ui.shadcn.com) registry (© shadcn, MIT), adapted to import `cn` from
+`renderer/components/ui/*` (badge, button, card, dialog, dropdown-menu, input, progress, select, slider, table, tabs,
+textarea, toggle, toggle-group, tooltip, accordion, alert, button-group, empty, field, hover-card, item, kbd,
+radio-group, resizable, sonner, spinner and others) come from the official shadcn/ui registry; Careerloom adds its own
+button and badge variants, `inputBaseClass` and `indicatorClassName`. Source: [shadcn/ui](https://ui.shadcn.com) (© shadcn, MIT), adapted to import `cn` from
 `@/lib/utils` and to read Careerloom's theme. They use `sonner` (© Emil Kowalski, MIT) and `react-resizable-panels`
 (© Brian Vaughn, MIT).
 

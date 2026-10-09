@@ -25,7 +25,7 @@ export function OverviewTab({ job, view, goTab }: { job: ScreenedJob; view: JobV
     <div className="grid gap-4 p-4 lg:grid-cols-2">
       <Block title="Verdict" className="lg:col-span-2">
         <div className="flex flex-wrap items-center gap-3">
-          {r.decision && <Badge variant={decisionTone(r.decision)} size="sm">{r.decision}</Badge>}
+          {r.decision && <Badge variant={decisionTone(r.decision)} >{r.decision}</Badge>}
           {r.archetype && <span className="text-sm text-muted-foreground">{r.archetype}</span>}
           {r.riskLevel && <span className="text-sm text-muted-foreground">Risk: {r.riskLevel}</span>}
         </div>

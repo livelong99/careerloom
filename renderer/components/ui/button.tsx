@@ -1,106 +1,69 @@
-import * as React from 'react';
-import { Slot } from '@radix-ui/react-slot';
-import { cva, type VariantProps } from 'class-variance-authority';
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { cn } from "@/lib/utils"
+import { Slot } from "radix-ui"
 
-import { cn } from '@/lib/utils';
-
-/**
- * shadcn/ui Button — new-york style, themed through the VoiceStudio token bridge
- * (see index.css). `bg-primary`/`text-primary-foreground`/`bg-destructive`/
- * `border-input`/`ring-ring` resolve to the VoiceStudio palette, so this renders
- * in brand pink + amber accent + the dark chrome bg, and recolors with every
- * [data-theme].
- *
- * The CVA carries TWO families of variants:
- *   • the stock shadcn set (default / secondary / outline / ghost / link /
- *     destructive + sizes default / sm / lg / icon) — used by the foundation
- *     proof spec; and
- *   • the VoiceStudio set (primary / subtle / softGhost / danger / chip[+Active] /
- *     preset[+Active] / iconBtn[+Active] + sizes omniSm / omniMd / chip /
- *     preset / iconSm / iconMd) — these back the live `src/ui/Button.jsx`
- *     wrapper, which maps the legacy prop API onto them. They are expressed with
- *     palette token utilities (bg-primary, border-border, text-success, …) so
- *     every variant stays on-palette and recolors per theme.
- */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,box-shadow,opacity] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/70 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 aria-invalid:border-destructive",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        // ── stock shadcn ──
-        default: 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
         destructive:
-          'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20',
+          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
         outline:
-          'border border-border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-        link: 'text-brand-text underline-offset-4 hover:underline',
-
-        // ── VoiceStudio (back the legacy src/ui/Button.jsx) ──
-        // NB: app ships Tailwind WITHOUT Preflight, so a bare <button> keeps its
-        // native UA border — every variant must set an explicit border (even a
-        // transparent one) or the default chrome leaks through.
-        primary:
-          'border border-transparent bg-primary text-primary-foreground font-semibold shadow-xs hover:bg-primary/90 active:bg-primary/80',
-        subtle:
-          'border border-transparent bg-transparent text-muted-foreground hover:bg-[var(--chrome-hover-bg)] hover:text-foreground hover:border-transparent',
-        softGhost:
-          'border border-transparent bg-transparent text-muted-foreground hover:bg-[var(--chrome-hover-bg)] hover:text-foreground',
-        danger:
-          'text-destructive bg-destructive/10 border border-transparent hover:bg-destructive/20 hover:border-transparent',
-        chip: 'border border-transparent bg-transparent text-muted-foreground hover:bg-[var(--chrome-hover-bg)] hover:text-foreground hover:border-transparent',
-        chipActive: 'text-success bg-success/10 border border-transparent',
-        preset:
-          'justify-start text-left border border-transparent bg-transparent text-muted-foreground hover:bg-[var(--chrome-hover-bg)] hover:text-foreground hover:border-transparent',
-        presetActive:
-          'justify-start text-left text-brand-text bg-primary/[0.12] border border-transparent',
-        iconBtn:
-          'border border-transparent bg-transparent text-muted-foreground hover:bg-[var(--chrome-hover-bg)] hover:text-foreground hover:border-transparent',
-        iconBtnActive: 'text-brand-text bg-primary/[0.12] border border-transparent',
+          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost:
+          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+        link: "text-primary underline-offset-4 hover:underline",
+        // Careerloom additions
+        primary: "bg-primary font-semibold text-primary-foreground hover:bg-primary/90 active:bg-primary/80",
+        subtle: "text-muted-foreground hover:bg-accent hover:text-foreground",
+        danger: "bg-destructive/10 text-destructive hover:bg-destructive/20",
+        iconBtnActive: "bg-primary/10 text-primary",
       },
       size: {
-        // ── stock shadcn ──
-        default: 'h-8 px-3.5 py-1.5 has-[>svg]:px-3',
-        sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
-        lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
-        icon: 'size-8',
-
-        // ── VoiceStudio ──
-        omniSm: 'h-7 px-2.5 text-xs',
-        omniMd: 'h-8 px-3 text-sm',
-        chip: 'px-2 py-0.5 text-xs',
-        preset: 'px-2 py-[3px] text-xs',
-        iconSm: 'size-5 p-0',
-        iconMd: 'size-[22px] p-0',
+        default: "h-9 px-4 py-2 has-[>svg]:px-3",
+        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
+        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        omniSm: "h-7 gap-1.5 px-2.5 text-xs has-[>svg]:px-2",
+        icon: "size-9",
+        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm": "size-8",
+        "icon-lg": "size-10",
       },
     },
     defaultVariants: {
-      variant: 'default',
-      size: 'default',
+      variant: "default",
+      size: "default",
     },
-  },
-);
+  }
+)
 
 function Button({
   className,
-  variant,
-  size,
+  variant = "default",
+  size = "default",
   asChild = false,
   ...props
-}: React.ComponentProps<'button'> &
+}: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
+    asChild?: boolean
   }) {
-  const Comp = asChild ? Slot : 'button';
+  const Comp = asChild ? Slot.Root : "button"
 
   return (
     <Comp
       data-slot="button"
+      data-variant={variant}
+      data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
-  );
+  )
 }
 
-export { Button, buttonVariants };
+export { Button, buttonVariants }
