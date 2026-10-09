@@ -98,7 +98,9 @@
   .sug.compact { max-height: none; mask-image: none; -webkit-mask-image: none; padding-bottom: 4px; }
   .sug.compact .say { margin-bottom: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .sug.detail { max-height: 280px; border-top: 1px solid var(--line); }
-  .sug .lbl .more.note { cursor: default; color: var(--mut); min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: right; }
+  .sug .lbl .more.note { cursor: default; color: var(--mut); min-width: 0; flex: 1 1 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: right; }
+  .sug .lbl { white-space: nowrap; } /* a long note truncates instead of wrapping the label row (the window is 700 px) */
+  .sug .lbl .more:not(.note) { flex: none; }
   .sug .lbl .more.note + .more { margin-left: 4px; }
   .sug .lbl .more { all: unset; margin-left: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; color: var(--accent-text); border-radius: 6px; padding: 1px 4px; }
   .sug .lbl .more:hover, .sug .lbl .more:focus-visible { background: var(--fill); outline: none; }
