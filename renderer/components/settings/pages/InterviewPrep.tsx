@@ -17,7 +17,7 @@ import type { DeepPartial, InterviewConfig, ResearchSourceGroup, SearchBackendId
 import { DEFAULT_INTERVIEW_CONFIG } from '../../../../electron/kb/defaults'
 import { Group, Note, Row } from '../../kit/Group'
 import { ConfirmDialog } from '../kit'
-import { MODEL_ID } from '../ModelField'
+import { ModelCombobox } from '../ModelCombobox'
 
 type Patch = DeepPartial<InterviewConfig>
 
@@ -85,12 +85,20 @@ const daysSelect = (label: string, value: string, onChange: (v: string) => void,
   </Select>
 )
 
+/** Helper calls go to the helper provider when one is assigned, else to the selected runner: list that source's models. */
+async function loadHelperModels() {
+  const s = await careerloom.getSettings()
+  if (s.llm.helper) return (await careerloom.llmModels(s.llm.helper.provider)).map(m => ({ id: m.id, label: m.name ?? m.id }))
+  return s.runner === 'api' ? [] : careerloom.listModels(s.runner)
+}
+
 function ResearchGroup({ c, save }: { c: InterviewConfig; save: (p: Patch) => void }) {
   const r = c.research
   return (
     <Group title="Research" focus="interview:research">
       <Row label="Model for reading pages" htmlFor="interview-model" hint="A small, cheap model does the extracting. Leave blank for the built-in helper model.">
-        <Draft label="Model for reading pages" value={r.model ?? ''} placeholder="Built-in helper model" className="h-8 w-60" maxLength={100} parse={t => (t === '' ? null : MODEL_ID.test(t) ? t : undefined)} onCommit={v => save({ research: { model: v as string | null } })} />
+        <ModelCombobox ariaLabel="Model for reading pages" value={r.model ?? ''} defaultLabel="Built-in helper model" load={loadHelperModels}
+          onChange={id => save({ research: { model: id || null } })} />
       </Row>
       <Row label="Depth" hint="Quick reads fewer pages; Deep adds company and interviewer-style notes.">
         <SegTabs options={[{ value: 'quick', label: 'Quick' }, { value: 'standard', label: 'Standard' }, { value: 'deep', label: 'Deep' }]} value={r.depth} onChange={v => save({ research: { depth: v as InterviewConfig['research']['depth'] } })} />

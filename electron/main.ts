@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { checkRoot, listReports, readPipeline, readReport, readTracker } from './careerops'
-import { broadcast, dataRoot, deleteRunRecords, launch, setSkillContext, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSettings, type Handler } from './context'
+import { broadcast, dataRoot, deleteRunRecords, launch, readSecret, setSkillContext, readRunHistory, readSettings, runLog, runs, startAgent, str, summary, writeSettings, type Handler } from './context'
 import { chatHandlers } from './chat'
 import { onboardingHandlers } from './onboarding'
 import { bootstrapHandlers, onBootstrapIdle, runBootstrap } from './runtime/bootstrap'
@@ -20,7 +20,8 @@ import { copilotHandlers } from './copilot/handlers'
 import { kbHandlers } from './kb/handlers'
 import { onTtsPlayback } from './kb/voice'
 import { redactLog } from './log-redact'
-import { llmHandlers } from './llm/handlers'
+import { llmHandlers, llmModels } from './llm/handlers'
+import { claudeModels, codexModels } from './runner-models'
 import { isProviderId } from './llm/providers'
 import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
 import { setKey } from './settings/keys'
@@ -91,19 +92,6 @@ async function agentEnv(): Promise<NodeJS.ProcessEnv> {
 
 const JD_CAP = 18_000
 
-// Suggestions for the model pickers. Free text is still allowed (any id the CLI accepts).
-const MODEL_SUGGESTIONS: Record<'claude' | 'codex', Array<{ id: string; label: string }>> = {
-  claude: [
-    { id: 'sonnet', label: 'Sonnet (latest)' },
-    { id: 'opus', label: 'Opus (latest)' },
-    { id: 'haiku', label: 'Haiku (latest, cheapest)' },
-  ],
-  codex: [
-    { id: 'gpt-5-codex', label: 'GPT-5 Codex' },
-    { id: 'gpt-5', label: 'GPT-5' },
-    { id: 'o3', label: 'o3' },
-  ],
-}
 let agyModels: Array<{ id: string; label: string }> | null = null
 
 /** `agy models` prints `id<TAB>label` lines; cached for the session. */
@@ -158,7 +146,8 @@ const handlers: Record<string, Handler> = {
     if (runner === 'antigravity') return antigravityModels()
     if (runner === 'opencode') return listOpencodeModels()
     if (runner === 'zen') return zenModels()
-    if (runner === 'claude' || runner === 'codex') return MODEL_SUGGESTIONS[runner]
+    if (runner === 'codex') return codexModels()
+    if (runner === 'claude') return claudeModels(async () => (readSecret('anthropic') ? (await llmModels('anthropic')).map(m => m.id) : []))
     throw new Error('Unknown runner')
   },
   setApiKey: (key: unknown, provider: unknown) => {
