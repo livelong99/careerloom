@@ -20,6 +20,16 @@
 
 <p align="center"><img src="docs/screenshots/jobs.png" alt="Jobs screen" width="860"></p>
 
+<p align="center"><sub>All screens show fictional demo data. Light and dark follow your GitHub theme.</sub></p>
+
+<table>
+<tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png"><img src="docs/screenshots/overview-light.png" alt="Overview" width="420"></picture><br><sub>Overview</sub></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/job-dark.png"><img src="docs/screenshots/job-light.png" alt="Job page: verdict and scores" width="420"></picture><br><sub>Job page: verdict and scores</sub></td></tr>
+<tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/job-match-dark.png"><img src="docs/screenshots/job-match-light.png" alt="Job match and keywords" width="420"></picture><br><sub>Job match and keywords</sub></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/knowledge-base-dark.png"><img src="docs/screenshots/knowledge-base-light.png" alt="Interview question base" width="420"></picture><br><sub>Interview question base</sub></td></tr>
+<tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/resume-dark.png"><img src="docs/screenshots/resume-light.png" alt="Resume and ATS scores" width="420"></picture><br><sub>Resume and ATS scores</sub></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/agent.png"><img src="docs/screenshots/agent-light.png" alt="Agent chat" width="420"></picture><br><sub>Agent chat</sub></td></tr>
+<tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/monitoring.png"><img src="docs/screenshots/monitoring-light.png" alt="Monitoring" width="420"></picture><br><sub>Monitoring</sub></td><td align="center"><img src="docs/screenshots/integrations.png" alt="Integrations" width="420"><br><sub>Integrations</sub></td></tr>
+</table>
+
+
 ## What it does
 
 Careerloom is a desktop interface for [career-ops](https://github.com/career-ops-hq/career-ops), the open-source
@@ -45,10 +55,6 @@ career-ops' files and scripts into a visual workflow.
 - **Monitoring** — runs, success rate, cost and token usage, and the health of your search.
 - **Integrations** — career-ops, job-data services (Firecrawl, browser login), research search (SearXNG) and extra skills, grouped by purpose.
 
-| | |
-|---|---|
-| ![Agent](docs/screenshots/agent.png) | ![Monitoring](docs/screenshots/monitoring.png) |
-| ![Integrations](docs/screenshots/integrations.png) | |
 
 ## Supported agents
 
