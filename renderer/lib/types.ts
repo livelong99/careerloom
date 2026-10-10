@@ -175,6 +175,7 @@ export type CareerloomBridge = {
   sendMessage(threadId: string | null, text: string, opts?: SendOptions): Promise<{ thread: ChatThread; run: Run }>
   /** A stored chat image as a data: URL. */
   attachmentData(threadId: string, attachmentId: string): Promise<string>
+  renameThread(id: string, title: string): Promise<ChatThread>
   deleteThread(id: string): Promise<boolean>
   /** A finished Claude run → a chat on the same session (answer what the skill asked). */
   continueRun(runId: string): Promise<ChatThread>

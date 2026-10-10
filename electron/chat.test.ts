@@ -137,4 +137,15 @@ describe('chat attachments and skills', () => {
     expect(() => validateSkills(['../x'])).toThrow('Invalid skill')
     expect(() => validateSkills('x')).toThrow('Invalid skill')
   })
+
+  it('retries with stored images (reuse) and renames', async () => {
+    const { thread } = await chatHandlers.sendMessage!(null, 'look', { attachments: [{ name: 'a.png', data: PNG }] }) as { thread: { id: string; messages: Array<{ attachments?: Array<{ id: string }> }> } }
+    const id = thread.messages[0]!.attachments![0]!.id
+    runs.clear()
+    await chatHandlers.sendMessage!(thread.id, 'look', { reuse: [id, 'not-in-thread'] })
+    expect(started[1]!.opts.images).toHaveLength(1)
+    runs.clear()
+    expect((chatHandlers.renameThread!(thread.id, '  Better   name ') as { title: string }).title).toBe('Better name')
+    expect(() => chatHandlers.renameThread!(thread.id, '   ')).toThrow('Give the chat a name')
+  })
 })

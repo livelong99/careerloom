@@ -194,7 +194,7 @@ export type WebBoardPreview = { provider: string | null; count: number; sample: 
 export type ChatRole = 'user' | 'agent'
 export type ChatMessage = { id: string; role: ChatRole; text: string; at: number; runId?: string; status?: 'running' | 'done' | 'failed' | 'cancelled'; /** Images sent with a user message. */ attachments?: Attachment[]; /** Skill ids picked with / for this message. */ skills?: string[] }
 /** Extras for sendMessage: raw image bytes (validated by magic bytes in main) and the skills picked for this message. */
-export type SendOptions = { attachments?: Array<{ name: string; data: Uint8Array }>; skills?: string[] }
+export type SendOptions = { attachments?: Array<{ name: string; data: Uint8Array }>; skills?: string[]; /** Ids of images already stored in this thread to send again (Retry). */ reuse?: string[] }
 export type ChatThreadSummary = { id: string; title: string; createdAt: number; updatedAt: number; runner: string; status: 'idle' | 'running' | 'failed'; preview: string }
 export type ChatThread = ChatThreadSummary & { sessionId: string | null; messages: ChatMessage[] }
 
