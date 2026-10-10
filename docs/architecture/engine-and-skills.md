@@ -1,6 +1,6 @@
 # Careerloom engine and skills: architecture plan
 
-Status: proposed. Owner: integration lead. Last updated 2026-10-10.
+Status: phase 0 shipped in 0.4.1 (skill registry, Settings › Skills, runner injection, Agent `/skill` picker and image attachments). Phases 1 to 4 are proposed. Last updated 2026-10-10.
 
 ## 1. Why
 
@@ -141,7 +141,7 @@ All adapters remove what they injected when the run ends. A per-run explicit sel
 
 | Phase | Deliverable | Exit criteria |
 |---|---|---|
-| **0 (this wave)** | Skill registry, install/inspect/consent, Settings › Skills, runner injection, Agent screen `/skill` picker and image attachments | Install a skill from git, folder and zip; enabled skill visible to every runner; tests |
+| **0 (shipped in 0.4.1)** | Skill registry, install/inspect/consent, Settings › Skills, runner injection, Agent screen `/skill` picker and image attachments | Install a skill from git, folder and zip; enabled skill visible to every runner; tests |
 | **1** | Engine store + career-ops importer + adapter. Tracker, pipeline, reports read from the store | Import a real folder; Jobs, Overview and Monitoring identical on store vs legacy |
 | **2** | Capabilities move one by one to built-in skills: `evaluate-job`, `tailor-resume`, `cover-letter`, `interview-prep`, then `followup`, `pattern-analysis` | Per capability: schema, parity test against career-ops output on fixtures, flag default on |
 | **3** | `scan-board` fully on our scanners; onboarding no longer needs career-ops; career-ops optional pack | Fresh install with no career-ops folder completes setup and a scan |
@@ -175,3 +175,13 @@ skillsUpdate(id: string): SkillPreview            // preview first; install appl
 
 A run request may carry `skills?: string[]` (explicit set for that run) and `attachments?: Attachment[]`.
 Attachments are written to `<userData>/attachments/<runId>/` and deleted with the run.
+
+## 9. Phase 0 as shipped
+
+- Code: `electron/skills/` (`parse`, `zip`, `inspect`, `registry`, `inject`, `handlers`, `ipc`); UI in Settings › Skills;
+  Agent attachments in `electron/attachments.ts` and `electron/image-support.ts`.
+- Git refs must be a branch or tag. The update preview does not show a diff yet.
+- Injection folders for Codex (`.codex/skills`) and Antigravity (`.agent/skills`) follow current conventions and are the
+  least certain; the API runner receives no skills.
+- Image flags: Codex `-i`, OpenCode `-f`; Claude Code and Antigravity get the file path in the prompt; Zen sends image
+  parts to vision models.
