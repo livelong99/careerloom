@@ -1,7 +1,7 @@
 import type { Settings } from '../../lib/types'
 
 // The 12 Settings pages in 5 groups (design.md §1). Page bodies live in ./pages/*; this file is data only.
-export type PageId = 'general' | 'runners' | 'keys' | 'local-models' | 'integrations' | 'jobs' | 'resume' | 'agent' | 'copilot' | 'interview-prep' | 'monitoring' | 'data' | 'advanced'
+export type PageId = 'general' | 'runners' | 'keys' | 'local-models' | 'skills' | 'integrations' | 'jobs' | 'resume' | 'agent' | 'copilot' | 'interview-prep' | 'monitoring' | 'data' | 'advanced'
 
 export const PAGE_GROUPS: ReadonlyArray<{ label: string; pages: ReadonlyArray<{ id: PageId; label: string; blurb: string }> }> = [
   { label: 'Basics', pages: [{ id: 'general', label: 'General', blurb: 'Where your data lives, how the app looks and how often it refreshes.' }] },
@@ -11,6 +11,7 @@ export const PAGE_GROUPS: ReadonlyArray<{ label: string; pages: ReadonlyArray<{ 
       { id: 'runners', label: 'Runners & models', blurb: 'Which agent does the work, and with which model.' },
       { id: 'keys', label: 'API keys', blurb: 'Keys stay in your OS keychain. Only the last four characters are ever shown.' },
       { id: 'local-models', label: 'Local models', blurb: 'On-device models for pre-screening and Copilot transcription.' },
+      { id: 'skills', label: 'Skills', blurb: 'Install Agent Skills from GitHub, a folder or a .zip, and choose which ones agents use.' },
     ],
   },
   { label: 'Connections', pages: [{ id: 'integrations', label: 'Integrations', blurb: 'career-ops, job-data services, research search and extra skills.' }] },
