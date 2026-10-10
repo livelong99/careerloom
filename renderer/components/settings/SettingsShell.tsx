@@ -15,13 +15,14 @@ import { InterviewPrepPage } from './pages/InterviewPrep'
 import { JobsPage } from './pages/Jobs'
 import { KeysPage } from './pages/Keys'
 import { LocalModelsPage } from './pages/LocalModels'
+import { UpdatesPage } from './pages/Updates'
 import { MonitoringPage } from './pages/Monitoring'
 import { ResumePage } from './pages/Resume'
 import { RunnersPage } from './pages/Runners'
 import { SkillsPage } from './pages/Skills'
 
 const BODIES: Record<PageId, ComponentType<PageProps>> = {
-  general: GeneralPage, runners: RunnersPage, keys: KeysPage, 'local-models': LocalModelsPage, skills: SkillsPage, integrations: IntegrationsPage,
+  general: GeneralPage, updates: UpdatesPage, runners: RunnersPage, keys: KeysPage, 'local-models': LocalModelsPage, skills: SkillsPage, integrations: IntegrationsPage,
   jobs: JobsPage, resume: ResumePage, agent: AgentPage, copilot: CopilotPage, 'interview-prep': InterviewPrepPage, monitoring: MonitoringPage, data: DataPage, advanced: AdvancedPage,
 }
 

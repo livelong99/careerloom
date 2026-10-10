@@ -220,6 +220,10 @@ const bridge = {
   // Pipeline
   setStatus: (nums: number[], status: string) => invoke('setStatus', nums, status),
   getUpdateStatus: () => invoke('getUpdateStatus'),
+  installUpdate: (opts?: { force?: boolean }) => invoke('installUpdate', opts),
+  cancelUpdate: () => invoke('cancelUpdate'),
+  getUpdateProgress: () => invoke('getUpdateProgress'),
+  onUpdateProgress: (cb: (progress: unknown) => void) => subscribe('updateProgress', cb),
   onUpdateStatus: (cb: (status: unknown) => void) => subscribe('update', cb),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   platform: process.platform,

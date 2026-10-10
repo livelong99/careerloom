@@ -37,6 +37,8 @@ import { checkReadiness, pickReadyRunner, type Readiness } from './readiness'
 import { zenModels } from './opencode'
 import { sweepCookieTemp } from './integrations/browser-cookies'
 import { createUpdateChecker, type UpdateChecker } from './updates'
+import { installBlocker } from './self-update/release'
+import { createUpdater } from './self-update/updater'
 import { debugLog } from './debug-log'
 import { applyDebugLog, installDebugHooks } from './debug-log-hooks'
 import { cancelAll, cancelRun, isMode, isModelId, isRunner, MODES, resolveBin, spawnSpec } from './runner'
@@ -48,6 +50,14 @@ export type Envelope<T = unknown> = { ok: true; value: T } | { ok: false; error:
 
 const CAREER_OPS_REPO = 'https://github.com/career-ops-hq/career-ops.git'
 let updateChecker: UpdateChecker | null = null
+const canWrite = (dir: string): boolean => { try { fs.accessSync(dir, fs.constants.W_OK); return true } catch { return false } }
+const updateBlocker = (): string | null => installBlocker({ platform: process.platform, packaged: app.isPackaged, exePath: process.execPath, writable: canWrite })
+let updaterInst: ReturnType<typeof createUpdater> | null = null
+const updater = () => (updaterInst ??= createUpdater({
+  platform: process.platform, exePath: process.execPath, pid: process.pid, tmpDir: app.getPath('temp'), logFile: path.join(app.getPath('userData'), 'update.log'),
+  quit: () => { app.quit(); setTimeout(() => app.exit(0), 4000) },
+  emit: p => broadcast('careerloom:updateProgress', p),
+}))
 let readiness: Readiness | null = null
 
 /** Validate every CLI against the chosen folder and prepare their headless setup. If the
@@ -187,6 +197,20 @@ const handlers: Record<string, Handler> = {
     broadcast('careerloom:update', status)
     return status
   },
+  /** Download, verify and install the newest release, then restart. Refuses while runs are active unless forced. */
+  installUpdate: async (opts: unknown) => {
+    const force = typeof opts === 'object' && opts !== null && (opts as { force?: unknown }).force === true
+    const status = (await updateChecker?.getStatus()) ?? null
+    const asset = updateChecker?.latestAsset() ?? null
+    const blocker = updateBlocker()
+    if (!status?.updateAvailable || !asset) return { ok: false, message: 'There is no update to install.' }
+    if (blocker) return { ok: false, message: blocker }
+    const running = [...runs.values()].filter(r => r.status === 'running').length
+    if (running > 0 && !force) return { ok: false, reason: 'runs-active', running, message: `${running} run${running === 1 ? ' is' : 's are'} still working.` }
+    return updater().install(asset)
+  },
+  cancelUpdate: () => { updater().cancel() },
+  getUpdateProgress: () => updater().progress(),
   listRuns: () => {
     const live = [...runs.values()].map(summary)
     const ids = new Set(live.map(r => r.id))
@@ -370,7 +394,7 @@ function bootstrap(): void {
     startFakeOverlayIfRequested() // dev only: CL_COPILOT_FAKE=cycle|<state>
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
     // Update availability (from codeburn): at launch, then daily. Notifies only — never installs.
-    updateChecker = createUpdateChecker({ currentVersion: app.getVersion() })
+    updateChecker = createUpdateChecker({ currentVersion: app.getVersion(), blocker: updateBlocker })
     const runUpdateCheck = () => { if (readSettings().prefs.updates.enabled) void updateChecker?.check().then(status => broadcast('careerloom:update', status)) }
     runUpdateCheck()
     setInterval(runUpdateCheck, 24 * 60 * 60 * 1000)

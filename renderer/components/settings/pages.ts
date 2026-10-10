@@ -1,10 +1,13 @@
 import type { Settings } from '../../lib/types'
 
 // The 12 Settings pages in 5 groups (design.md §1). Page bodies live in ./pages/*; this file is data only.
-export type PageId = 'general' | 'runners' | 'keys' | 'local-models' | 'skills' | 'integrations' | 'jobs' | 'resume' | 'agent' | 'copilot' | 'interview-prep' | 'monitoring' | 'data' | 'advanced'
+export type PageId = 'general' | 'updates' | 'runners' | 'keys' | 'local-models' | 'skills' | 'integrations' | 'jobs' | 'resume' | 'agent' | 'copilot' | 'interview-prep' | 'monitoring' | 'data' | 'advanced'
 
 export const PAGE_GROUPS: ReadonlyArray<{ label: string; pages: ReadonlyArray<{ id: PageId; label: string; blurb: string }> }> = [
-  { label: 'Basics', pages: [{ id: 'general', label: 'General', blurb: 'Where your data lives, how the app looks and how often it refreshes.' }] },
+  { label: 'Basics', pages: [
+      { id: 'general', label: 'General', blurb: 'Where your data lives, how the app looks and how often it refreshes.' },
+      { id: 'updates', label: 'Updates', blurb: 'Check GitHub Releases and update Careerloom in place.' },
+    ] },
   {
     label: 'AI',
     pages: [

@@ -228,12 +228,25 @@ export type CareerloomBridge = {
   setStatus(nums: number[], status: CanonicalStatus): Promise<{ updated: number[]; failed: Array<{ num: number; error: string }> }>
   getUpdateStatus(): Promise<UpdateStatus>
   onUpdateStatus(cb: (status: UpdateStatus) => void): () => void
+  installUpdate(opts?: { force?: boolean }): Promise<UpdateInstallResult>
+  cancelUpdate(): Promise<void>
+  getUpdateProgress(): Promise<UpdateProgress>
+  onUpdateProgress(cb: (progress: UpdateProgress) => void): () => void
   openExternal(url: string): Promise<void>
   platform: string
   arch: string
 } & CopilotBridge & KbBridge & SkillsBridge
 
-export type UpdateStatus = { currentVersion: string; latestVersion: string | null; updateAvailable: boolean; tag: string | null; storeManaged?: boolean }
+export type UpdateStatus = {
+  currentVersion: string; latestVersion: string | null; updateAvailable: boolean; tag: string | null; storeManaged?: boolean
+  notes?: string | null; publishedAt?: string | null
+  asset?: { name: string; size: number; verifiable: boolean } | null
+  /** Why "Update now" cannot run on this machine; null when it can. */
+  blocker?: string | null
+}
+export type UpdatePhase = 'idle' | 'downloading' | 'verifying' | 'installing' | 'restarting' | 'error' | 'cancelled'
+export type UpdateProgress = { phase: UpdatePhase; received: number; total: number; message: string | null }
+export type UpdateInstallResult = { ok: true } | { ok: false; message: string; reason?: 'runs-active'; running?: number }
 
 /** Plain error shape that crosses the IPC boundary (kept name from codeburn). */
 export type CliError = { kind: string; message: string; cold?: true }

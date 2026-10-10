@@ -15,6 +15,7 @@ import { fakeBridge, settingsFixture, WithRuns } from '../testKit'
 import { AdvancedPage } from './Advanced'
 import { DataPage } from './Data'
 import { GeneralPage } from './General'
+import { UpdatesPage } from './Updates'
 import { dismissToast, getToast } from '../../../lib/toast'
 
 const ok = { runnerStatus: { git: '2.45', node: '22', claude: null, codex: null, antigravity: null, opencode: null }, getReadiness: { root: '/r', checkedAt: 0, deps: true, clis: [] } }
@@ -58,7 +59,7 @@ describe('General', () => {
 
   it('updates toggle writes prefs and calls onChanged', async () => {
     const p = props()
-    mount(<GeneralPage {...p} />)
+    mount(<UpdatesPage {...p} />)
     await userEvent.click(screen.getByRole('switch', { name: 'Check for updates' }))
     await waitFor(() => expect(bridge.current.prefsSet).toHaveBeenCalledWith({ updates: { enabled: false } }))
     await waitFor(() => expect(p.onChanged).toHaveBeenCalled())
@@ -66,7 +67,7 @@ describe('General', () => {
 
   it('says why "Check now" failed instead of crashing when the backend is not ready', async () => {
     bridge.current = fakeBridge({ ...ok, checkForUpdates: () => Promise.reject(new Error('checkForUpdates is not implemented yet')) })
-    mount(<GeneralPage {...props()} />)
+    mount(<UpdatesPage {...props()} />)
     await userEvent.click(screen.getByRole('button', { name: 'Check now' }))
     await waitFor(() => expect(getToast()?.text).toMatch(/not implemented yet/))
   })

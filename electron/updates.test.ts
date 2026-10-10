@@ -31,7 +31,7 @@ describe('pickLatestDesktopVersion', () => {
       release('v0.9.17'),
       release('v0.9.16'),
     ])
-    expect(picked).toEqual({ version: '0.9.17', tag: 'v0.9.17' })
+    expect(picked).toMatchObject({ version: '0.9.17', tag: 'v0.9.17' })
   })
 
   it('returns null when no v release is present', () => {
@@ -66,7 +66,7 @@ describe('createUpdateChecker', () => {
 
   it('flags an update when a newer desktop release exists', async () => {
     const status = await checker([release('v0.9.17')]).getStatus()
-    expect(status).toEqual({ currentVersion: '0.9.16', latestVersion: '0.9.17', updateAvailable: true, tag: 'v0.9.17' })
+    expect(status).toMatchObject({ currentVersion: '0.9.16', latestVersion: '0.9.17', updateAvailable: true, tag: 'v0.9.17' })
   })
 
   it.each(['0.10.0', '1.0.0'])('flags an update for a %s release', async version => {

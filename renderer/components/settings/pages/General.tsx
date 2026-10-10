@@ -5,7 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { usePolled } from '../../../hooks/usePolled'
 import { useRuns } from '../../../hooks/useRuns'
-import { useUpdateStatus } from '../../../hooks/useUpdateStatus'
 import { isLocaleChoice, LOCALES, useLocale, type LocaleChoice } from '../../../i18n'
 import { careerloom, normalizeCliError } from '../../../lib/ipc'
 import { REFRESH_OPTIONS, useRefreshCadence } from '../../../lib/refreshCadence'
@@ -25,7 +24,7 @@ export function GeneralPage({ settings, onChanged }: PageProps) {
     <>
       <FolderGroup settings={settings} onChanged={onChanged} />
       <AppearanceGroup />
-      <RefreshGroup settings={settings} onChanged={onChanged} />
+      <RefreshGroup />
     </>
   )
 }
@@ -92,27 +91,12 @@ function AppearanceGroup() {
   )
 }
 
-function RefreshGroup({ settings, onChanged }: PageProps) {
+function RefreshGroup() {
   const cadence = useRefreshCadence()
-  const status = useUpdateStatus()
-  const [checking, setChecking] = useState(false)
-  const enabled = settings.prefs.updates.enabled
-  const setEnabled = async (value: boolean) => { await careerloom.prefsSet({ updates: { enabled: value } }); onChanged() }
-  const checkNow = async () => {
-    setChecking(true)
-    try {
-      const s = await careerloom.checkForUpdates()
-      showToast(s.updateAvailable ? `Version ${s.latestVersion} is available` : `You're up to date (v${s.currentVersion})`)
-    } catch (err) { showToast(errorText(err), 'error', 6000) } finally { setChecking(false) }
-  }
   return (
-    <Group title="Refresh & updates">
+    <Group title="Refresh">
       <Row focus="refresh" label="Refresh cadence" hint="How often Overview, Jobs, Boards and Monitoring re-read data. Slows on battery.">
         <SegTabs options={REFRESH_OPTIONS.map(o => ({ value: o.value, label: o.label }))} value={cadence.value} onChange={v => applyWithUndo(`Refresh set to ${REFRESH_OPTIONS.find(o => o.value === v)?.label}`, cadence.value, v, cadence.setValue)} />
-      </Row>
-      <Row focus="updates" label="Check for updates" hint={`Once a day, notify only — never installs.${status ? ` v${status.currentVersion}` : ''}`}>
-        <ToggleSwitch aria-label="Check for updates" checked={enabled} onCheckedChange={v => applyWithUndo(`Update checks ${v ? 'on' : 'off'}`, enabled, v, setEnabled)} />
-        <Button size="sm" variant="outline" disabled={checking} onClick={() => void checkNow()}>{checking ? 'Checking…' : 'Check now'}</Button>
       </Row>
     </Group>
   )

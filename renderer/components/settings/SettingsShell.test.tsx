@@ -23,9 +23,9 @@ const shell = (props: Partial<React.ComponentProps<typeof SettingsShell>> = {}) 
   render(<WithRuns><SettingsShell settings={settingsFixture()} onChanged={() => {}} {...props} /></WithRuns>)
 
 describe('SettingsShell', () => {
-  it('lists 14 pages in 5 groups and starts on General', () => {
+  it('lists 15 pages in 5 groups and starts on General', () => {
     shell()
-    expect(within(screen.getByRole('tablist', { name: 'Settings pages' })).getAllByRole('tab')).toHaveLength(14)
+    expect(within(screen.getByRole('tablist', { name: 'Settings pages' })).getAllByRole('tab')).toHaveLength(15)
     expect(PAGE_GROUPS.map(g => g.label)).toEqual(['Basics', 'AI', 'Connections', 'Workflows', 'System'])
     expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('heading', { name: 'General', level: 2 })).toBeInTheDocument()
