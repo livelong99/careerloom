@@ -172,7 +172,9 @@ export type CareerloomBridge = {
   // Agent chat
   listThreads(): Promise<ChatThreadSummary[]>
   getThread(id: string): Promise<ChatThread>
-  sendMessage(threadId: string | null, text: string): Promise<{ thread: ChatThread; run: Run }>
+  sendMessage(threadId: string | null, text: string, opts?: SendOptions): Promise<{ thread: ChatThread; run: Run }>
+  /** A stored chat image as a data: URL. */
+  attachmentData(threadId: string, attachmentId: string): Promise<string>
   deleteThread(id: string): Promise<boolean>
   /** A finished Claude run → a chat on the same session (answer what the skill asked). */
   continueRun(runId: string): Promise<ChatThread>
@@ -269,4 +271,4 @@ export * from '../../electron/contract'
 import type { BootstrapStatus, BootstrapStepId } from '../../electron/contract'
 import type { CopilotBridge, KbBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, LlmModelInfo, LlmSettings, ProviderId, ProviderRow, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
 import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
-import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'
+import type { CanonicalStatus, SendOptions, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'

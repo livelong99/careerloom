@@ -12,7 +12,7 @@ vi.mock('electron', () => ({
 vi.mock('./integrations/firecrawl', () => ({ firecrawlReady: async () => false }))
 vi.mock('./integrations/registry', () => ({ readRegistry: () => ({ firecrawl: { url: '' } }) }))
 
-const started: Array<{ prompt: string; opts: { resume?: string; onExit?: (run: unknown) => void } }> = []
+const started: Array<{ prompt: string; opts: { resume?: string; images?: Array<{ path: string }>; skills?: string[]; onExit?: (run: unknown) => void } }> = []
 vi.mock('./context', async importOriginal => {
   const real = await importOriginal<typeof import('./context')>()
   return {
@@ -27,11 +27,13 @@ vi.mock('./context', async importOriginal => {
   }
 })
 
+const { validateSkills, IMAGE_ONLY_TEXT } = await import('./chat')
 const { chatHandlers, readThread, threadFile, writeThread, capReply, PROMPT_PREFIX, MAX_MESSAGES, MAX_REPLY, MAX_THREADS } = await import('./chat')
 const { runs } = await import('./context')
 
 beforeEach(() => {
   fs.rmSync(path.join(tmp, 'threads'), { recursive: true, force: true })
+  fs.rmSync(path.join(tmp, 'attachments'), { recursive: true, force: true })
   started.length = 0
   runs.clear()
 })
@@ -92,5 +94,47 @@ describe('chat threads', () => {
     const dir = path.join(tmp, 'threads')
     for (let i = 1; i < MAX_THREADS; i++) fs.writeFileSync(path.join(dir, `x${i}.json`), '{}')
     await expect(chatHandlers.sendMessage!(null, 'one more')).rejects.toThrow('delete some old ones')
+  })
+})
+
+const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4])
+
+describe('chat attachments and skills', () => {
+  it('saves images by magic bytes under attachments/<thread>, passes them and the skills to the run, and deletes them with the thread', async () => {
+    const { thread } = await chatHandlers.sendMessage!(null, 'what is this?', { attachments: [{ name: '../../evil.txt', data: PNG }], skills: ['resume-tailor', 'resume-tailor'] }) as { thread: { id: string; messages: Array<{ attachments?: Array<{ id: string; name: string; mime: string; path: string }>; skills?: string[] }> } }
+    const att = thread.messages[0]!.attachments![0]!
+    expect(att).toMatchObject({ name: 'evil.txt', mime: 'image/png' })
+    expect(att.path).toBe(path.join(tmp, 'attachments', thread.id, `${att.id}.png`))
+    expect(fs.existsSync(att.path)).toBe(true)
+    expect(started[0]!.opts.images).toHaveLength(1)
+    expect(started[0]!.opts.skills).toEqual(['resume-tailor'])
+    expect(thread.messages[0]!.skills).toEqual(['resume-tailor'])
+    expect(chatHandlers.attachmentData!(thread.id, att.id)).toMatch(/^data:image\/png;base64,/)
+
+    runs.clear()
+    chatHandlers.deleteThread!(thread.id)
+    expect(fs.existsSync(path.join(tmp, 'attachments', thread.id))).toBe(false)
+  })
+
+  it('rejects a renamed non-image, oversize and too many files before anything starts or is written', async () => {
+    const text = new TextEncoder().encode('<svg/>')
+    await expect(chatHandlers.sendMessage!(null, 'x', { attachments: [{ name: 'a.png', data: text }] })).rejects.toThrow('not a PNG, JPEG, WebP or GIF')
+    await expect(chatHandlers.sendMessage!(null, 'x', { attachments: [{ name: 'a.png', data: new Uint8Array(8 * 1024 * 1024 + 1) }] })).rejects.toThrow('larger than 8 MB')
+    const seven = Array.from({ length: 7 }, () => ({ name: 'a.png', data: PNG }))
+    await expect(chatHandlers.sendMessage!(null, 'x', { attachments: seven })).rejects.toThrow('Only 6 images')
+    expect(started).toHaveLength(0)
+    expect(fs.existsSync(path.join(tmp, 'attachments'))).toBe(false)
+  })
+
+  it('allows an image-only message', async () => {
+    const { thread } = await chatHandlers.sendMessage!(null, '  ', { attachments: [{ name: 'a.png', data: PNG }] }) as { thread: { messages: Array<{ text: string }> } }
+    expect(thread.messages[0]!.text).toBe(IMAGE_ONLY_TEXT)
+  })
+
+  it('validates skill ids', () => {
+    expect(validateSkills(undefined)).toEqual([])
+    expect(validateSkills(['a', 'a', 'b.c-d_e'])).toEqual(['a', 'b.c-d_e'])
+    expect(() => validateSkills(['../x'])).toThrow('Invalid skill')
+    expect(() => validateSkills('x')).toThrow('Invalid skill')
   })
 })

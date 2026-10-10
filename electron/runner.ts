@@ -93,6 +93,8 @@ export type PromptOptions = {
   agyProject?: string
   /** No file or shell tools: the task is answered from the prompt alone (web search/fetch stay). */
   textOnly?: boolean
+  /** Image flags from imageArgs (codex `-i`, opencode `-f`), ending in `--`; placed right before the prompt. */
+  imageFlags?: string[]
 }
 
 /** Model ids are passed as argv values; keep them to a safe charset so they can't read as flags. */
@@ -116,7 +118,7 @@ export function argsForPrompt(runner: CliRunner, prompt: string, opts: PromptOpt
     }
     case 'codex':
       // Codex has no slash-skill routing in exec mode; career-ops documents plain text.
-      return { bin: BINS.codex, args: ['exec', '--sandbox', opts.textOnly ? 'read-only' : 'workspace-write', ...(isModelId(opts.model) ? ['--model', opts.model] : []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.`] }
+      return { bin: BINS.codex, args: ['exec', '--sandbox', opts.textOnly ? 'read-only' : 'workspace-write', ...(isModelId(opts.model) ? ['--model', opts.model] : []), ...(opts.imageFlags ?? []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.`] }
     case 'antigravity':
       // agy's --add-dir is repeatable (one dir per flag); it has no system-prompt flag.
       return {
@@ -148,6 +150,7 @@ export function argsForPrompt(runner: CliRunner, prompt: string, opts: PromptOpt
           ...(cmd ? ['--command', 'career-ops'] : []),
           ...(opts.resume && /^[\w-]{8,64}$/.test(opts.resume) ? ['--session', opts.resume] : []),
           ...(isModelId(opts.model) ? ['--model', opts.model] : []),
+          ...(opts.imageFlags ?? []),
           cmd ? cmd[1]! : prompt,
         ],
       }
