@@ -30,6 +30,7 @@ import { useDebriefLink } from './lib/copilotDebrief'
 import { openApplication } from './lib/jobNav'
 import { Onboarding, needsOnboarding } from './sections/Onboarding'
 import { Settings } from './sections/Settings'
+import { Help } from './sections/Help'
 import { AppPrefsProvider } from './components/settings/AppPrefsProvider'
 import { useAttention } from './components/settings/attention'
 import { isPageId, type PageId } from './components/settings/pages'
@@ -37,7 +38,7 @@ import { PAGE_KEY } from './components/settings/SettingsShell'
 import { applyTheme, readTheme } from './lib/theme'
 import type { Application } from './lib/types'
 
-export const TITLES: Record<Section, string> = { overview: 'Overview', jobs: 'Jobs', boards: 'Boards', resume: 'Resume', agent: 'Agent', monitoring: 'Monitoring', runs: 'Runs', settings: 'Settings', job: 'Jobs', copilot: 'Copilot' }
+export const TITLES: Record<Section, string> = { overview: 'Overview', jobs: 'Jobs', boards: 'Boards', resume: 'Resume', agent: 'Agent', monitoring: 'Monitoring', runs: 'Runs', settings: 'Settings', job: 'Jobs', copilot: 'Copilot', help: 'Help' }
 const KEYS: Record<string, Section> = { '1': 'overview', '2': 'jobs', '3': 'boards', '4': 'resume', '5': 'agent', '6': 'monitoring', '7': 'runs', '8': 'copilot', ',': 'settings' }
 const SECTION_KEY = 'careerloom.section'
 
@@ -64,6 +65,8 @@ function AppBody() {
   const [jobFocus, setJobFocus] = useState<string | null>(null)
   const [runsFocus, setRunsFocus] = useState<string | null>(null)
   const clearRunsFocus = useCallback(() => setRunsFocus(null), [])
+  const [helpFocus, setHelpFocus] = useState<string | null>(null)
+  const clearHelpFocus = useCallback(() => setHelpFocus(null), [])
   const [boardFocus, setBoardFocus] = useState<string | null>(null)
   const [settingsTarget, setSettingsTarget] = useState<{ page?: PageId; focus?: string; nonce: number }>({ nonce: 0 })
   useEffect(() => {
@@ -81,6 +84,7 @@ function AppBody() {
       if (target === 'settings') setSettingsTarget(prev => ({ page: isPageId(page) ? page : undefined, focus: typeof detail.focus === 'string' ? detail.focus : undefined, nonce: prev.nonce + 1 }))
       if (target === 'boards') setBoardFocus(typeof id === 'string' ? id : null)
       if (target === 'runs') setRunsFocus(typeof id === 'string' ? id : null)
+      if (target === 'help') setHelpFocus(typeof id === 'string' ? id : null)
       if (target === 'job') setJobFocus(typeof id === 'string' ? id : null)
     }
     window.addEventListener('careerloom:navigate', navigate)
@@ -133,6 +137,7 @@ function AppBody() {
   else if (shown === 'runs') body = <Runs focusId={runsFocus} onFocusHandled={clearRunsFocus} />
   else if (shown === 'monitoring') body = <Monitoring onNavigate={setSection} />
   else if (shown === 'copilot') body = <Copilot />
+  else if (shown === 'help') body = <Help focusId={helpFocus} onFocusHandled={clearHelpFocus} />
   else body = <Agent />
 
   const running = runs.runs.filter(r => r.status === 'running').length
