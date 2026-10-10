@@ -20,6 +20,9 @@ export function navigate(section: Section | 'integrations', opts: { id?: string;
 export const goToSettings = (page: PageId, focus?: string) => navigate('settings', { page, focus })
 export const goToIntegrations = () => goToSettings('integrations')
 
+/** Open the Help screen, optionally at one topic (e.g. `openHelp('boards')`). */
+export const openHelp = (topic?: string) => navigate('help', topic ? { id: topic } : {})
+
 /** Agent screen opens this thread on mount (set by "Continue in chat"). */
 export const OPEN_THREAD_KEY = 'careerloom.openThread'
 /** Open the Runs page; `id` selects that run (e.g. "View log" on a past scan). Non-string ids are ignored. */

@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import type { ChatMessage, ChatThread, ChatThreadSummary } from './contract'
+import type { ChatMessage, ChatThread, ChatThreadSummary, SendOptions } from './contract'
 import { readRunHistory, readSettings, runs, startAgentPrompt, str, userFile, type Handler, type RunRecord, type RunSummary } from './context'
+import { attachmentDataUrl, removeAttachments, saveAttachments } from './attachments'
 import { firecrawlReady } from './integrations/firecrawl'
 import { readRegistry } from './integrations/registry'
 
@@ -95,8 +96,21 @@ export function finishRun(threadId: string, run: RunRecord): void {
   writeThread({ ...thread, messages, sessionId, updatedAt: Date.now() })
 }
 
-async function sendMessage(threadId: unknown, text: unknown): Promise<{ thread: ChatThread; run: RunSummary }> {
-  const body = validateText(text)
+const SKILL_ID = /^[\w.-]{1,64}$/
+export const IMAGE_ONLY_TEXT = 'Look at the attached image(s) and help with what they show.'
+
+/** Skill ids chosen with / for one message: a short list of safe ids, no duplicates. */
+export function validateSkills(skills: unknown): string[] {
+  if (skills === undefined || skills === null) return []
+  if (!Array.isArray(skills) || skills.length > 20 || !skills.every(s => typeof s === 'string' && SKILL_ID.test(s))) throw new Error('Invalid skill selection')
+  return [...new Set(skills as string[])]
+}
+
+async function sendMessage(threadId: unknown, text: unknown, options?: unknown): Promise<{ thread: ChatThread; run: RunSummary }> {
+  const opts = (options ?? {}) as SendOptions
+  const skills = validateSkills(opts.skills)
+  const hasImages = (Array.isArray(opts.attachments) && opts.attachments.length > 0) || (Array.isArray(opts.reuse) && opts.reuse.length > 0)
+  const body = hasImages && typeof text === 'string' && !text.trim() ? IMAGE_ONLY_TEXT : validateText(text)
   const now = Date.now()
   if (threadId === null && threadCount() >= MAX_THREADS) throw new Error(`You have ${MAX_THREADS} chats — delete some old ones to start a new one`)
   const base: Stored = threadId === null
@@ -105,14 +119,28 @@ async function sendMessage(threadId: unknown, text: unknown): Promise<{ thread: 
   if (toThread(base).status === 'running') throw new Error('The agent is still working in this chat — wait for it or stop it first')
   const env = (await firecrawlReady()) ? { FIRECRAWL_URL: readRegistry().firecrawl.url } : {}
   const runner = readSettings().runner
-  const run = startAgentPrompt('Agent chat', 'chat', buildPrompt(body), body.slice(0, 80), {
-    // A session id only means something to the runner that made it.
-    resume: base.runner === runner ? base.sessionId ?? undefined : undefined,
-    env,
-    onExit: r => { try { finishRun(base.id, r) } catch (err) { console.error('chat save failed:', err) } },
-  })
+  const images = saveAttachments(base.id, opts.attachments)
+  // Retry: reuse images already stored in this thread instead of re-uploading them.
+  const known = base.messages.flatMap(m => m.attachments ?? [])
+  const reused = (Array.isArray(opts.reuse) ? opts.reuse : []).flatMap(id => known.filter(a => a.id === id))
+  const sent = [...reused, ...images]
+  let run: RunSummary
+  try {
+    run = startAgentPrompt('Agent chat', 'chat', buildPrompt(body), body.slice(0, 80), {
+      // A session id only means something to the runner that made it.
+      resume: base.runner === runner ? base.sessionId ?? undefined : undefined,
+      env,
+      images: sent,
+      skills: skills.length ? skills : undefined,
+      onExit: r => { try { finishRun(base.id, r) } catch (err) { console.error('chat save failed:', err) } },
+    })
+  } catch (err) {
+    // Nothing started: drop the files written for this message (earlier messages' images stay).
+    for (const a of images) fs.rmSync(a.path, { force: true })
+    throw err
+  }
   // launch() is synchronous and onExit fires on a later tick, so this write always lands first.
-  const user: ChatMessage = { id: randomUUID(), role: 'user', text: body, at: now }
+  const user: ChatMessage = { id: randomUUID(), role: 'user', text: body, at: now, ...(sent.length ? { attachments: sent } : {}), ...(skills.length ? { skills } : {}) }
   const agent: ChatMessage = { id: randomUUID(), role: 'agent', text: '', at: now, runId: run.id, status: 'running' }
   const next = { ...base, runner, updatedAt: now, messages: [...base.messages, user, agent] }
   writeThread(next)
@@ -138,16 +166,29 @@ function continueRun(runId: unknown): ChatThread {
   return toThread(thread)
 }
 
+export const MAX_TITLE = 80
+
+function renameThread(id: unknown, title: unknown): ChatThread {
+  const next = str(title, 'title').replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE)
+  if (!next) throw new Error('Give the chat a name')
+  const thread = readThread(id)
+  writeThread({ ...thread, title: next })
+  return readThread(id)
+}
+
 function deleteThread(id: unknown): boolean {
   if (readThread(id).status === 'running') throw new Error('Stop the agent before deleting this chat')
   fs.rmSync(threadFile(id), { force: true })
+  removeAttachments(str(id, 'thread id'))
   return true
 }
 
 export const chatHandlers: Record<string, Handler> = {
   listThreads: () => listThreads(),
   getThread: id => readThread(id),
-  sendMessage: (threadId, text) => sendMessage(threadId, text),
+  sendMessage: (threadId, text, opts) => sendMessage(threadId, text, opts),
+  attachmentData: (threadId, attachmentId) => attachmentDataUrl(threadId, attachmentId),
+  renameThread: (id, title) => renameThread(id, title),
   deleteThread: id => deleteThread(id),
   continueRun: runId => continueRun(runId),
 }

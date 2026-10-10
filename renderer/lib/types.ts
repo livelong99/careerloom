@@ -69,7 +69,7 @@ export type CareerloomBridge = {
   getRunLog(id: string): Promise<string>
   /** Forget finished runs (history + saved log); running ones are skipped. Resolves with how many were removed. */
   deleteRuns(ids: string[]): Promise<number>
-  startRun(req: { mode: string; input?: string }): Promise<Run>
+  startRun(req: { mode: string; input?: string; /** Agent Skill ids for this run only; omit for every enabled skill. */ skills?: string[] }): Promise<Run>
   /** Evaluate a link/JD; prefetches the page through Firecrawl when it is running. */
   evaluateJob(input: string): Promise<Run>
   cancelRun(id: string): Promise<boolean>
@@ -172,7 +172,10 @@ export type CareerloomBridge = {
   // Agent chat
   listThreads(): Promise<ChatThreadSummary[]>
   getThread(id: string): Promise<ChatThread>
-  sendMessage(threadId: string | null, text: string): Promise<{ thread: ChatThread; run: Run }>
+  sendMessage(threadId: string | null, text: string, opts?: SendOptions): Promise<{ thread: ChatThread; run: Run }>
+  /** A stored chat image as a data: URL. */
+  attachmentData(threadId: string, attachmentId: string): Promise<string>
+  renameThread(id: string, title: string): Promise<ChatThread>
   deleteThread(id: string): Promise<boolean>
   /** A finished Claude run → a chat on the same session (answer what the skill asked). */
   continueRun(runId: string): Promise<ChatThread>
@@ -225,12 +228,25 @@ export type CareerloomBridge = {
   setStatus(nums: number[], status: CanonicalStatus): Promise<{ updated: number[]; failed: Array<{ num: number; error: string }> }>
   getUpdateStatus(): Promise<UpdateStatus>
   onUpdateStatus(cb: (status: UpdateStatus) => void): () => void
+  installUpdate(opts?: { force?: boolean }): Promise<UpdateInstallResult>
+  cancelUpdate(): Promise<void>
+  getUpdateProgress(): Promise<UpdateProgress>
+  onUpdateProgress(cb: (progress: UpdateProgress) => void): () => void
   openExternal(url: string): Promise<void>
   platform: string
   arch: string
-} & CopilotBridge & KbBridge
+} & CopilotBridge & KbBridge & SkillsBridge
 
-export type UpdateStatus = { currentVersion: string; latestVersion: string | null; updateAvailable: boolean; tag: string | null; storeManaged?: boolean }
+export type UpdateStatus = {
+  currentVersion: string; latestVersion: string | null; updateAvailable: boolean; tag: string | null; storeManaged?: boolean
+  notes?: string | null; publishedAt?: string | null
+  asset?: { name: string; size: number; verifiable: boolean } | null
+  /** Why "Update now" cannot run on this machine; null when it can. */
+  blocker?: string | null
+}
+export type UpdatePhase = 'idle' | 'downloading' | 'verifying' | 'installing' | 'restarting' | 'error' | 'cancelled'
+export type UpdateProgress = { phase: UpdatePhase; received: number; total: number; message: string | null }
+export type UpdateInstallResult = { ok: true } | { ok: false; message: string; reason?: 'runs-active'; running?: number }
 
 /** Plain error shape that crosses the IPC boundary (kept name from codeburn). */
 export type CliError = { kind: string; message: string; cold?: true }
@@ -267,6 +283,6 @@ export type SpendFlow = {
 // process can import them without leaving its compile root.
 export * from '../../electron/contract'
 import type { BootstrapStatus, BootstrapStepId } from '../../electron/contract'
-import type { CopilotBridge, KbBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, LlmModelInfo, LlmSettings, ProviderId, ProviderRow, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
+import type { CopilotBridge, KbBridge, SkillsBridge, ClearScope, DataLocation, DataStats, Diagnostics, KeyId, KeyInfo, KeyTest, LlmModelInfo, LlmSettings, ProviderId, ProviderRow, Prefs, PrefsPatch, PruneResult, ResetScope } from '../../electron/contract'
 import type { AtsAnalyzeInput, AtsAnswer, AtsApplyResult, AtsEvent, AtsHistoryItem, AtsPreview, AtsReport } from '../../electron/contract'
-import type { CanonicalStatus, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'
+import type { CanonicalStatus, SendOptions, ChatThread, LocalModelStatus, Prerequisites, PrescreenEntry, PrescreenModel, PrescreenPolicy, PrescreenRun, PrescreenStatus, Readiness, ChatThreadSummary, CvDocument, CvTemplate, ExtractedProfile, JobListing, Portal, ProfileResearch, DateRange, ExportFormat, InstallPreview, Integration, IntegrationAction, IntegrationDetail, Metrics, ResumeOverview, ResumeSource, RunUsage, WebBoardPreview, BrowserLoginStatus, PortalDetail, PortalPatch, ScanHistoryRow, JobView, Artifact, DocKind, DocsEvent, DocsOptions } from '../../electron/contract'

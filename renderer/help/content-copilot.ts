@@ -1,0 +1,78 @@
+import type { Topic } from './types'
+
+export const COPILOT: Topic[] = [
+  {
+    id: 'copilot', group: 'interview', title: 'Copilot', icon: 'mic',
+    summary: 'A small overlay that listens to your interview and suggests answers from your résumé and the job’s question base. Available on macOS and Windows.',
+    when: ['You are in a live interview where you are allowed to use notes.', 'You want to rehearse under realistic conditions first (see Practice with Copilot).'],
+    steps: [
+      { title: 'Set up the interview', body: 'On the Setup page pick the job and the interview type: recruiter screen, behavioural, technical, system design or mixed. A readiness strip shows what is missing (microphone, speech model, answer engine, résumé).' },
+      { title: 'Confirm the rules', body: 'Before every live session you confirm you are allowed to use AI help and that everyone on the call knows it is transcribed. This cannot be turned off.' },
+      { title: 'Start listening', body: 'Use Start listening in the header or its hotkey. The overlay shows the detected question and a short answer first.' },
+      { title: 'Ask for more', body: 'Answer the last question, ask for a follow-up, clarify, summarise so far, or expand the current answer. Each has a hotkey you can change.' },
+      { title: 'Stop everything', body: 'The stop hotkey (also on the menu bar or tray icon) turns off the microphone, cancels any request and hides the overlay at once.' },
+      { title: 'Review', body: 'The Sessions page lists every session by job, with a transcript and debrief. Move good answers into your résumé and job notes.' },
+    ],
+    tips: ['Only the microphone is captured for now. System audio (the interviewer’s side) is marked Coming soon, so “Answer automatically” does little until it ships.', 'The Copilot page has seven tabs: Setup, Practice, Audio, Coaching, Appearance, Hotkeys and Sessions.'],
+    go: [{ label: 'Open Copilot', section: 'copilot' }],
+    keywords: 'live interview overlay session consent listening stop panic sessions debrief setup readiness windows macos',
+  },
+  {
+    id: 'copilot-practice', group: 'interview', title: 'Practice with Copilot', icon: 'sparkles',
+    summary: 'Rehearse a real interview for one job with the same overlay, cues and suggested answers you get live. Practice is always allowed.',
+    when: ['An interview is coming up.', 'You want to test your Copilot settings before relying on them.'],
+    steps: [
+      { title: 'Choose a question source', body: 'AI interviewer asks questions from the job’s question base. Report questions uses the questions in the job’s evaluation report.' },
+      { title: 'Shape the interview', body: 'Set the length, and pick focus skills (dashed chips are gaps from your evaluation, practised first). Difficulty is Adaptive, Easier, Match the job or Harder; Adaptive steps up after two strong answers and down after two weak ones. Turn off generated questions to keep only questions that have a source.' },
+      { title: 'Shape the interviewer', body: 'Choose style, seniority and strictness (how hard they probe vague answers). Pick a voice and speed, and tell Careerloom whether you use speakers or headphones. On speakers the mic pauses while the interviewer speaks; with headphones you can interrupt.' },
+      { title: 'Tune the session', body: 'Follow-up questions adds one probe based on your answer. Read questions aloud uses your system voice. Time per answer shows a soft timer that never cuts you off.' },
+      { title: 'Answer, then debrief', body: 'Answer out loud. Afterwards the debrief scores each answer and shows a heat map of strong and weak topics; find it again under Sessions.' },
+    ],
+    tips: ['Build the question base first (Job page › Knowledge base) so the interviewer has real material.', 'Headphones are recommended: without them the microphone can hear the interviewer.'],
+    go: [{ label: 'Open Copilot', section: 'copilot' }, { label: 'Interview prep settings', section: 'settings', page: 'interview-prep' }],
+    keywords: 'mock interview rehearse practise ai interviewer difficulty voice follow-up timer focus skills debrief',
+  },
+  {
+    id: 'copilot-privacy', group: 'interview', title: 'Privacy mode and consent', icon: 'shield',
+    summary: 'What Copilot keeps, what leaves your computer, and the low-profile options you can opt into. Find it under Settings › Copilot.',
+    when: ['You want to know what is stored or sent.', 'You want the overlay to be less conspicuous on your own screen.'],
+    steps: [
+      { title: 'Consent comes first', body: 'Every live session starts with a short check on your employer’s or interviewer’s rules and on consent from everyone on the call. It cannot be switched off. Many employers do not allow AI help in live interviews, so check first; practice is always fine.' },
+      { title: 'What is kept', body: 'Audio is turned into text and discarded straight away. Transcripts are kept for the period you choose (or not at all, or until you delete them); lowering it asks before deleting. Your confirmations, dates and providers are saved on this device only, and you can export them.' },
+      { title: 'What leaves your computer', body: 'Speech recognition runs on your computer. The text of the conversation goes to the answer provider you chose, using your own key. “Hide names, emails and phone numbers” redacts those before sending.' },
+      { title: 'Privacy mode (off by default)', body: 'A toggle that first shows a notice you must accept. Once on, you can: hide the overlay from screen sharing (the system is asked to leave it out of capture; unreliable on macOS 15+ and no help against cameras, proctoring tools or someone watching), hide the Dock icon while listening (macOS), use a neutral window title (“Careerloom” only, never a job or question), and click through the overlay when idle.' },
+      { title: 'Quick hide and the indicator', body: 'Quick hide clears the overlay’s text and hides it at once; press again to bring it back. The recording indicator can be Full, Small dot or Off, but the menu bar or tray icon always shows when audio is captured.' },
+    ],
+    tips: ['Privacy mode changes what your screen shows. It does not change who can hear the call.', 'Using AI help where it is banned can cost you an offer. Not legal advice.'],
+    go: [{ label: 'Open Settings › Copilot', section: 'settings', page: 'copilot' }],
+    keywords: 'privacy mode screen sharing capture dock icon neutral title click through quick hide indicator consent retention redact transcripts local only responsible use',
+  },
+  {
+    id: 'copilot-tuning', group: 'interview', title: 'Coaching, overlay, audio and hotkeys', icon: 'sliders-horizontal',
+    summary: 'The Copilot pages that change how suggestions read, how the overlay looks and how you drive it.',
+    when: ['Suggestions sound too scripted or too long.', 'The overlay is in the way.', 'A hotkey clashes with another app.'],
+    steps: [
+      { title: 'Coaching', body: 'Suggestion shape: Cues, Cues + STAR or Full script. Length (short to long), tone (direct, warm, formal) and a “how you sound” line the model follows. “Quote my résumé” shows the line each proof point comes from. Inventing numbers, employers or skills is always flagged and cannot be turned off.' },
+      { title: 'Appearance', body: 'Layout (Strip or Panel), position on the display, width, text size, opacity (never below 60%), theme (match app, dark or light), click through when idle (hold the modifier keys to use the overlay), stay above full-screen apps. A live preview updates as you change them.' },
+      { title: 'Audio', body: 'Pick your input device and test the level: speak and the bars should move without touching the top. System audio for the interviewer is coming soon; use headphones so your mic does not hear them.' },
+      { title: 'Hotkeys', body: 'Eleven actions (answer, follow-up, clarify, screenshot, summarise, detail, expand, listen, show/hide, quick hide, clear) work while another app has focus. Clashes are flagged and refused. The stop shortcut is fixed.' },
+    ],
+    tips: ['On Windows avoid Ctrl+Alt: it is AltGr on many keyboard layouts.', 'The overlay’s theme is separate from the app theme in Settings › General.'],
+    go: [{ label: 'Open Copilot', section: 'copilot' }],
+    keywords: 'coaching cues star script tone persona overlay opacity layout strip panel position hotkeys shortcuts audio microphone device appearance',
+  },
+  {
+    id: 'copilot-engine', group: 'interview', title: 'Copilot answers and speech', icon: 'zap',
+    summary: 'Which model writes suggestions and which model turns speech into text. Both live in Settings › Copilot.',
+    when: ['Answers arrive too slowly or cost too much.', 'Transcription mishears names or tools.'],
+    steps: [
+      { title: 'Choose a provider and fast model', body: 'Copilot offers fast models only, because answers are read live. Test shows how quickly a model starts. Use Deep for design and coding questions switches model per question and the overlay shows which one answered.' },
+      { title: 'Control data sharing', body: 'With OpenRouter you decide whether providers may keep or train on your text, whether to require zero data retention, and how to prefer providers (for example by price or speed).' },
+      { title: 'Check and extend', body: 'Check answers against your résumé flags numbers, tools and names you never claimed. Read the screen (off by default) lets a hotkey send a downscaled screenshot, taken with the overlay hidden, to a vision model; macOS asks for Screen Recording permission once.' },
+      { title: 'Answer automatically', body: 'Off: you press the answer hotkey. On: a suggestion starts when a question is detected. Start early and the decision model for unclear lines trade a few cents for speed.' },
+      { title: 'Speech to text', body: 'Transcription runs on your computer. Pick an engine and model, benchmark it, set the wait after the interviewer stops (shorter is faster but may cut a question in half) and add words it often gets wrong. Install models under Settings › Local models.' },
+    ],
+    go: [{ label: 'Open Settings › Copilot', section: 'settings', page: 'copilot' }, { label: 'Local models', section: 'settings', page: 'local-models' }],
+    keywords: 'answer engine provider fast model deep openrouter zero data retention fact check screenshot vision auto answer speculative transcription stt whisper moonshine nemotron vocabulary',
+  },
+]

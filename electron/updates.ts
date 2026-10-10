@@ -2,9 +2,9 @@
 // the public GitHub releases feed once per launch and every 24h, finds the newest
 // `v<semver>` release, and semver-compares it to the running version.
 //
-// It NEVER downloads or installs. The desktop builds are unsigned, so an in-app
-// auto-update can't run yet — that arrives with Developer ID signing. Offline or
-// any error is a silent no-op that retries on the next cycle.
+// The check itself never downloads or installs. Installing is a separate, user-started step
+// (electron/self-update/): it verifies the asset's SHA-256 first. Offline or any error is a
+// silent no-op that retries on the next cycle.
 //
 // Privacy: this is a plain, unauthenticated GitHub read that carries no
 // identifiers. We deliberately send NO app-identifying headers — only the
@@ -12,8 +12,9 @@
 // token — so the request reveals nothing about the user or install. GitHub only
 // requires *some* User-Agent, which the default satisfies. See fetchReleases.
 
-/** GitHub `owner/name` that publishes Careerloom releases (tags `vX.Y.Z`). */
-export const RELEASES_REPO = 'livelong99/careerloom'
+import { pickAsset, RELEASES_REPO, type ReleaseAsset } from './self-update/release'
+
+export { RELEASES_REPO }
 const RELEASES_URL = `https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=15`
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
 const FETCH_TIMEOUT_MS = 15_000
@@ -30,9 +31,16 @@ export type UpdateStatus = {
   /** A Microsoft Store (AppX) install: the Store delivers updates, on its own schedule, so
    *  GitHub is never asked and nothing is offered. */
   storeManaged?: boolean
+  /** Release notes (markdown) and publish date of the newest release, when known. */
+  notes?: string | null
+  publishedAt?: string | null
+  /** The file the updater would install on this machine, or null (no matching asset). */
+  asset?: { name: string; size: number; verifiable: boolean } | null
+  /** Why "Update now" is unavailable here (null = it works). */
+  blocker?: string | null
 }
 
-type GitHubRelease = { tag_name?: string }
+type GitHubRelease = { tag_name?: string; body?: string | null; published_at?: string | null; assets?: unknown; draft?: boolean; prerelease?: boolean }
 
 const FAIL_BACKOFF_MS = 5 * 60_000
 
@@ -55,14 +63,15 @@ export function compareSemver(a: string, b: string): number {
 
 /** The newest `v<semver>` release among the feed, or null if none match.
  *  Picks by semver rather than trusting feed order. */
-export function pickLatestDesktopVersion(releases: GitHubRelease[]): { version: string; tag: string } | null {
-  let best: { version: string; tag: string } | null = null
+export function pickLatestDesktopVersion(releases: GitHubRelease[]): { version: string; tag: string; release: GitHubRelease } | null {
+  let best: { version: string; tag: string; release: GitHubRelease } | null = null
   for (const release of releases) {
+    if (release?.draft || release?.prerelease) continue
     const tag = typeof release?.tag_name === 'string' ? release.tag_name : ''
     const match = DESKTOP_TAG_RE.exec(tag)
     if (!match) continue
     const version = match[1]!
-    if (!best || compareSemver(version, best.version) > 0) best = { version, tag }
+    if (!best || compareSemver(version, best.version) > 0) best = { version, tag, release }
   }
   return best
 }
@@ -83,6 +92,8 @@ export type UpdateChecker = {
   check(): Promise<UpdateStatus>
   /** The last known status without any network call (used while update checks are switched off). */
   peek(): UpdateStatus
+  /** The installable asset of the newest release, as of the last successful check. */
+  latestAsset(): ReleaseAsset | null
 }
 
 export function createUpdateChecker(opts: {
@@ -92,12 +103,17 @@ export function createUpdateChecker(opts: {
   fetchReleasesImpl?: (signal: AbortSignal) => Promise<GitHubRelease[]>
   now?: () => number
   intervalMs?: number
+  platform?: string
+  arch?: string
+  /** Reason an in-app install cannot run on this machine (see self-update/release.ts installBlocker). */
+  blocker?: () => string | null
 }): UpdateChecker {
   const now = opts.now ?? (() => Date.now())
   const intervalMs = opts.intervalMs ?? CHECK_INTERVAL_MS
   const fetchReleasesImpl = opts.fetchReleasesImpl ?? ((signal: AbortSignal) => fetchReleases(signal))
 
   let cached = baselineStatus(opts.currentVersion)
+  let asset: ReleaseAsset | null = null
   let lastCheckedAt = 0
   let inflight: Promise<UpdateStatus> | null = null
 
@@ -105,7 +121,7 @@ export function createUpdateChecker(opts: {
   // announce a version the Store cannot install yet (#1520).
   if (opts.storeManaged) {
     const status: UpdateStatus = { ...baselineStatus(opts.currentVersion), storeManaged: true }
-    return { getStatus: () => Promise.resolve(status), check: () => Promise.resolve(status), peek: () => status }
+    return { getStatus: () => Promise.resolve(status), check: () => Promise.resolve(status), peek: () => status, latestAsset: () => null }
   }
 
   const check = (): Promise<UpdateStatus> => {
@@ -119,13 +135,21 @@ export function createUpdateChecker(opts: {
         lastCheckedAt = now()
         if (!latest) {
           cached = baselineStatus(opts.currentVersion)
+          asset = null
         } else {
           const updateAvailable = compareSemver(latest.version, opts.currentVersion) > 0
+          asset = updateAvailable ? pickAsset(latest.release.assets, latest.version, opts.platform ?? process.platform, opts.arch ?? process.arch) : null
           cached = {
             currentVersion: opts.currentVersion,
             latestVersion: latest.version,
             updateAvailable,
             tag: updateAvailable ? latest.tag : null,
+            ...(updateAvailable ? {
+              notes: typeof latest.release.body === 'string' ? latest.release.body.slice(0, 20_000) : null,
+              publishedAt: typeof latest.release.published_at === 'string' ? latest.release.published_at : null,
+              asset: asset ? { name: asset.name, size: asset.size, verifiable: asset.sha256 !== null } : null,
+              blocker: opts.blocker?.() ?? null,
+            } : {}),
           }
         }
       } catch {
@@ -146,5 +170,5 @@ export function createUpdateChecker(opts: {
     return check()
   }
 
-  return { getStatus, check, peek: () => cached }
+  return { getStatus, check, peek: () => cached, latestAsset: () => asset }
 }

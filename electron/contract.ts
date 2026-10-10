@@ -1,6 +1,8 @@
 // Shared IPC contract types for feature modules — types only, no runtime.
 // Imported by electron/* directly and re-exported by renderer/lib/types.ts.
 
+import type { Attachment } from './skills/types'
+
 // ————— Feature contracts (electron/{resume,metrics,integrations,tracker-actions}.ts) —————
 // Each feature module exports `<name>Handlers`; main.ts registers them as `careerloom:<method>`.
 
@@ -190,7 +192,9 @@ export type WebBoardPreview = { provider: string | null; count: number; sample: 
 
 // ————— Agent chat (electron/chat.ts) —————
 export type ChatRole = 'user' | 'agent'
-export type ChatMessage = { id: string; role: ChatRole; text: string; at: number; runId?: string; status?: 'running' | 'done' | 'failed' | 'cancelled' }
+export type ChatMessage = { id: string; role: ChatRole; text: string; at: number; runId?: string; status?: 'running' | 'done' | 'failed' | 'cancelled'; /** Images sent with a user message. */ attachments?: Attachment[]; /** Skill ids picked with / for this message. */ skills?: string[] }
+/** Extras for sendMessage: raw image bytes (validated by magic bytes in main) and the skills picked for this message. */
+export type SendOptions = { attachments?: Array<{ name: string; data: Uint8Array }>; skills?: string[]; /** Ids of images already stored in this thread to send again (Retry). */ reuse?: string[] }
 export type ChatThreadSummary = { id: string; title: string; createdAt: number; updatedAt: number; runner: string; status: 'idle' | 'running' | 'failed'; preview: string }
 export type ChatThread = ChatThreadSummary & { sessionId: string | null; messages: ChatMessage[] }
 
@@ -322,3 +326,18 @@ export type * from './interviewer/types'
 
 // ————— Settings rebuild (electron/settings/*) —————
 export type * from './settings/types'
+
+// ————— Agent Skills (electron/skills/*; docs/architecture/engine-and-skills.md §8) —————
+import type { InstalledSkill, SkillPreview, SkillSource } from './skills/types'
+export type { Attachment, InstalledSkill, SkillPreview, SkillSource } from './skills/types'
+export type SkillsBridge = {
+  skillsList(): Promise<InstalledSkill[]>
+  /** Native picker; only paths it returns are accepted as folder/zip sources. */
+  skillsPick(kind: 'folder' | 'zip'): Promise<string | null>
+  skillsInspect(source: SkillSource): Promise<SkillPreview>
+  skillsInstall(source: SkillSource, opts?: { confirmedScripts?: boolean }): Promise<InstalledSkill>
+  skillsSetEnabled(id: string, enabled: boolean): Promise<InstalledSkill>
+  skillsRemove(id: string): Promise<void>
+  /** Re-inspects the recorded source; installing the returned preview's source applies it. */
+  skillsUpdate(id: string): Promise<SkillPreview>
+}

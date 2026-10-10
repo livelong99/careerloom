@@ -13,7 +13,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2dd4bf"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-fbbf24">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.4.1-fbbf24">
 </p>
 
 <p align="center"><img src="docs/media/careerloom-launch.gif" alt="Careerloom: from 5,312 jobs to the one" width="720"></p>
@@ -37,6 +37,8 @@ job-search agent toolkit. It drives an agent CLI you already have (OpenCode's ru
 on an API key, and turns
 career-ops' files and scripts into a visual workflow.
 
+- **Overview** — a live dashboard: pipeline band that opens Jobs, trend sparklines, score histogram, applications
+  timeline, source yield, cost and runs, next best actions and a weekly goal ring, over a date range you choose.
 - **Jobs** — scan company boards (Greenhouse, Ashby, Lever, Workday and more), browse every listing across portals
   with multi-select filters, saved views, a table or board, and bulk actions.
 - **Boards** — start from an India starter pack of 24 popular job boards grouped into Common, Tech, Finance and
@@ -48,12 +50,27 @@ career-ops' files and scripts into a visual workflow.
   *unlikely* by location, function and seniority rules, then by a small local model trained on public
   occupation data. Your 👍/👎 marks personalise it, but only when they measurably help.
 - **Evaluate** — score selected jobs against your profile with career-ops' own evaluation worker, one job at a
-  time, and re-evaluate when your résumé changes.
+  time, and re-evaluate when your résumé changes. A staged pipeline (rules, local score, batched cheap-model
+  triage) keeps large backlogs affordable.
+- **Job page** — verdict, scores, a per-job ATS match with keywords, a tailored résumé and cover letter with
+  fact checks, and an interview question base researched from the web.
 - **Résumé** — import a PDF or document, extract it into your profile, research your public links, check
   ATS-readability, and export with live PDF previews of templates.
-- **Agent** — a chat for anything outside the fixed flows, with streamed tool steps and resumable threads.
+- **Agent** — a chat for anything outside the fixed flows, with streamed tool steps, renameable resumable threads,
+  image attachments (PNG, JPEG, WebP, GIF) and a `/` menu to pick skills for a message.
+- **Skills** — install [Agent Skills](https://agentskills.io) from a Git repository, a folder or a `.zip` in
+  Settings › Skills. You review the contents (including scripts) before anything is copied; skills never update
+  themselves. Enabled skills reach every runner. See [docs/architecture/engine-and-skills.md](docs/architecture/engine-and-skills.md).
+- **Interview Copilot** — a live overlay (macOS; Windows is untested) that listens through your microphone, detects questions and
+  suggests grounded answers from your résumé and the job's question base, with hotkeys, a privacy mode, a "more
+  detail" expansion and spoken practice interviews with a debrief. Speech recognition runs locally; you choose the
+  model provider.
 - **Monitoring** — runs, success rate, cost and token usage, and the health of your search.
 - **Integrations** — career-ops, job-data services (Firecrawl, browser login), research search (SearXNG) and extra skills, grouped by purpose.
+- **Help** — a searchable in-app guide to every screen and setting, also reachable from the command palette (⌘K).
+- **Self-update** — Settings › Updates checks GitHub Releases and, with one click, downloads the build for your
+  computer, verifies its SHA-256 against the checksum GitHub publishes, installs it and restarts. See
+  [docs/architecture/self-update.md](docs/architecture/self-update.md).
 
 
 ## Supported agents
@@ -101,6 +118,8 @@ Download the latest build from [Releases](https://github.com/livelong99/careerlo
 - **macOS** — `Careerloom-<version>-arm64.dmg` (Apple Silicon) or `-x64.dmg` (Intel)
 - **Windows** — `Careerloom-Setup-<version>.exe` (x64 and ARM64)
 
+After the first install, updates arrive from inside the app (Settings › Updates).
+
 Builds are not code-signed yet. On macOS, right-click the app and choose **Open** the first time; on Windows,
 choose **More info → Run anyway** in SmartScreen.
 
@@ -135,10 +154,12 @@ npm run dev          # Vite + Electron with hot reload
 ### Project layout
 
 ```
-electron/      Main process: IPC handlers, runners, career-ops bridge, integrations, pre-screen
-renderer/      React UI: sections (screens), components, hooks, styles
-build/         App icons and brand assets
-docs/          Screenshots
+electron/              Main process: IPC handlers, runners, career-ops bridge, integrations, pre-screen
+  skills/              Skill registry: inspect, install, inject into runners
+  self-update/         Release check, checksum-verified download, installer swap
+renderer/              React UI: sections (screens), components, hooks, styles
+build/                 App icons and brand assets
+docs/                  Architecture notes, release notes, QA reports, screenshots
 ```
 
 The renderer is sandboxed with context isolation; everything reaches the main process through a typed preload

@@ -36,7 +36,7 @@ const bridge = {
   listRuns: () => invoke('listRuns'),
   getRunLog: (id: string) => invoke('getRunLog', id),
   deleteRuns: (ids: string[]) => invoke('deleteRuns', ids),
-  startRun: (req: { mode: string; input?: string }) => invoke('startRun', req),
+  startRun: (req: { mode: string; input?: string; skills?: string[] }) => invoke('startRun', req),
   evaluateJob: (input: string) => invoke('evaluateJob', input),
   cancelRun: (id: string) => invoke('cancelRun', id),
   setupCareerOps: (parent: string) => invoke('setupCareerOps', parent),
@@ -116,7 +116,9 @@ const bridge = {
   // Agent chat
   listThreads: () => invoke('listThreads'),
   getThread: (id: string) => invoke('getThread', id),
-  sendMessage: (threadId: string | null, text: string) => invoke('sendMessage', threadId, text),
+  sendMessage: (threadId: string | null, text: string, opts?: unknown) => invoke('sendMessage', threadId, text, opts),
+  attachmentData: (threadId: string, attachmentId: string) => invoke('attachmentData', threadId, attachmentId),
+  renameThread: (id: string, title: string) => invoke('renameThread', id, title),
   deleteThread: (id: string) => invoke('deleteThread', id),
   continueRun: (runId: string) => invoke('continueRun', runId),
   // Monitoring
@@ -207,9 +209,21 @@ const bridge = {
   onKbEvent: (event: string, cb: (payload: unknown) => void) => subscribe(event, cb),
   onTtsAudio: (cb: (m: unknown) => void) => subscribe('ttsAudio', cb),
   kbTtsPlayback: (msg: unknown) => ipcRenderer.send('careerloom:ttsPlayback', msg), // WP5 listens in main (echo gate)
+  // Agent Skills
+  skillsList: () => invoke('skillsList'),
+  skillsPick: (kind: string) => invoke('skillsPick', kind),
+  skillsInspect: (source: unknown) => invoke('skillsInspect', source),
+  skillsInstall: (source: unknown, opts?: unknown) => invoke('skillsInstall', source, opts),
+  skillsSetEnabled: (id: string, enabled: boolean) => invoke('skillsSetEnabled', id, enabled),
+  skillsRemove: (id: string) => invoke('skillsRemove', id),
+  skillsUpdate: (id: string) => invoke('skillsUpdate', id),
   // Pipeline
   setStatus: (nums: number[], status: string) => invoke('setStatus', nums, status),
   getUpdateStatus: () => invoke('getUpdateStatus'),
+  installUpdate: (opts?: { force?: boolean }) => invoke('installUpdate', opts),
+  cancelUpdate: () => invoke('cancelUpdate'),
+  getUpdateProgress: () => invoke('getUpdateProgress'),
+  onUpdateProgress: (cb: (progress: unknown) => void) => subscribe('updateProgress', cb),
   onUpdateStatus: (cb: (status: unknown) => void) => subscribe('update', cb),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   platform: process.platform,

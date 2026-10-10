@@ -21,6 +21,7 @@ import { kbHandlers } from './kb/handlers'
 import { onTtsPlayback } from './kb/voice'
 import { redactLog } from './log-redact'
 import { llmHandlers, llmModels } from './llm/handlers'
+import { skillsHandlers } from './skills/ipc'
 import { claudeModels, codexModels } from './runner-models'
 import { isProviderId } from './llm/providers'
 import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
@@ -36,6 +37,8 @@ import { checkReadiness, pickReadyRunner, type Readiness } from './readiness'
 import { zenModels } from './opencode'
 import { sweepCookieTemp } from './integrations/browser-cookies'
 import { createUpdateChecker, type UpdateChecker } from './updates'
+import { installBlocker } from './self-update/release'
+import { createUpdater } from './self-update/updater'
 import { debugLog } from './debug-log'
 import { applyDebugLog, installDebugHooks } from './debug-log-hooks'
 import { cancelAll, cancelRun, isMode, isModelId, isRunner, MODES, resolveBin, spawnSpec } from './runner'
@@ -47,6 +50,14 @@ export type Envelope<T = unknown> = { ok: true; value: T } | { ok: false; error:
 
 const CAREER_OPS_REPO = 'https://github.com/career-ops-hq/career-ops.git'
 let updateChecker: UpdateChecker | null = null
+const canWrite = (dir: string): boolean => { try { fs.accessSync(dir, fs.constants.W_OK); return true } catch { return false } }
+const updateBlocker = (): string | null => installBlocker({ platform: process.platform, packaged: app.isPackaged, exePath: process.execPath, writable: canWrite })
+let updaterInst: ReturnType<typeof createUpdater> | null = null
+const updater = () => (updaterInst ??= createUpdater({
+  platform: process.platform, exePath: process.execPath, pid: process.pid, tmpDir: app.getPath('temp'), logFile: path.join(app.getPath('userData'), 'update.log'),
+  quit: () => { app.quit(); setTimeout(() => app.exit(0), 4000) },
+  emit: p => broadcast('careerloom:updateProgress', p),
+}))
 let readiness: Readiness | null = null
 
 /** Validate every CLI against the chosen folder and prepare their headless setup. If the
@@ -110,7 +121,7 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
 } // stays under promptFor's 20k input ceiling
 
 // Feature modules own their handlers; names must not collide (checked at registration).
-const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, kbHandlers, settingsHandlers, llmHandlers]
+const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, kbHandlers, settingsHandlers, llmHandlers, skillsHandlers]
 
 /** Folders returned by the native picker this session; setRoot accepts only these. */
 const pickedDirs = new Set<string>()
@@ -186,6 +197,20 @@ const handlers: Record<string, Handler> = {
     broadcast('careerloom:update', status)
     return status
   },
+  /** Download, verify and install the newest release, then restart. Refuses while runs are active unless forced. */
+  installUpdate: async (opts: unknown) => {
+    const force = typeof opts === 'object' && opts !== null && (opts as { force?: unknown }).force === true
+    const status = (await updateChecker?.getStatus()) ?? null
+    const asset = updateChecker?.latestAsset() ?? null
+    const blocker = updateBlocker()
+    if (!status?.updateAvailable || !asset) return { ok: false, message: 'There is no update to install.' }
+    if (blocker) return { ok: false, message: blocker }
+    const running = [...runs.values()].filter(r => r.status === 'running').length
+    if (running > 0 && !force) return { ok: false, reason: 'runs-active', running, message: `${running} run${running === 1 ? ' is' : 's are'} still working.` }
+    return updater().install(asset)
+  },
+  cancelUpdate: () => { updater().cancel() },
+  getUpdateProgress: () => updater().progress(),
   listRuns: () => {
     const live = [...runs.values()].map(summary)
     const ids = new Set(live.map(r => r.id))
@@ -207,7 +232,9 @@ const handlers: Record<string, Handler> = {
   startRun: async (req: unknown) => {
     const { mode, input } = (req ?? {}) as { mode?: unknown; input?: unknown }
     if (!isMode(mode)) throw new Error('Unknown mode')
-    return startAgent(mode, input === undefined || input === null ? undefined : str(input, 'input'), await agentEnv())
+    const { skills } = (req ?? {}) as { skills?: unknown }
+    if (skills !== undefined && (!Array.isArray(skills) || skills.length > 50 || skills.some(k => typeof k !== 'string'))) throw new Error('skills must be a list of skill ids')
+    return startAgent(mode, input === undefined || input === null ? undefined : str(input, 'input'), await agentEnv(), skills as string[] | undefined)
   },
   /** Evaluate a pasted link or JD. With Firecrawl up, the page is fetched first so
    *  JS-rendered boards (Workday, iCIMS…) reach the agent as text, not an empty shell. */
@@ -367,7 +394,7 @@ function bootstrap(): void {
     startFakeOverlayIfRequested() // dev only: CL_COPILOT_FAKE=cycle|<state>
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
     // Update availability (from codeburn): at launch, then daily. Notifies only — never installs.
-    updateChecker = createUpdateChecker({ currentVersion: app.getVersion() })
+    updateChecker = createUpdateChecker({ currentVersion: app.getVersion(), blocker: updateBlocker })
     const runUpdateCheck = () => { if (readSettings().prefs.updates.enabled) void updateChecker?.check().then(status => broadcast('careerloom:update', status)) }
     runUpdateCheck()
     setInterval(runUpdateCheck, 24 * 60 * 60 * 1000)

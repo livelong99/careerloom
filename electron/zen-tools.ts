@@ -6,8 +6,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { resolveBin, spawnSpec, type SpawnSpec } from './runner'
+import type { SkillTools } from './skills/inject'
 
-export type ToolContext = { root: string; readDirs: string[]; env: NodeJS.ProcessEnv }
+export type ToolContext = { root: string; readDirs: string[]; env: NodeJS.ProcessEnv; /** Installed Agent Skills (skills/inject.ts); adds list_skills and read_skill. */ skills?: SkillTools }
 export type ToolDef = { type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }
 
 const OUT_CAP = 40_000
@@ -26,6 +27,11 @@ export const FILE_TOOLS: ToolDef[] = [
   { type: 'function', function: { name: 'bash', description: 'Run a career-ops script: `node <script> [args]` or `npm run <script> [args]`. No shell: pipes, redirects and && are not supported.', parameters: obj({ command: S }, ['command']) } },
   { type: 'function', function: { name: 'webfetch', description: 'Fetch a public web page as plain text.', parameters: obj({ url: S }, ['url']) } },
   { type: 'function', function: { name: 'websearch', description: 'Search the web; returns titles, URLs and snippets.', parameters: obj({ query: S }, ['query']) } },
+]
+
+export const SKILL_TOOLS: ToolDef[] = [
+  { type: 'function', function: { name: 'list_skills', description: 'List the installed Agent Skills (id: description).', parameters: obj({}, []) } },
+  { type: 'function', function: { name: 'read_skill', description: 'Load an installed skill. Without file, returns its SKILL.md; with file, a file or folder inside the skill (e.g. "references/guide.md").', parameters: obj({ id: S, file: S }, ['id']) } },
 ]
 
 // ————— Paths —————
@@ -203,6 +209,10 @@ export async function runTool(name: string, args: Record<string, unknown>, ctx: 
       }
       return out.join('\n') || 'No matches'
     }
+    case 'list_skills': return ctx.skills?.list() ?? 'No skills are installed.'
+    case 'read_skill':
+      if (!ctx.skills) throw new Error('No skills are installed')
+      return cap(ctx.skills.read(args.id, args.file))
     case 'bash': return runCommand(commandSpec(String(args.command ?? ''), ctx), ctx.root)
     case 'webfetch': return webfetch(args.url)
     case 'websearch': return websearch(args.query)

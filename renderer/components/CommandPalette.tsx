@@ -8,7 +8,8 @@ import { isModifierChord, shortcutLabel } from '../lib/platform'
 import { stageLabel, stageOf } from '../lib/stages'
 import { applyTheme, type Theme } from '../lib/theme'
 import type { Application } from '../lib/types'
-import { goToSettings, openRuns } from '../lib/nav'
+import { goToSettings, openHelp, openRuns } from '../lib/nav'
+import { TOPICS } from '../help/topics'
 import { pageLabel } from './settings/pages'
 import { REGISTRY } from './settings/settings-registry'
 import { navGroups, type Section } from './Sidebar'
@@ -83,6 +84,13 @@ export function CommandPalette({ onNavigate, onOpenApplication }: Props) {
             <CommandItem key={`${r.page}:${r.focus ?? ''}`} value={`settings ${r.label} ${r.keywords.join(' ')}`} onSelect={() => run(() => goToSettings(r.page, r.focus))}>
               Settings: {r.label}
               <CommandShortcut>{pageLabel(r.page)}</CommandShortcut>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+        <CommandGroup heading="Help">
+          {TOPICS.map(t => (
+            <CommandItem key={t.id} value={`help docs ${t.title} ${t.keywords ?? ''}`} onSelect={() => run(() => openHelp(t.id))}>
+              Help: {t.title}
             </CommandItem>
           ))}
         </CommandGroup>

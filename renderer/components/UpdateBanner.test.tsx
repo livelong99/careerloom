@@ -34,15 +34,17 @@ describe('UpdateBanner', () => {
     mocks.onUpdateStatus.mockReset().mockReturnValue(() => {})
   })
 
-  it('renders on a newer version, and Download opens the release page', async () => {
+  it('renders on a newer version, and Update now opens Settings > Updates', async () => {
     mocks.getUpdateStatus.mockResolvedValue(NEWER)
     render(<UpdateBanner />)
 
     const banner = await screen.findByRole('status')
     expect(banner).toHaveTextContent('Update available: Careerloom 0.9.17')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Download' }))
-    expect(mocks.openExternal).toHaveBeenCalledWith('https://github.com/livelong99/careerloom/releases/tag/v0.9.17')
+    const seen: unknown[] = []
+    window.addEventListener('careerloom:navigate', e => seen.push((e as CustomEvent).detail), { once: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Update now' }))
+    expect(seen).toEqual([{ section: 'settings', page: 'updates' }])
   })
 
   it('does not render when the running version is current', async () => {
