@@ -33,6 +33,8 @@ export const REGISTRY: readonly RegistryEntry[] = [
   e('local-models', undefined, 'Local models', 'on-device', 'download', 'memory'),
   e('local-models', 'prescreen-model', 'Pre-screen model', 'verdict', 'laya', 'install', 'python'),
   e('local-models', 'stt-models', 'Transcription engines', 'whisper', 'moonshine', 'speech'),
+  e('skills', undefined, 'Skills', 'agent skills', 'skill.md', 'install', 'github', 'zip', 'folder', 'plugins'),
+  e('skills', 'skills', 'Installed skills', 'enable', 'update', 'remove', 'scripts'),
   e('integrations', undefined, 'Integrations', 'connections', 'services'),
   e('integrations', 'integration:firecrawl', 'Firecrawl', 'scrape', 'docker', 'compose'),
   e('integrations', 'integration:browser', 'Browser login', 'cookies', 'chrome', 'consent', 'revoke'),

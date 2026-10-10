@@ -44,6 +44,20 @@ export const SETTINGS_AI: Topic[] = [
     keywords: 'prescreen model kokoro whisper moonshine huggingface python install memory transcription voice',
   },
   {
+    id: 'skills', group: 'configure', title: 'Agent Skills', icon: 'puzzle',
+    summary: 'Install skills (folders of instructions that teach an agent one job) and choose which ones every agent run can use.',
+    when: ['You found a skill on GitHub that fits your search.', 'You wrote your own and want agents to follow it.', 'An agent should use different instructions for one task.'],
+    steps: [
+      { title: 'Install a skill', body: 'Settings › Skills › Install a skill. Choose GitHub or a git URL (owner/repo, optionally a subfolder and a branch or tag), a local folder, or a .zip. Careerloom downloads it to a temporary place and shows you what it contains.' },
+      { title: 'Review before it is copied', body: 'The preview shows the name, description, version, size, the capabilities it claims and any warnings. If it contains scripts you must tick a box to confirm you trust it. Careerloom never runs scripts itself; the agent you pick may run them with its own permissions.' },
+      { title: 'Turn skills on and off', body: 'Every enabled skill is available to every runner. Claude Code, Codex, Antigravity and OpenCode find the files in the working folder during the run, and OpenCode Zen reads them on demand. They are removed again when the run ends.' },
+      { title: 'Update or remove', body: 'Update re-reads the original source and shows a preview; nothing changes until you confirm. Skills are never updated automatically. Remove deletes Careerloom’s copy only.' },
+    ],
+    tips: ['A skill needs a SKILL.md that starts with a name and a description. Example skills: github.com/anthropics/skills.', 'Limits: 5 MB and 500 files per skill.'],
+    go: [{ label: 'Open Skills', section: 'settings', page: 'skills' }],
+    keywords: 'agent skills skill.md install github git zip folder scripts consent enable update remove plugin instructions',
+  },
+  {
     id: 'appearance', group: 'configure', title: 'Appearance and display', icon: 'layout-dashboard',
     summary: 'Theme, language, sidebar and how often screens refresh.',
     when: ['You want light or dark.', 'You prefer another language for menus.', 'Screens refresh too often, or not enough.'],

@@ -36,7 +36,7 @@ const bridge = {
   listRuns: () => invoke('listRuns'),
   getRunLog: (id: string) => invoke('getRunLog', id),
   deleteRuns: (ids: string[]) => invoke('deleteRuns', ids),
-  startRun: (req: { mode: string; input?: string }) => invoke('startRun', req),
+  startRun: (req: { mode: string; input?: string; skills?: string[] }) => invoke('startRun', req),
   evaluateJob: (input: string) => invoke('evaluateJob', input),
   cancelRun: (id: string) => invoke('cancelRun', id),
   setupCareerOps: (parent: string) => invoke('setupCareerOps', parent),
@@ -207,6 +207,14 @@ const bridge = {
   onKbEvent: (event: string, cb: (payload: unknown) => void) => subscribe(event, cb),
   onTtsAudio: (cb: (m: unknown) => void) => subscribe('ttsAudio', cb),
   kbTtsPlayback: (msg: unknown) => ipcRenderer.send('careerloom:ttsPlayback', msg), // WP5 listens in main (echo gate)
+  // Agent Skills
+  skillsList: () => invoke('skillsList'),
+  skillsPick: (kind: string) => invoke('skillsPick', kind),
+  skillsInspect: (source: unknown) => invoke('skillsInspect', source),
+  skillsInstall: (source: unknown, opts?: unknown) => invoke('skillsInstall', source, opts),
+  skillsSetEnabled: (id: string, enabled: boolean) => invoke('skillsSetEnabled', id, enabled),
+  skillsRemove: (id: string) => invoke('skillsRemove', id),
+  skillsUpdate: (id: string) => invoke('skillsUpdate', id),
   // Pipeline
   setStatus: (nums: number[], status: string) => invoke('setStatus', nums, status),
   getUpdateStatus: () => invoke('getUpdateStatus'),

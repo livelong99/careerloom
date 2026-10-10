@@ -21,6 +21,7 @@ import { kbHandlers } from './kb/handlers'
 import { onTtsPlayback } from './kb/voice'
 import { redactLog } from './log-redact'
 import { llmHandlers, llmModels } from './llm/handlers'
+import { skillsHandlers } from './skills/ipc'
 import { claudeModels, codexModels } from './runner-models'
 import { isProviderId } from './llm/providers'
 import { pruneRunLogs, publicSettings, settingsHandlers } from './settings/handlers'
@@ -110,7 +111,7 @@ function antigravityModels(): Promise<Array<{ id: string; label: string }>> {
 } // stays under promptFor's 20k input ceiling
 
 // Feature modules own their handlers; names must not collide (checked at registration).
-const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, kbHandlers, settingsHandlers, llmHandlers]
+const FEATURES: Array<Record<string, Handler>> = [resumeHandlers, metricsHandlers, integrationsHandlers, trackerHandlers, jobsHandlers, chatHandlers, onboardingHandlers, bootstrapHandlers, prescreenHandlers, atsHandlers, jobViewHandlers, docsHandlers, copilotHandlers, kbHandlers, settingsHandlers, llmHandlers, skillsHandlers]
 
 /** Folders returned by the native picker this session; setRoot accepts only these. */
 const pickedDirs = new Set<string>()
@@ -207,7 +208,9 @@ const handlers: Record<string, Handler> = {
   startRun: async (req: unknown) => {
     const { mode, input } = (req ?? {}) as { mode?: unknown; input?: unknown }
     if (!isMode(mode)) throw new Error('Unknown mode')
-    return startAgent(mode, input === undefined || input === null ? undefined : str(input, 'input'), await agentEnv())
+    const { skills } = (req ?? {}) as { skills?: unknown }
+    if (skills !== undefined && (!Array.isArray(skills) || skills.length > 50 || skills.some(k => typeof k !== 'string'))) throw new Error('skills must be a list of skill ids')
+    return startAgent(mode, input === undefined || input === null ? undefined : str(input, 'input'), await agentEnv(), skills as string[] | undefined)
   },
   /** Evaluate a pasted link or JD. With Firecrawl up, the page is fetched first so
    *  JS-rendered boards (Workday, iCIMS…) reach the agent as text, not an empty shell. */

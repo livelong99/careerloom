@@ -322,3 +322,18 @@ export type * from './interviewer/types'
 
 // ————— Settings rebuild (electron/settings/*) —————
 export type * from './settings/types'
+
+// ————— Agent Skills (electron/skills/*; docs/architecture/engine-and-skills.md §8) —————
+import type { InstalledSkill, SkillPreview, SkillSource } from './skills/types'
+export type { Attachment, InstalledSkill, SkillPreview, SkillSource } from './skills/types'
+export type SkillsBridge = {
+  skillsList(): Promise<InstalledSkill[]>
+  /** Native picker; only paths it returns are accepted as folder/zip sources. */
+  skillsPick(kind: 'folder' | 'zip'): Promise<string | null>
+  skillsInspect(source: SkillSource): Promise<SkillPreview>
+  skillsInstall(source: SkillSource, opts?: { confirmedScripts?: boolean }): Promise<InstalledSkill>
+  skillsSetEnabled(id: string, enabled: boolean): Promise<InstalledSkill>
+  skillsRemove(id: string): Promise<void>
+  /** Re-inspects the recorded source; installing the returned preview's source applies it. */
+  skillsUpdate(id: string): Promise<SkillPreview>
+}

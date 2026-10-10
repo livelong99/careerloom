@@ -23,6 +23,8 @@ export type SkillPreview = {
   warnings: string[]
   /** True when an installed skill with this id already exists. */
   replaces: boolean
+  /** Content hash of the fetched folder; equals InstalledSkill.hash when nothing changed. */
+  hash?: string
 }
 
 export type InstalledSkill = {
