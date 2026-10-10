@@ -9,7 +9,7 @@ import type { RunRecord } from './context'
 import type { McpServer } from './integrations/browser-args'
 import { connectMcp, type McpClient } from './mcp-client'
 import { ZEN_URL } from './opencode'
-import { FILE_TOOLS, runTool, type ToolContext, type ToolDef } from './zen-tools'
+import { FILE_TOOLS, runTool, SKILL_TOOLS, type ToolContext, type ToolDef } from './zen-tools'
 
 type ToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } }
 type Msg = { role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string }
@@ -126,7 +126,7 @@ export async function runZen(job: ZenJob, log: (t: string) => void, run: RunReco
   const cancelled = () => run.status !== 'running'
   let mcp: McpClient | null = null
   try {
-    let defs: ToolDef[] = FILE_TOOLS
+    let defs: ToolDef[] = !browser && (job.tools as ToolContext).skills ? [...FILE_TOOLS, ...SKILL_TOOLS] : FILE_TOOLS
     let exec = (name: string, args: Record<string, unknown>) => runTool(name, args, job.tools as ToolContext)
     if (browser) {
       const client = (mcp = await connectMcp(browser.mcp, browser.cwd))

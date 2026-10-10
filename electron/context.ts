@@ -17,6 +17,7 @@ import { logTail } from './scan-history'
 import { NEEDS_ZEN_KEY, opencodeConfig, opencodeEnv, opencodeTextConfig, zenModel } from './opencode'
 import { agyFormatter, agyResultOk, agySessionId, agyUsage, argsFor, argsForPrompt, claudeSessionId, formatOpencodeLine, isModelId, claudeUsage, formatClaudeLine, isRunner, MODES, opencodeResultOk, opencodeSessionId, opencodeUsage, promptFor, resolveBin, RUNNERS, spawnSpec, startRun, type CliRunner, type ModeId, type PromptOptions, type RunnerId, type RunUsage, type SpawnSpec } from './runner'
 import { debugLog } from './debug-log'
+import { prepareSkills, type PreparedSkills } from './skills/inject'
 import { BROWSER_SYSTEM, runZen, zenPrompt, zenSystem, type BrowserTools } from './zen-agent'
 
 export type Handler = (...args: unknown[]) => unknown
@@ -350,32 +351,39 @@ export function streamFormat(runner: RunnerId, root: string): ((line: string) =>
   return undefined
 }
 
-/** Launch a career-ops mode with the configured runner. `input` is validated by promptFor. */
-export function startAgent(mode: ModeId, input?: string, extraEnv: NodeJS.ProcessEnv = {}): RunSummary {
+/** Launch a career-ops mode with the configured runner. `input` is validated by promptFor.
+ *  `skills` is this run's explicit Agent Skill set; omitted = every enabled skill. */
+export function startAgent(mode: ModeId, input?: string, extraEnv: NodeJS.ProcessEnv = {}, skills?: string[]): RunSummary {
   const { runner } = readSettings()
-  if (runner === 'zen') return startZen({ runner, mode, label: MODES[mode].label, input: input ?? null }, promptFor(mode, input), { env: extraEnv })
+  if (runner === 'zen') return startZen({ runner, mode, label: MODES[mode].label, input: input ?? null }, promptFor(mode, input), { env: extraEnv, skills })
   const root = careerOpsRoot()
-  const { bin, args } = argsFor({ runner, mode, input }, promptOptions())
-  let spec: SpawnSpec
-  let secret: string | undefined
-  if (runner === 'api') {
-    const key = readApiKey()
-    if (!key) throw new Error('Add your OpenRouter API key in Settings to use the API runner')
-    secret = key
-    // Packaged app without a system node: Electron's own binary runs as Node.
-    spec = resolveBin('node')
-      ? spawnSpec(bin, args, { ...extraEnv, OPENROUTER_API_KEY: key })
-      : { bin: process.execPath, args, env: { ...process.env, ...extraEnv, OPENROUTER_API_KEY: key, ELECTRON_RUN_AS_NODE: '1' } }
-  } else {
-    const cli = cliEnv(runner)
-    secret = cli.secret
-    spec = spawnSpec(bin, args, { ...extraEnv, ...cli.env })
+  const injected = prepareSkills(runner, root, skills)
+  try {
+    const { bin, args } = argsFor({ runner, mode, input }, promptOptions({ skillsHint: injected.promptHint ?? undefined }))
+    let spec: SpawnSpec
+    let secret: string | undefined
+    if (runner === 'api') {
+      const key = readApiKey()
+      if (!key) throw new Error('Add your OpenRouter API key in Settings to use the API runner')
+      secret = key
+      // Packaged app without a system node: Electron's own binary runs as Node.
+      spec = resolveBin('node')
+        ? spawnSpec(bin, args, { ...extraEnv, OPENROUTER_API_KEY: key })
+        : { bin: process.execPath, args, env: { ...process.env, ...extraEnv, OPENROUTER_API_KEY: key, ELECTRON_RUN_AS_NODE: '1' } }
+    } else {
+      const cli = cliEnv(runner)
+      secret = cli.secret
+      spec = spawnSpec(bin, args, { ...extraEnv, ...injected.env, ...cli.env })
+    }
+    return summary(launch(
+      { runner, mode, label: MODES[mode].label, input: input ?? null },
+      [{ spec, cwd: root }],
+      { format: streamFormat(runner, root), secret, onExit: injected.cleanup },
+    ))
+  } catch (err) {
+    injected.cleanup()
+    throw err
   }
-  return summary(launch(
-    { runner, mode, label: MODES[mode].label, input: input ?? null },
-    [{ spec, cwd: root }],
-    { format: streamFormat(runner, root), secret },
-  ))
 }
 
 /** Per-runner env for a CLI spawn: opencode gets its permission config and optional Zen key. */
@@ -392,21 +400,23 @@ export function startZen(record: RunStart, prompt: string, opts: AgentPromptOpti
   if (!key) throw new Error(NEEDS_ZEN_KEY)
   const root = careerOpsRoot()
   const skills = skillContext()
+  const agentSkills = opts.browser ? null : prepareSkills('zen', root, opts.skills)
   const chosen = opts.model ?? readSettings().models.zen
+  const note = [skills.note, agentSkills?.promptHint].filter(Boolean).join('\n\n') || null
   const job = {
     key,
     resume: opts.resume,
     sessionDir: userFile('zen-sessions'),
     ...(opts.browser
       ? { tools: opts.browser, system: BROWSER_SYSTEM, prompt }
-      : { tools: { root, readDirs: skills.dirs, env: opts.env ?? {} }, system: zenSystem(root, skills.note), prompt: zenPrompt(root, prompt) }),
+      : { tools: { root, readDirs: skills.dirs, env: opts.env ?? {}, ...(agentSkills?.tools ? { skills: agentSkills.tools } : {}) }, system: zenSystem(root, note), prompt: zenPrompt(root, prompt) }),
   }
   return summary(launchTask(record, async (log, run) => runZen({ ...job, model: await zenModel(chosen) }, log, run), opts.onExit))
 }
 
 /** Launch a server-built prompt (must start with a fixed literal, e.g. "/career-ops …").
  *  Needs an agent (CLI or zen); the OpenRouter API runner only implements fixed commands. */
-export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean; /** With textOnly on claude/opencode: run in an empty folder with no skills, so no project instructions or skill lists inflate the request (8.7k vs 25k input tokens measured on opencode). */ neutral?: boolean; /** Model for this run only (helper-tier calls); unset = the runner's configured model. */ model?: string; /** The job this run is about. */ jobId?: string }
+export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean; /** With textOnly on claude/opencode: run in an empty folder with no skills, so no project instructions or skill lists inflate the request (8.7k vs 25k input tokens measured on opencode). */ neutral?: boolean; /** Model for this run only (helper-tier calls); unset = the runner's configured model. */ model?: string; /** The job this run is about. */ jobId?: string; /** Agent Skill ids for this run only; unset = every enabled skill. */ skills?: string[] }
 
 export function startAgentPrompt(label: string, mode: string, prompt: string, input: string | null = null, opts: AgentPromptOptions = {}): RunSummary {
   const { runner } = readSettings()
@@ -414,13 +424,20 @@ export function startAgentPrompt(label: string, mode: string, prompt: string, in
   if (/^\s*-/.test(prompt)) throw new Error('Prompt must start with a fixed literal, not a flag')
   if (runner === 'zen') return startZen({ runner, mode, label, input, jobId: opts.jobId }, prompt, opts)
   const root = careerOpsRoot()
-  // claude (--resume), agy (--conversation) and opencode (--session) continue sessions; codex starts fresh each message.
-  const base = promptOptions({ ...(runner === 'codex' ? {} : { resume: opts.resume }), ...(opts.model ? { model: opts.model } : {}) })
-  // A text-only run needs neither the installed-skill folders nor their system-prompt note.
-  const { bin, args } = argsForPrompt(runner, prompt, opts.textOnly ? { ...base, addDirs: [], systemAppend: undefined, textOnly: true } : base)
-  const neutral = opts.neutral === true && opts.textOnly === true && (runner === 'opencode' || runner === 'claude')
-  const cli = cliEnv(runner, opts.textOnly, neutral)
-  let cwd = root
-  if (neutral) { cwd = userFile('text-runs'); fs.mkdirSync(cwd, { recursive: true }) }
-  return summary(launch({ runner, mode, label, input, jobId: opts.jobId }, [{ spec: spawnSpec(bin, args, { ...opts.env, ...cli.env }), cwd }], { format: streamFormat(runner, root), onExit: opts.onExit, secret: cli.secret }))
+  // A text-only run has no file tools, so it gets no skills either.
+  const injected: PreparedSkills | null = opts.textOnly ? null : prepareSkills(runner, root, opts.skills)
+  try {
+    // claude (--resume), agy (--conversation) and opencode (--session) continue sessions; codex starts fresh each message.
+    const base = promptOptions({ ...(runner === 'codex' ? {} : { resume: opts.resume }), ...(opts.model ? { model: opts.model } : {}), ...(injected?.promptHint ? { skillsHint: injected.promptHint } : {}) })
+    // A text-only run needs neither the installed-skill folders nor their system-prompt note.
+    const { bin, args } = argsForPrompt(runner, prompt, opts.textOnly ? { ...base, addDirs: [], systemAppend: undefined, textOnly: true } : base)
+    const neutral = opts.neutral === true && opts.textOnly === true && (runner === 'opencode' || runner === 'claude')
+    const cli = cliEnv(runner, opts.textOnly, neutral)
+    let cwd = root
+    if (neutral) { cwd = userFile('text-runs'); fs.mkdirSync(cwd, { recursive: true }) }
+    return summary(launch({ runner, mode, label, input, jobId: opts.jobId }, [{ spec: spawnSpec(bin, args, { ...opts.env, ...injected?.env, ...cli.env }), cwd }], { format: streamFormat(runner, root), onExit: run => { injected?.cleanup(); opts.onExit?.(run) }, secret: cli.secret }))
+  } catch (err) {
+    injected?.cleanup()
+    throw err
+  }
 }
