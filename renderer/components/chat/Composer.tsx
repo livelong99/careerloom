@@ -140,7 +140,7 @@ export const Composer = forwardRef<HTMLTextAreaElement, Props>(function Composer
           rows={1}
           placeholder={running ? 'The agent is working — you can draft your next message' : 'Describe what you want done, or type / for skills'}
           aria-describedby={`${id}-hint`}
-          className="max-h-48 min-h-10 resize-none border-0 bg-transparent p-1 font-sans shadow-none placeholder:font-sans focus-visible:ring-0 dark:bg-transparent"
+          className="max-h-48 min-h-10 resize-none border-0 bg-transparent p-1 font-sans shadow-none placeholder:font-sans focus-visible:ring-0 focus-visible:outline-none! dark:bg-transparent"
         />
         <div className="mt-1 flex items-center gap-1">
           <input
