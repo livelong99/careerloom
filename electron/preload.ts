@@ -116,7 +116,9 @@ const bridge = {
   // Agent chat
   listThreads: () => invoke('listThreads'),
   getThread: (id: string) => invoke('getThread', id),
-  sendMessage: (threadId: string | null, text: string) => invoke('sendMessage', threadId, text),
+  sendMessage: (threadId: string | null, text: string, opts?: unknown) => invoke('sendMessage', threadId, text, opts),
+  attachmentData: (threadId: string, attachmentId: string) => invoke('attachmentData', threadId, attachmentId),
+  renameThread: (id: string, title: string) => invoke('renameThread', id, title),
   deleteThread: (id: string) => invoke('deleteThread', id),
   continueRun: (runId: string) => invoke('continueRun', runId),
   // Monitoring

@@ -18,6 +18,8 @@ import { NEEDS_ZEN_KEY, opencodeConfig, opencodeEnv, opencodeTextConfig, zenMode
 import { agyFormatter, agyResultOk, agySessionId, agyUsage, argsFor, argsForPrompt, claudeSessionId, formatOpencodeLine, isModelId, claudeUsage, formatClaudeLine, isRunner, MODES, opencodeResultOk, opencodeSessionId, opencodeUsage, promptFor, resolveBin, RUNNERS, spawnSpec, startRun, type CliRunner, type ModeId, type PromptOptions, type RunnerId, type RunUsage, type SpawnSpec } from './runner'
 import { debugLog } from './debug-log'
 import { prepareSkills, type PreparedSkills } from './skills/inject'
+import { imageArgs } from './image-support'
+import type { Attachment } from './skills/types'
 import { BROWSER_SYSTEM, runZen, zenPrompt, zenSystem, type BrowserTools } from './zen-agent'
 
 export type Handler = (...args: unknown[]) => unknown
@@ -403,9 +405,12 @@ export function startZen(record: RunStart, prompt: string, opts: AgentPromptOpti
   const agentSkills = opts.browser ? null : prepareSkills('zen', root, opts.skills)
   const chosen = opts.model ?? readSettings().models.zen
   const note = [skills.note, agentSkills?.promptHint].filter(Boolean).join('\n\n') || null
+  const blocked = imageArgs('zen', opts.images ?? [], chosen).error
+  if (blocked) throw new Error(blocked)
   const job = {
     key,
     resume: opts.resume,
+    images: opts.images,
     sessionDir: userFile('zen-sessions'),
     ...(opts.browser
       ? { tools: opts.browser, system: BROWSER_SYSTEM, prompt }
@@ -416,7 +421,7 @@ export function startZen(record: RunStart, prompt: string, opts: AgentPromptOpti
 
 /** Launch a server-built prompt (must start with a fixed literal, e.g. "/career-ops …").
  *  Needs an agent (CLI or zen); the OpenRouter API runner only implements fixed commands. */
-export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean; /** With textOnly on claude/opencode: run in an empty folder with no skills, so no project instructions or skill lists inflate the request (8.7k vs 25k input tokens measured on opencode). */ neutral?: boolean; /** Model for this run only (helper-tier calls); unset = the runner's configured model. */ model?: string; /** The job this run is about. */ jobId?: string; /** Agent Skill ids for this run only; unset = every enabled skill. */ skills?: string[] }
+export type AgentPromptOptions = { resume?: string; env?: NodeJS.ProcessEnv; onExit?: (run: RunRecord) => void; /** Answer from the prompt alone: no file/shell tools (see PromptOptions.textOnly). */ textOnly?: boolean; /** With textOnly on claude/opencode: run in an empty folder with no skills, so no project instructions or skill lists inflate the request (8.7k vs 25k input tokens measured on opencode). */ neutral?: boolean; /** Model for this run only (helper-tier calls); unset = the runner's configured model. */ model?: string; /** The job this run is about. */ jobId?: string; /** Images attached to the message (stored by attachments.ts). */ images?: Attachment[]; /** Skill ids picked for this run only; overrides the default enabled set. */ skills?: string[] }
 
 export function startAgentPrompt(label: string, mode: string, prompt: string, input: string | null = null, opts: AgentPromptOptions = {}): RunSummary {
   const { runner } = readSettings()
@@ -430,7 +435,10 @@ export function startAgentPrompt(label: string, mode: string, prompt: string, in
     // claude (--resume), agy (--conversation) and opencode (--session) continue sessions; codex starts fresh each message.
     const base = promptOptions({ ...(runner === 'codex' ? {} : { resume: opts.resume }), ...(opts.model ? { model: opts.model } : {}), ...(injected?.promptHint ? { skillsHint: injected.promptHint } : {}) })
     // A text-only run needs neither the installed-skill folders nor their system-prompt note.
-    const { bin, args } = argsForPrompt(runner, prompt, opts.textOnly ? { ...base, addDirs: [], systemAppend: undefined, textOnly: true } : base)
+    const img = imageArgs(runner, opts.images ?? [], base.model)
+    if (img.error) throw new Error(img.error)
+    const withImages = { ...base, addDirs: [...(base.addDirs ?? []), ...img.addDirs], imageFlags: img.flags }
+    const { bin, args } = argsForPrompt(runner, prompt + img.note, opts.textOnly ? { ...withImages, addDirs: [], systemAppend: undefined, textOnly: true } : withImages)
     const neutral = opts.neutral === true && opts.textOnly === true && (runner === 'opencode' || runner === 'claude')
     const cli = cliEnv(runner, opts.textOnly, neutral)
     let cwd = root

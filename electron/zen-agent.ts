@@ -6,13 +6,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import type { RunRecord } from './context'
+import type { Attachment } from './skills/types'
 import type { McpServer } from './integrations/browser-args'
 import { connectMcp, type McpClient } from './mcp-client'
 import { ZEN_URL } from './opencode'
 import { FILE_TOOLS, runTool, SKILL_TOOLS, type ToolContext, type ToolDef } from './zen-tools'
 
 type ToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } }
-type Msg = { role: 'system' | 'user' | 'assistant' | 'tool'; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string }
+type Part = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
+type Msg = { role: 'system' | 'user' | 'assistant' | 'tool'; content: string | Part[] | null; tool_calls?: ToolCall[]; tool_call_id?: string }
 type Completion = {
   choices?: Array<{ message?: { content?: string | null; tool_calls?: ToolCall[] } }>
   usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number }
@@ -28,6 +30,8 @@ export type ZenJob = {
   system: string
   /** Continue a saved session (chat follow-ups). */
   resume?: string
+  /** Images for this turn, sent as image_url parts (the caller has checked the model can read them). */
+  images?: Attachment[]
   sessionDir: string
 }
 
@@ -101,10 +105,24 @@ function loadSession(dir: string, id: string | undefined): Msg[] | null {
   try { return JSON.parse(fs.readFileSync(sessionFile(dir, id), 'utf8')) as Msg[] } catch { return null }
 }
 
+/** Text, plus one image_url part per attachment that can still be read. */
+function userContent(job: ZenJob): string | Part[] {
+  const parts: Part[] = []
+  for (const a of job.images ?? []) {
+    try { parts.push({ type: 'image_url', image_url: { url: `data:${a.mime};base64,${fs.readFileSync(a.path).toString('base64')}` } }) } catch { /* deleted: the model just doesn't get it */ }
+  }
+  return parts.length ? [{ type: 'text', text: job.prompt }, ...parts] : job.prompt
+}
+
+/** Saved sessions keep a note instead of the image bytes (a session file would grow by megabytes per picture). */
+const forSession = (messages: Msg[]): Msg[] => messages.map(m => (Array.isArray(m.content)
+  ? { ...m, content: m.content.map(p => (p.type === 'image_url' ? { type: 'text' as const, text: '[image attached earlier]' } : p)) }
+  : m))
+
 /** Sessions hold résumé text: 0600 in userData, pruned after 30 days. */
 function saveSession(dir: string, id: string, messages: Msg[]): void {
   fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(sessionFile(dir, id), JSON.stringify(messages), { mode: 0o600 })
+  fs.writeFileSync(sessionFile(dir, id), JSON.stringify(forSession(messages)), { mode: 0o600 })
   const cutoff = Date.now() - 30 * 86_400_000
   for (const f of fs.readdirSync(dir)) {
     try { if (fs.statSync(path.join(dir, f)).mtimeMs < cutoff) fs.rmSync(path.join(dir, f)) } catch { /* raced */ }
@@ -121,7 +139,7 @@ export async function runZen(job: ZenJob, log: (t: string) => void, run: RunReco
   const saved = browser ? null : loadSession(job.sessionDir, job.resume)
   const sessionId = saved ? job.resume! : randomUUID()
   const messages: Msg[] = saved ?? [{ role: 'system', content: job.system }]
-  messages.push({ role: 'user', content: job.prompt })
+  messages.push({ role: 'user', content: userContent(job) })
   if (!browser) run.sessionId = sessionId
   const cancelled = () => run.status !== 'running'
   let mcp: McpClient | null = null

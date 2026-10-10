@@ -1,9 +1,10 @@
 import { memo } from 'react'
-import { AlertCircle, RotateCcw } from 'lucide-react'
+import { AlertCircle, RotateCcw, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import type { ChatMessage } from '../../lib/types'
 import { Markdown } from '../Markdown'
+import { MessageImages } from './MessageImages'
 import { ToolSteps } from './ToolSteps'
 import { parseTranscript } from './transcript'
 
@@ -19,11 +20,19 @@ function Thinking() {
   )
 }
 
-export const ChatBubble = memo(function ChatBubble({ message, live, onRetry }: { message: ChatMessage; live?: string; onRetry?: () => void }) {
+export const ChatBubble = memo(function ChatBubble({ message, live, threadId, skillNames, onRetry }: { message: ChatMessage; live?: string; threadId?: string; skillNames?: Record<string, string>; onRetry?: () => void }) {
   if (message.role === 'user') {
     return (
-      <div className="ml-auto max-w-[min(80%,72ch)] rounded-lg bg-primary/[0.12] px-3 py-2 text-sm whitespace-pre-wrap break-words">
-        <span className="sr-only">You: </span>{message.text}
+      <div className="ml-auto flex max-w-[min(80%,72ch)] flex-col items-end">
+        {threadId && message.attachments?.length ? <MessageImages threadId={threadId} attachments={message.attachments} /> : null}
+        {message.skills?.length ? (
+          <ul aria-label="Skills used" className="m-0 mb-1 flex list-none flex-wrap justify-end gap-1 p-0">
+            {message.skills.map(id => <li key={id} className="inline-flex items-center gap-1 rounded-full bg-[var(--thread)]/15 px-2 py-0.5 text-xs"><Sparkles className="size-3 text-[var(--thread)]" aria-hidden />{skillNames?.[id] ?? id}</li>)}
+          </ul>
+        ) : null}
+        <div className="rounded-lg bg-primary/[0.12] px-3 py-2 text-sm whitespace-pre-wrap break-words">
+          <span className="sr-only">You: </span>{message.text}
+        </div>
       </div>
     )
   }

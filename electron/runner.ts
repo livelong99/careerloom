@@ -95,6 +95,8 @@ export type PromptOptions = {
   textOnly?: boolean
   /** Index of the Agent Skills injected for this run (skills/inject.ts); appended to the prompt of the CLIs without a system-prompt flag. */
   skillsHint?: string
+  /** Image flags from imageArgs (codex `-i`, opencode `-f`), ending in `--`; placed right before the prompt. */
+  imageFlags?: string[]
 }
 
 /** Model ids are passed as argv values; keep them to a safe charset so they can't read as flags. */
@@ -118,7 +120,7 @@ export function argsForPrompt(runner: CliRunner, prompt: string, opts: PromptOpt
     }
     case 'codex':
       // Codex has no slash-skill routing in exec mode; career-ops documents plain text.
-      return { bin: BINS.codex, args: ['exec', '--sandbox', opts.textOnly ? 'read-only' : 'workspace-write', ...(isModelId(opts.model) ? ['--model', opts.model] : []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.${opts.skillsHint ? `\n\n${opts.skillsHint}` : ''}`] }
+      return { bin: BINS.codex, args: ['exec', '--sandbox', opts.textOnly ? 'read-only' : 'workspace-write', ...(isModelId(opts.model) ? ['--model', opts.model] : []), ...(opts.imageFlags ?? []), `Run the career-ops router for: ${prompt.replace(/^\/career-ops /, '')}. Follow AGENTS.md.${opts.skillsHint ? `\n\n${opts.skillsHint}` : ''}`] }
     case 'antigravity':
       // agy's --add-dir is repeatable (one dir per flag); it has no system-prompt flag.
       return {
@@ -150,6 +152,7 @@ export function argsForPrompt(runner: CliRunner, prompt: string, opts: PromptOpt
           ...(cmd ? ['--command', 'career-ops'] : []),
           ...(opts.resume && /^[\w-]{8,64}$/.test(opts.resume) ? ['--session', opts.resume] : []),
           ...(isModelId(opts.model) ? ['--model', opts.model] : []),
+          ...(opts.imageFlags ?? []),
           cmd ? cmd[1]! : prompt,
         ],
       }
