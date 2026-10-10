@@ -1,0 +1,112 @@
+import type { Topic } from './types'
+
+/** Settings topics: models and providers, appearance, monitoring and the workflow pages. */
+export const SETTINGS_AI: Topic[] = [
+  {
+    id: 'runners', group: 'configure', title: 'Runners', icon: 'sliders-horizontal',
+    summary: 'The agent that does the work. Pick one, check it is ready and see which model does what.',
+    when: ['First setup.', 'A runner says it is not ready.', 'You want a different agent for evaluations.'],
+    steps: [
+      { title: 'See each runner', body: 'Settings › Runners & models lists Claude Code, Codex, Antigravity, OpenCode, OpenCode Zen (built in, nothing to install) and the API-key runner (OpenRouter). Each row shows install and sign-in status, with the install command and a download link when something is missing.' },
+      { title: 'Use one', body: 'Choose Use this runner once it is ready. Check again re-tests every CLI.' },
+      { title: 'Pick its model', body: 'Each runner has its own model list. Claude Code lists its aliases (Sonnet, Opus, Haiku) plus your Anthropic account’s models; Codex lists the models its CLI reports; Antigravity runs its own models command. Type an id if yours is missing.' },
+      { title: 'Know who does what', body: 'The “Which model does what” panel shows the main model (evaluate, scan, résumé edits, Agent chat), the helper model (tidying postings, humanizing documents), and links to the Copilot and Local models pages.' },
+    ],
+    tips: ['Settings › Agent shows what each runner is allowed to do (files, web, shell) and where agent work starts.'],
+    go: [{ label: 'Runners & models', section: 'settings', page: 'runners' }, { label: 'Agent permissions', section: 'settings', page: 'agent' }],
+    keywords: 'claude code codex antigravity agy opencode zen openrouter cli install sign in permissions sandbox',
+  },
+  {
+    id: 'providers', group: 'configure', title: 'Providers and models', icon: 'puzzle',
+    summary: 'Bring your own key for any popular provider, then choose a provider and model for each feature.',
+    when: ['You want a cheaper or faster model for one feature.', 'You use a local server such as Ollama or LM Studio.', 'A model dropdown is empty.'],
+    steps: [
+      { title: 'Add a key', body: 'Settings › API keys: OpenRouter, OpenAI, Anthropic, Google Gemini, Groq, Mistral, DeepSeek, xAI, Together AI, Fireworks AI, Cerebras, OpenCode Zen, or a custom OpenAI-compatible server (HTTPS, or HTTP on localhost only). Keys are stored in your operating system’s secure storage and only the last four characters are ever shown. A test button checks the key.' },
+      { title: 'Assign models by feature', body: 'In Runners & models, the “Models by feature” table gives the helper (reading pages) and Copilot each their own provider and model. The helper can also follow the selected runner.' },
+      { title: 'Choose a model', body: 'Every model dropdown loads the provider’s own models list the first time you open it and caches it for a day. Search, pick one, or choose Default to clear. If loading fails, use Retry or type the model id.' },
+      { title: 'Copilot is fast-only', body: 'Copilot only accepts fast models, because answers are read live. Slower models are not offered for it.' },
+    ],
+    tips: ['Provider hints in the key field (for example sk-or-… for OpenRouter) help you paste into the right row.', 'Groq and Cerebras are very fast, which suits Copilot.'],
+    go: [{ label: 'API keys', section: 'settings', page: 'keys' }, { label: 'Runners & models', section: 'settings', page: 'runners' }],
+    keywords: 'api key openai anthropic gemini google groq mistral deepseek xai together fireworks cerebras ollama lm studio vllm custom model dropdown combobox helper per feature secure storage keychain',
+  },
+  {
+    id: 'local-models', group: 'configure', title: 'Local models', icon: 'box',
+    summary: 'On-device models for pre-screening, speech to text and the interviewer’s voice. Nothing here is bundled in the installer.',
+    when: ['You skipped the model step in onboarding.', 'You want better transcription or a natural interviewer voice.'],
+    steps: [
+      { title: 'Check your memory', body: 'The Memory group shows free and total memory on this computer so you can judge what to install.' },
+      { title: 'Pre-screen model', body: 'Installs the small job-fit model used by pre-screen (about 1.4 GB, needs Python 3.10+).' },
+      { title: 'Transcription engines', body: 'Install, check or remove speech models for Copilot, including any Hugging Face speech model.' },
+      { title: 'Interviewer voice', body: 'Install the Kokoro natural voice for practice. Without it, the system voice is used.' },
+    ],
+    go: [{ label: 'Open Local models', section: 'settings', page: 'local-models' }],
+    keywords: 'prescreen model kokoro whisper moonshine huggingface python install memory transcription voice',
+  },
+  {
+    id: 'appearance', group: 'configure', title: 'Appearance and display', icon: 'layout-dashboard',
+    summary: 'Theme, language, sidebar and how often screens refresh.',
+    when: ['You want light or dark.', 'You prefer another language for menus.', 'Screens refresh too often, or not enough.'],
+    steps: [
+      { title: 'Theme', body: 'Settings › General › Theme: System, Light or Dark. It applies to the app only; the Copilot overlay has its own theme on the Copilot › Appearance page. The command palette also has “Theme: …” entries.' },
+      { title: 'Language', body: 'Choose System or a language. It applies to menus and labels; job content stays as written.' },
+      { title: 'Sidebar', body: 'Collapse it to icons with the button at the top or the shortcut. The state is remembered.' },
+      { title: 'Refresh cadence', body: 'Manual, 30 seconds, 1 minute (default), 3, 5 or 10 minutes. It sets how often Overview, Jobs, Boards and Monitoring re-read data, and slows on battery. In Manual, refresh with the refresh shortcut.' },
+      { title: 'Updates', body: 'Update checks run once a day and only notify; Careerloom never installs an update by itself. Turn them off or check now in General.' },
+    ],
+    tips: ['Every change shows a toast with Undo.'],
+    go: [{ label: 'Open Settings › General', section: 'settings', page: 'general' }],
+    keywords: 'theme dark light system language locale sidebar collapse refresh interval cadence manual updates version battery',
+  },
+  {
+    id: 'monitoring-settings', group: 'configure', title: 'Monitoring options', icon: 'chart-column',
+    summary: 'What controls the Monitoring screen: refresh, run-log retention and the checks that raise findings.',
+    when: ['Logs are using disk space.', 'You want to know why a finding appeared.'],
+    steps: [
+      { title: 'Refresh', body: 'Live data follows the refresh cadence in General. Two slow reports (the tracker report and the yield report) each cost a full agent call, so they refresh on a longer timer, never faster than live.' },
+      { title: 'Run-log retention', body: 'Keep logs forever, or 30, 90, 180 or 365 days. Older logs are deleted; run history and costs stay, only the saved output goes. “Delete older logs now” cleans immediately and reports how much space it freed. Upgrading never deletes anything by itself.' },
+      { title: 'What raises a finding', body: 'Nine built-in checks, read-only: finish setting up your profile; strong matches waiting on you; no recent portal scan; inbox is backing up; average fit is low; a runner is failing often; follow-ups due; look for rejection patterns; evaluations costing more than they need to.' },
+    ],
+    go: [{ label: 'Monitoring settings', section: 'settings', page: 'monitoring' }, { label: 'Open Monitoring', section: 'monitoring' }],
+    keywords: 'retention logs delete cleanup findings checks cadence slow reports yield tracker cost',
+  },
+  {
+    id: 'workflow-settings', group: 'configure', title: 'Jobs, résumé and agent settings', icon: 'settings',
+    summary: 'Defaults that shape pre-screening, tailored documents and what the agent may do.',
+    when: ['Pre-screen hides jobs you want, or shows too many.', 'Cover letters sound wrong.', 'You want to know what the agent can touch.'],
+    steps: [
+      { title: 'Pre-screen policy', body: 'Settings › Jobs & boards: where you will work (countries, whether remote-anywhere and region-wide jobs count) and your years of experience. Rules run first (location, then function, then seniority), then the job-fit model. Your 👍/👎 marks personalise it only when they measurably help.' },
+      { title: 'Fast evaluation (beta)', body: 'Staged evaluation scores many jobs cheaply first (de-duplicate, filter, local score, batched cheap-model triage) and runs the full agent only on the best matches. Triage reports are marked quick. Off by default.' },
+      { title: 'Résumé and documents', body: 'Default tone and length for cover letters and summaries, “Make it sound human” (a humanizer pass), the résumé template, the folder exports go to, and Meaning-based matching, which uses the local model to compare wording in ATS scores.' },
+      { title: 'Agent', body: 'Shows the active runner, a table of what each runner may do, and shortcuts to the screens where agent work starts.' },
+    ],
+    go: [{ label: 'Jobs & boards', section: 'settings', page: 'jobs' }, { label: 'Resume & documents', section: 'settings', page: 'resume' }, { label: 'Agent', section: 'settings', page: 'agent' }],
+    keywords: 'prescreen policy countries remote experience staged evaluation beta fast tone length humanizer template output folder ats meaning-based permissions',
+  },
+  {
+    id: 'prep-settings', group: 'configure', title: 'Interview prep settings', icon: 'search',
+    summary: 'How question research runs, which search provider it uses and how the interviewer sounds.',
+    when: ['Research is shallow, slow or costly.', 'You want a different interviewer voice.'],
+    steps: [
+      { title: 'Research', body: 'Choose the model for reading pages, the depth, a limit per job and whether to allow an extra agent pass.' },
+      { title: 'Search and sources', body: 'Pick a search provider (Brave, Exa, Serper or self-hosted SearXNG). Without a key, research falls back to what needs none. Choose how pages are read.' },
+      { title: 'Interviewer voice', body: 'System voice, the Kokoro natural voice on this Mac, or a premium cloud voice; plus speed and speakers or headphones.' },
+      { title: 'Question bases', body: 'Use your question base in live Copilot sessions, get a refresh suggestion after a set time, and choose how long to keep question bases.' },
+    ],
+    go: [{ label: 'Interview prep settings', section: 'settings', page: 'interview-prep' }],
+    keywords: 'research depth brave exa serper searxng voice kokoro tts question base refresh keep',
+  },
+  {
+    id: 'data', group: 'configure', title: 'Data, privacy and resets', icon: 'lock',
+    summary: 'Where everything is stored, what is secret, and how to repair or reset.',
+    when: ['You want to find or delete your data.', 'Something is broken and you need diagnostics.'],
+    steps: [
+      { title: 'Data & privacy', body: 'Lists every location, how much run history and how many keys are stored, and whether secrets sit in the OS keychain.' },
+      { title: 'Diagnostics', body: 'Advanced › Diagnostics shows memory and tool status. Debug log writes app, agent and Copilot activity (never API keys) to a folder you choose; it includes transcripts, so share it carefully.' },
+      { title: 'Setup & repair', body: 'Re-run setup re-checks Node, Python, Git, career-ops and OpenCode and reinstalls anything missing.' },
+      { title: 'Reset', body: 'Reset preferences keeps keys, folder and runner. Reset everything also removes preferences and all saved keys; your career-ops folder is never touched.' },
+    ],
+    go: [{ label: 'Data & privacy', section: 'settings', page: 'data' }, { label: 'Advanced', section: 'settings', page: 'advanced' }],
+    keywords: 'storage locations keychain secrets diagnostics debug log repair reset delete limits',
+  },
+]

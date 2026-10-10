@@ -2,12 +2,11 @@ import { useEffect, useState, type ReactNode } from 'react'
 
 import { version } from '../../package.json'
 import { t } from '../i18n'
-import { careerloom } from '../lib/ipc'
 import { copilotSupportedHere, isModifierChord, shortcutLabel } from '../lib/platform'
 import loomi from '../assets/loomi.svg'
 import { Icon } from './icons'
 
-export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'runs' | 'settings' | 'job' | 'copilot'
+export type Section = 'overview' | 'jobs' | 'boards' | 'resume' | 'agent' | 'monitoring' | 'runs' | 'settings' | 'job' | 'copilot' | 'help'
 
 type NavItem = { id: Section; label: string; key: string; icon: ReactNode }
 
@@ -112,9 +111,10 @@ export function Sidebar({
         <div className="foot">
           <button
             type="button"
-            className="about"
+            className={active === 'help' ? 'about on' : 'about'}
+            aria-current={active === 'help' ? 'page' : undefined}
             data-tip="Help and docs"
-            onClick={() => void careerloom.openExternal(HELP_URL)}
+            onClick={() => onNavigate('help')}
           >
             <Icon name="info" />
             <span className="ni-label">Help</span>
@@ -127,7 +127,6 @@ export function Sidebar({
 }
 
 const COLLAPSE_KEY = 'careerloom.sidebarCollapsed'
-const HELP_URL = 'https://github.com/career-ops-hq/career-ops'
 
 /** Read at first render, not in an effect, so a collapsed sidebar never paints
  *  wide for a frame before snapping shut. */

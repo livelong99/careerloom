@@ -211,3 +211,12 @@
 /* Loomi, the brand mark, beside the wordmark. Collapsed sidebar keeps only the mark. */
 .app .brand-mark { flex: 0 0 auto; }
 .sb.collapsed .app .brand-text { display: none; }
+
+/* Help: the footer button shows as current while the Help screen is open. */
+.foot .about.on { background: var(--nav-on); color: var(--nav-ink); }
+
+/* Command palette: the global focus ring is clipped by the dialog's rounded edge and boxes the search row.
+   The field is the whole row, so focus shows as an accent underline instead. */
+[data-slot='command-input']:focus-visible { outline: none; }
+[data-slot='command-input-wrapper'] { transition: border-color var(--dur-fast, 120ms); }
+[data-slot='command-input-wrapper']:focus-within { border-bottom-color: var(--accent); }
