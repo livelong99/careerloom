@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDetector } from './detector'
 import type { AnswerEngine } from './engine'
@@ -150,17 +150,159 @@ describe('live wiring', () => {
     expect(of('copilotError')).toEqual([{ kind: 'engine', message: 'Add your OpenRouter key in Settings first', retrying: false }])
   })
 
-  it('end of a candidate turn feeds the practice runner one merged line', async () => {
+  describe('practice: the interviewer waits for a finished answer', () => {
+    const LONG = 'We split the monolith into twelve services over two quarters.'
+    const answers = (feed: ReturnType<typeof setup>['feed']) => feed.mock.calls.filter(c => (c as unknown[])[1] === true).map(c => ((c as unknown[])[0] as TranscriptLine).text)
+    function practice(over: Partial<WiringDeps> = {}) {
+      vi.useFakeTimers()
+      const s = setup({ now: Date.now, ...over })
+      s.w.emit('copilotState', state('listening', 'practice'))
+      return s
+    }
+    afterEach(() => vi.useRealTimers())
+
+    it('a turn end hands the merged answer over after a short quiet, once', async () => {
+      const { w, feed } = practice()
+      w.emit('copilotTranscript', line('a', 'you', 'First part of it.'))
+      w.emit('copilotTranscript', line('b', 'you', LONG))
+      expect(feed).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), false) // activity: the soft answer timer starts over
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(2_400)
+      expect(answers(feed)).toEqual([])
+      await vi.advanceTimersByTimeAsync(200)
+      expect(answers(feed)).toEqual([`First part of it. ${LONG}`])
+      w.endOfTurn('you') // nothing new said
+      await vi.advanceTimersByTimeAsync(20_000)
+      expect(answers(feed)).toHaveLength(1)
+    })
+    it('speaking again holds the answer open and joins it into one', async () => {
+      const { w, feed } = practice()
+      w.emit('copilotTranscript', line('a', 'you', LONG))
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(2_000)
+      w.emit('copilotTranscript', line('b', 'you', 'And then', false)) // a thinking pause, then more
+      await vi.advanceTimersByTimeAsync(5_000)
+      expect(answers(feed)).toEqual([])
+      w.emit('copilotTranscript', line('b', 'you', 'And then we cut costs by a third.'))
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(2_500)
+      expect(answers(feed)).toEqual([`${LONG} And then we cut costs by a third.`])
+    })
+    it('a short start waits longer; fillers alone never end the answer', async () => {
+      const { w, feed } = practice()
+      w.emit('copilotTranscript', line('a', 'you', 'Thank you.'))
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(answers(feed)).toEqual([])
+      w.emit('copilotTranscript', line('b', 'you', "So, um, I'm going to"))
+      w.endOfTurn('you') // six words, but only three carry content
+      await vi.advanceTimersByTimeAsync(9_000)
+      expect(answers(feed)).toEqual([])
+      await vi.advanceTimersByTimeAsync(1_100)
+      expect(answers(feed)).toEqual(["Thank you. So, um, I'm going to"])
+    })
+    it('asking for a suggestion after a short start holds the answer until the next turn end', async () => {
+      const { w, feed } = practice()
+      await w.interviewerAsked({ id: 'q1', text: 'Tell me about a migration you led.', type: 'behavioural', confidence: 1, at: 1, auto: false })
+      w.emit('copilotTranscript', line('a', 'you', 'Let me think.'))
+      w.endOfTurn('you')
+      await w.answer('answer')
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(answers(feed)).toEqual([])
+      w.emit('copilotTranscript', line('b', 'you', LONG))
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(2_500)
+      expect(answers(feed)).toEqual([`Let me think. ${LONG}`])
+    })
+    it('asking for more detail after a finished answer waits a little longer, then still hands it over', async () => {
+      const { w, feed } = practice()
+      await w.interviewerAsked({ id: 'q1', text: 'Tell me about a migration you led.', type: 'behavioural', confidence: 1, at: 1, auto: false })
+      w.emit('copilotTranscript', line('a', 'you', LONG))
+      w.endOfTurn('you')
+      await w.answer('detail')
+      await vi.advanceTimersByTimeAsync(9_000)
+      expect(answers(feed)).toEqual([])
+      await vi.advanceTimersByTimeAsync(1_100)
+      expect(answers(feed)).toEqual([LONG])
+    })
+    it("Clear stops the answer but keeps the interviewer's question: the next press answers it", async () => {
+      const { w, actions, of } = practice()
+      await w.interviewerAsked({ id: 'q1', text: 'Tell me about a migration you led.', type: 'behavioural', confidence: 1, at: 1, auto: false })
+      actions.forEach(a => a('clear'))
+      await w.answer('answer')
+      expect(of('copilotError')).toEqual([])
+      expect(of('copilotSuggestion').map(s => (s as Suggestion).questionId)).toEqual(['q1', 'q1'])
+    })
+    it('an answer in any script is handed over (Hindi words, Chinese characters)', async () => {
+      const { w, feed } = practice()
+      w.emit('copilotTranscript', line('a', 'you', 'मैंने चालीस सेवाओं को दो तिमाहियों में कुबेरनेटीस पर ले जाकर रिलीज़ साप्ताहिक रखीं।'))
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(2_500)
+      w.emit('copilotTranscript', line('b', 'you', '我负责把四十个服务迁移到新平台。'))
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(2_500)
+      expect(answers(feed)).toHaveLength(2)
+    })
+    it('the candidate talking again (voice, no text yet) holds the answer, but not forever', async () => {
+      let talking = true
+      const { w, feed } = practice({ speaking: () => talking })
+      w.emit('copilotTranscript', line('a', 'you', LONG))
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(30_000) // a long stretch: recognition sends no text in the middle of it
+      expect(answers(feed)).toEqual([])
+      talking = false
+      await vi.advanceTimersByTimeAsync(2_500)
+      expect(answers(feed)).toEqual([LONG])
+      talking = true // a noisy room: voice activity with no words
+      w.emit('copilotTranscript', line('b', 'you', LONG))
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(50_000)
+      expect(answers(feed)).toHaveLength(2)
+    })
+    it('speech after a turn end with no new turn end (an empty final) still ends the answer after a quiet spell', async () => {
+      const { w, feed } = practice()
+      w.emit('copilotTranscript', line('a', 'you', LONG))
+      w.endOfTurn('you')
+      w.emit('copilotTranscript', line('b', 'you', 'mm', false))
+      await vi.advanceTimersByTimeAsync(9_000)
+      expect(answers(feed)).toEqual([])
+      await vi.advanceTimersByTimeAsync(1_100)
+      expect(answers(feed)).toEqual([LONG])
+    })
+    it('a session that stops (or a new one) drops a pending answer', async () => {
+      const { w, feed } = practice()
+      w.emit('copilotTranscript', line('a', 'you', LONG))
+      w.endOfTurn('you')
+      w.emit('copilotState', state('stopped', 'practice'))
+      await vi.advanceTimersByTimeAsync(20_000)
+      w.emit('copilotState', state('armed', 'practice'))
+      w.emit('copilotTranscript', line('b', 'you', LONG))
+      w.endOfTurn('you')
+      w.emit('copilotState', state('armed', 'practice'))
+      await vi.advanceTimersByTimeAsync(20_000)
+      expect(answers(feed)).toEqual([])
+    })
+    it('words said before the next question never become its answer', async () => {
+      const { w, feed } = practice()
+      w.emit('copilotTranscript', line('a', 'you', 'Let me think about that one.'))
+      w.endOfTurn('you')
+      await w.interviewerAsked({ id: 'q2', text: 'Why this company?', type: 'other', confidence: 1, at: 2, auto: false })
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(answers(feed)).toEqual([])
+      w.emit('copilotTranscript', line('b', 'you', LONG))
+      w.endOfTurn('you')
+      await vi.advanceTimersByTimeAsync(2_500)
+      expect(answers(feed)).toEqual([LONG])
+    })
+  })
+
+  it('live: a turn end goes straight to the practice seam (no practice runs, so nothing waits)', async () => {
     const { w, feed } = setup()
-    w.emit('copilotState', state('listening', 'practice'))
+    w.emit('copilotState', state('listening', 'live'))
     w.emit('copilotTranscript', line('a', 'you', 'First part.'))
-    w.emit('copilotTranscript', line('b', 'you', 'Second part.'))
     w.endOfTurn('you')
-    await Promise.resolve()
     expect(feed).toHaveBeenCalledTimes(1)
-    expect(feed).toHaveBeenCalledWith(expect.objectContaining({ speaker: 'you', text: 'First part. Second part.', final: true }), true)
-    w.endOfTurn('you') // nothing new said
-    expect(feed).toHaveBeenCalledTimes(1)
+    expect(feed).toHaveBeenCalledWith(expect.objectContaining({ speaker: 'you', text: 'First part.', final: true }), true)
   })
 
   it('a new session clears the previous one’s lines and questions', async () => {

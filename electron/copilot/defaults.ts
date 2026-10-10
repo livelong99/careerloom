@@ -36,7 +36,7 @@ import { createSttAdapter, listSttModels } from './stt/engines'
 import { interviewPool } from '../interviewer/pool'
 import { getKbStore } from '../kb/runtime'
 import { endInterviewVoice, interviewSpeaker, micPausesWhileSpeaking, ttsRuntime } from '../kb/voice'
-import { gateAudioMsg, parseAudioMsg } from './audio-in'
+import { mutedByGate, parseAudioMsg } from './audio-in'
 import { checkHfModel, assertHfInstallable, isHfModel, type HfFetch } from './stt/hf-models'
 import { installStt, removeHfModel } from './stt/install'
 import { createProbeHub } from './stt/probe'
@@ -83,16 +83,16 @@ const displayUnderOverlay = (): Electron.Display => {
 }
 
 let gated = 0
-let audioSink: ((m: AudioChunkMsg) => void) | null = null
+let audioSink: ((m: AudioChunkMsg, muted: boolean) => void) | null = null
 const probeHub = createProbeHub()
 /** `careerloom:copilotAudio` handler body: validated chunks reach the running session and any open audio test, everything else is dropped. */
 export function copilotAudioIn(raw: unknown): void {
   const m = parseAudioMsg(raw)
   if (!m) return
   probeHub.tap(m)
-  const heard = gateAudioMsg(m, ttsRuntime().gate()) // mic frames are dropped while the interviewer speaks (half-duplex)
-  if (heard) audioSink?.(heard)
-  else if (process.env.CL_KB_E2E === '1' && ++gated % 20 === 1) console.log('[kb-e2e] mic frame dropped while the interviewer speaks, total', gated) // QA evidence
+  const muted = mutedByGate(m, ttsRuntime().gate()) // half-duplex: recognition hears silence while the interviewer speaks
+  audioSink?.(m, muted)
+  if (muted && process.env.CL_KB_E2E === '1' && ++gated % 20 === 1) console.log('[kb-e2e] mic frame dropped while the interviewer speaks, total', gated) // QA evidence
 }
 
 export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
@@ -132,8 +132,9 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
       config: readCopilotConfig,
       screen: { capture: () => shotPipeline().capture(), latest: ms => shotPipeline().latest(ms), clear: clearCopilotShots, isVision },
       onStopped: () => { if (!starting && getInstance().recorder.active()) void getInstance().stop('user') },
+      speaking: () => ctl.speaking('mic'),
     })
-    const ctl: SessionController & { audio(m: AudioChunkMsg): void; retry(): Promise<void> } = createSessionController({
+    const ctl: SessionController & { audio(m: AudioChunkMsg, muted?: boolean): void; retry(): Promise<void>; speaking(source: 'mic'): boolean } = createSessionController({
       createAdapter: () => {
         const hooks = e2e()
         return hooks ? createFakeAdapter(parseFixture(fs.readFileSync(hooks.sttFixture, 'utf8'))) : createSttAdapter(readCopilotConfig().stt)
@@ -141,7 +142,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
       stt: () => readCopilotConfig().stt, emit: wiring.emit, endOfTurn: wiring.endOfTurn, newId: () => nextId,
     })
     wiring.bindSession(ctl)
-    audioSink = m => ctl.audio(m)
+    audioSink = (m, muted) => ctl.audio(m, muted)
     return { host, wiring, ctl }
   })
 
@@ -201,6 +202,7 @@ export function buildDefaults(getInstance: () => CopilotInstance): CopilotDeps {
       onState: s => broadcast('careerloom:interviewerState', { ...s, micPaused: s.state === 'speaking' && micPausesWhileSpeaking() }),
     },
     overlay: cmd => getOverlayHost().overlayCommand(cmd),
+    overlayReady: () => getOverlayHost().nextBeat(5000),
     ackNotice: version => getOverlayHost().ackPrivacyNotice(version),
     checkHotkey: accel => getOverlayHost().checkHotkey(accel),
     currentNotice: PRIVACY_NOTICE_VERSION,

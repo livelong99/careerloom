@@ -77,6 +77,19 @@ describe('useInterviewer', () => {
     expect(screen.getByTestId('p').textContent).toBe('speaking|Aman|Tell me about X?')
     emit('copilotState', { state: 'stopped' })
     expect(screen.getByTestId('p').textContent).toBe('inactive')
+    emit('interviewerState', { state: 'idle', questionId: null, voice: null }) // the runner's own stop arrives after the session's
+    expect(screen.getByTestId('p').textContent).toBe('inactive')
+  })
+  it('shows the cue a Hint revealed until the next question', () => {
+    function Hint() { const v = useInterviewer(); return <p data-testid="h">{v.hint ?? '-'}</p> }
+    render(<Hint />)
+    emit('copilotQuestion', { id: 'q1', text: 'Tell me about X?' })
+    emit('copilotTranscript', { id: 'ask-q1', speaker: 'interviewer', text: 'Tell me about X?', final: true, t0: 1, t1: 1 })
+    expect(screen.getByTestId('h').textContent).toBe('-')
+    emit('copilotTranscript', { id: 'hint-q1', speaker: 'interviewer', text: 'Hint: one real example.', final: true, t0: 2, t1: 2 })
+    expect(screen.getByTestId('h').textContent).toBe('Hint: one real example.')
+    emit('copilotQuestion', { id: 'q2', text: 'Why us?' })
+    expect(screen.getByTestId('h').textContent).toBe('-')
   })
   it('carries the mic-paused flag and the voice notice from main', () => {
     function Flags() { const v = useInterviewer(); return <p data-testid="f">{`${v.micPaused}|${v.notice ?? ''}`}</p> }

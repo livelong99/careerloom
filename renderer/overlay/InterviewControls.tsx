@@ -13,7 +13,7 @@ export function InterviewControls({ onControl, onType }: { onControl: (c: Interv
       <div className="acts" role="group" aria-label="Interviewer controls">
         <OvButton icon="refresh" label="Replay" title="Ask the question again" onClick={() => onControl('replay')} />
         <OvButton icon="right" label="Skip" title="Skip this question" onClick={() => onControl('skip')} />
-        <OvButton icon="spark" label="Hint" title="Reveal the next cue (counts as a hint in your score)" onClick={() => onControl('hint')} />
+        <OvButton icon="spark" label="Hint" title="Reveal a cue for this question (an AI-interviewer score notes it)" onClick={() => onControl('hint')} />
       </div>
       {onType && (
         <form className="ivtype" onSubmit={e => { e.preventDefault(); send() }}>

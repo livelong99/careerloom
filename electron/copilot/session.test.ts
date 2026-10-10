@@ -42,6 +42,24 @@ describe('session controller (mic-only, fake STT)', () => {
     expect(of('copilotTranscript')).toHaveLength(3)
   })
 
+  it('a muted mic (the interviewer speaking) reaches recognition as silence of the same length, and is never reported silent', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(0)
+    const pushed: number[] = []
+    const fake = createFakeAdapter([])
+    const adapter = { ...fake, push: (pcm: ArrayBuffer) => { pushed.push(new Int16Array(pcm).reduce((a, b) => Math.max(a, Math.abs(b)), 0)); fake.push(pcm) } }
+    const events: Array<[string, unknown]> = []
+    const s = createSessionController({
+      createAdapter: () => adapter, now: Date.now, newId: () => 'S', emit: (ev, p) => void events.push([ev, p]),
+      stt: () => ({ engine: 'moonshine', model: null, device: 'auto', language: 'en', lastBenchmark: null, endSilenceMs: 700, vocab: [] }),
+    })
+    await s.start(REQ)
+    for (let i = 0; i < 40; i++) { vi.advanceTimersByTime(100); s.audio({ source: 'mic', pcm16: chunk(100, 900), t: i * 100 }, true) } // 4 s of speech while muted
+    expect(pushed).toHaveLength(40)
+    expect(Math.max(...pushed)).toBe(0)
+    expect(events.filter(e => e[0] === 'copilotHealth')).toEqual([])
+    await s.stop('user'); vi.useRealTimers()
+  })
+
   it('throttles levels to ≤15/s and reports a dead source as silent', async () => {
     vi.useFakeTimers(); vi.setSystemTime(0)
     const events: Array<[string, unknown]> = []

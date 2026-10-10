@@ -138,10 +138,16 @@ export function createInterviewerRunner(o: InterviewerOptions): InterviewerRunne
     start() { if (st.phase === 'warmup' && !current) next() },
     async feed(line: TranscriptLine, endOfTurn: boolean) {
       if (stopped || line.speaker !== 'you' || !current) return
-      if (endOfTurn) { o.sink.line(line); answer.push(line.text); await advance() }
+      if (!endOfTurn) { if (timer) arm(); return } // still talking: the soft timer never cuts an answer off
+      o.sink.line(line); answer.push(line.text); await advance()
     },
     stop() { stopped = true; clear(); speak.cancel(); state('idle') },
-    replay() { if (current && !stopped) { clear(); speak.cancel(); void Promise.resolve(speak.say(current.text, current.id)).catch(() => undefined).then(() => { if (!stopped) arm() }) } },
+    replay() {
+      if (!current || stopped || busy) return
+      const mine = ++epoch
+      clear(); speak.cancel(); state('speaking')
+      void Promise.resolve(speak.say(current.text, current.id)).catch(() => undefined).then(() => { if (!stopped && mine === epoch) { state('listening'); arm() } })
+    },
     skip() { void advance(true) },
     hint() {
       const row = current?.item?.rubric[hintIdx]

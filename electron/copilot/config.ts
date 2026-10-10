@@ -31,7 +31,7 @@ export const DEFAULT_CONFIG: CopilotConfig = {
     retentionDays: 90, localOnly: false, redact: true,
     mode: { enabled: false, noticeVersion: null, hideFromCapture: false, noDockIcon: false, neutralTitle: false, indicator: 'chip' },
   },
-  practice: { followups: true, readAloud: false, answerMinutes: 2 },
+  practice: { followups: true, answerMinutes: 2 },
 }
 
 // ————— Field sanitizers: a bad value falls back to the default for that field only —————
@@ -122,7 +122,7 @@ export function normalizeConfig(raw: unknown): CopilotConfig {
         noDockIcon: bool(pm.noDockIcon, false), neutralTitle: bool(pm.neutralTitle, false), indicator: pick(pm.indicator, INDICATORS, 'chip'),
       },
     },
-    practice: { followups: bool(pc.followups, d.practice.followups), readAloud: bool(pc.readAloud, d.practice.readAloud), answerMinutes: num(pc.answerMinutes, d.practice.answerMinutes, 1, 10) },
+    practice: { followups: bool(pc.followups, d.practice.followups), answerMinutes: num(pc.answerMinutes, d.practice.answerMinutes, 1, 10) },
   }
 }
 

@@ -139,6 +139,47 @@ describe('practice runner on fake STT + fake provider', () => {
     await vi.advanceTimersByTimeAsync(60_001)
     expect(h.asked.map(q => q.id)).toEqual(['q1', 'q2'])
   })
+  it('reads each question aloud, then listens; the answer timer starts once the voice has finished', async () => {
+    let finish = (): void => undefined
+    const said: string[] = []; const states: string[] = []
+    const speak = { say: vi.fn((text: string) => { said.push(text); return new Promise<void>(r => { finish = r }) }), cancel: vi.fn() }
+    const h = harness({ answerMs: 60_000, speak, onState: s => states.push(s.state) })
+    h.run.start()
+    expect(said).toEqual(['Tell me about a migration.'])
+    await vi.advanceTimersByTimeAsync(90_000) // still speaking: no timer yet
+    expect(h.asked).toHaveLength(1)
+    finish(); await vi.advanceTimersByTimeAsync(60_001)
+    expect(h.asked.map(q => q.id)).toEqual(['q1', 'q2'])
+    expect(states).toEqual(['speaking', 'listening', 'thinking', 'speaking'])
+  })
+  it('the candidate still talking restarts the soft timer, so it never cuts an answer off', async () => {
+    const h = harness({ answerMs: 60_000 }); h.run.start()
+    await vi.advanceTimersByTimeAsync(50_000)
+    await h.run.feed(you('p1', 'So the first thing we did'), false)
+    await vi.advanceTimersByTimeAsync(50_000)
+    expect(h.asked).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(10_001)
+    expect(h.asked).toHaveLength(2)
+  })
+  it('replay speaks the question again, skip moves on without a follow-up, hint gives one cue', async () => {
+    const complete = vi.fn().mockResolvedValue('What was hard?')
+    const speak = { say: vi.fn(), cancel: vi.fn() }
+    const h = harness({ followups: true, complete, speak })
+    h.run.start(); await vi.advanceTimersByTimeAsync(0)
+    h.run.replay()
+    expect(speak.say).toHaveBeenCalledTimes(2)
+    expect(h.run.hint()).toMatch(/^Hint: one real example in STAR order/)
+    expect(h.run.hint()).toBeNull()
+    expect(h.lines.at(-1)).toMatchObject({ speaker: 'interviewer', text: expect.stringMatching(/^Hint:/) })
+    h.run.skip(); await vi.advanceTimersByTimeAsync(0)
+    expect(h.asked.map(q => q.id)).toEqual(['q1', 'q2'])
+    expect(complete).not.toHaveBeenCalled()
+  })
+  it('stop silences the voice', () => {
+    const speak = { say: vi.fn(() => new Promise<void>(() => undefined)), cancel: vi.fn() }
+    const h = harness({ speak }); h.run.start(); h.run.stop()
+    expect(speak.cancel).toHaveBeenCalled()
+  })
   it('stop cancels timers and further input is ignored', async () => {
     const h = harness({ answerMs: 60_000 }); h.run.start(); h.run.stop()
     await vi.advanceTimersByTimeAsync(120_000)

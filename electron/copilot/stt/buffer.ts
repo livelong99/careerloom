@@ -87,6 +87,7 @@ export function createChunkedAdapter(o: { id: SttAdapter['id']; decoder: Decoder
   return {
     id: o.id,
     on,
+    speaking: () => speech,
     async start(opts: SttStartOpts) {
       endSilenceMs = opts.endSilenceMs; fast = !!opts.fastEndpoint
       vad = createVad(); t = 0; reset()

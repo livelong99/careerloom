@@ -8,6 +8,7 @@ import type { AnswerEngine, AnswerRequest } from '../copilot/engine'
 import { createLiveWiring } from '../copilot/live-wiring'
 import type { CopilotEvents, DetectedQuestion, Suggestion, TranscriptLine } from '../copilot/types'
 import { GOLDEN_POOL } from './fixtures/golden-kb'
+import { createPracticeRunner } from '../copilot/practice'
 import { createInterviewerRunner } from './runner'
 
 const TEXT = 'Tell me about a time you led a team through a hard project?'
@@ -71,6 +72,20 @@ describe('cue and suggestion parity (golden event trace)', () => {
     expect(ask).toEqual({ ...l.asks[0]!, transcript: ask.transcript }) // same route, tier and kind
     expect(ask.transcript.at(-1)).toBe(`interviewer:${TEXT}`) // the engine saw the question as the last interviewer line, as in live
     expect(l.asks[0]!.transcript.at(-1)).toBe(`interviewer:${TEXT}`)
+  })
+
+  it('a report question asked by the mock interviewer is what the Answer hotkey answers', async () => {
+    const r = rig('practice', false)
+    const runner = createPracticeRunner({
+      questions: [{ id: 'q-1', text: TEXT, type: 'behavioural', source: 'report', lastScore: null }], followups: false, answerMs: 60_000,
+      sink: { line: l => r.w.emit('copilotTranscript', l), question: q => void r.w.interviewerAsked(q), done: () => undefined },
+    })
+    runner.start()
+    await r.w.answer('answer')
+    runner.stop()
+    expect(r.of('copilotError')).toEqual([])
+    expect(r.requests.map(q => q.question.text)).toEqual([TEXT])
+    expect(r.requests[0]!.transcript.at(-1)).toEqual(expect.objectContaining({ speaker: 'interviewer', text: TEXT }))
   })
 
   it('with autoAnswer off the question shows and the hotkey answers it, as in live', async () => {

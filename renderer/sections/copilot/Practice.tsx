@@ -11,6 +11,7 @@ import { ModePicker } from '@/components/copilot/ModePicker'
 import { QuestionList } from '@/components/copilot/QuestionList'
 import { SessionSummary } from '@/components/copilot/SessionSummary'
 import { VoicePicker } from '@/components/copilot/VoicePicker'
+import { SettingChip } from '@/components/settings/SettingChip'
 import { Button } from '@/components/ui/button'
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
 import { careerloom } from '@/lib/ipc'
@@ -56,7 +57,7 @@ export function PracticePage() {
   ) : null
 
   return (
-    <Page title="Practice" blurb={ai ? "An AI interviewer asks questions from this job's question base. Cues and suggested answers work exactly as they do in a live session." : "A mock interviewer asks questions from this job's report. Nothing is sent to a call, and the overlay shows a Practice chip."}>
+    <Page title="Practice" blurb={ai ? "An AI interviewer asks questions from this job's question base. Cues and suggested answers work exactly as they do in a live session." : "A mock interviewer asks this job's report questions aloud. Cues and suggested answers work exactly as they do in a live session."}>
       <InterviewLive />
       <JobPicker summary={note} />
       {!jobId ? null : ai ? <AiPractice jobId={jobId} kb={kb!} /> : <ReportPractice jobId={jobId} />}
@@ -168,10 +169,10 @@ function ReportPractice({ jobId }: { jobId: string }) {
           <Row label="Follow-up questions" hint="The mock interviewer asks one follow-up based on your answer.">
             <ToggleSwitch aria-label="Follow-up questions" checked={config.practice.followups} onCheckedChange={v => void save({ practice: { followups: v } })} />
           </Row>
-          <Row label="Read questions aloud" hint="Uses your system voice. Headphones recommended.">
-            <ToggleSwitch aria-label="Read questions aloud" checked={config.practice.readAloud} onCheckedChange={v => void save({ practice: { readAloud: v } })} />
+          <Row label="Interviewer voice" hint="The interviewer reads each question aloud. With speakers, the mic pauses while it talks.">
+            <SettingChip label="Voice" page="interview-prep" focus="interview:voice" />
           </Row>
-          <Row label="Time per answer" hint="A soft timer in the overlay. It never cuts you off." htmlFor="answer-minutes">
+          <Row label="Time per answer" hint="After this long without a word from you, the interviewer moves on. It never cuts you off." htmlFor="answer-minutes">
             <input id="answer-minutes" type="range" aria-label="Time per answer" className={rangeClass} min={1} max={5} step={1} value={Math.min(5, config.practice.answerMinutes)} onChange={e => { void save({ practice: { answerMinutes: Number(e.target.value) } }) }} />
             <span className="w-14 text-right text-xs tabular-nums text-muted-foreground">{config.practice.answerMinutes} min</span>
           </Row>

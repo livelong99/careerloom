@@ -39,6 +39,7 @@ export function createOverlayHost(deps: HostDeps) {
   let quickHidden = false
   let capturing = false
   let replayOnBeat = false
+  let beatWaiters: Array<() => void> = []
   let lastKey = configKey(deps.getConfig())
   const now = deps.now ?? Date.now
   const lastPress = new Map<HotkeyAction, number>()
@@ -132,6 +133,7 @@ export function createOverlayHost(deps: HostDeps) {
       if (Object.values(cmd).every(v => v === undefined)) {
         panic.heartbeat()
         if (replayOnBeat && lastState) { replayOnBeat = false; deps.publish('copilotState', lastState) }
+        for (const w of beatWaiters.splice(0)) w()
         // ponytail: one small file read per second; a config-changed event replaces this if it ever shows up in a profile.
         const key = configKey(deps.getConfig())
         if (key !== lastKey) { lastKey = key; deps.overlay.refresh(); if (capturing) registerHotkeys() }
@@ -150,6 +152,14 @@ export function createOverlayHost(deps: HostDeps) {
     },
     checkHotkey: (accel: string) => deps.hotkeys.check(accel),
     isLive: () => live,
+    /** Resolves on the overlay page's next heartbeat (its listeners are subscribed by then: it can show and play what comes next), or after `ms`. */
+    nextBeat(ms: number): Promise<void> {
+      return new Promise(resolve => {
+        const done = (): void => { clearTimeout(t); beatWaiters = beatWaiters.filter(w => w !== done); resolve() }
+        const t = setTimeout(done, ms)
+        beatWaiters.push(done)
+      })
+    },
   }
 }
 export type OverlayHost = ReturnType<typeof createOverlayHost>

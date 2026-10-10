@@ -30,6 +30,22 @@ function setup(cfg: CopilotConfig = DEFAULT_CONFIG, now?: () => number) {
 const listening = { state: 'listening' as const, mode: 'live' as const, sessionId: 's', sources: ['mic' as const], startedAt: 1 }
 
 describe('overlay host wiring', () => {
+  it('nextBeat resolves on the overlay page’s next heartbeat, or after the timeout when none comes', async () => {
+    vi.useFakeTimers()
+    try {
+      const { host } = setup()
+      let beat = false, late = false
+      void host.nextBeat(5000).then(() => { beat = true })
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(beat).toBe(false)
+      host.overlayCommand({}); await vi.advanceTimersByTimeAsync(0)
+      expect(beat).toBe(true)
+      void host.nextBeat(5000).then(() => { late = true })
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(late).toBe(true)
+    } finally { vi.useRealTimers() }
+  })
+
   it('publishing a listening state opens the overlay, registers hotkeys, updates tray and live flag', () => {
     const { host, overlay, hotkeys, tray, published } = setup()
     host.publishState(listening)
