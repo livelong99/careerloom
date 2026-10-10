@@ -38,12 +38,20 @@ describe('interview speaker', () => {
     await expect(p).resolves.toBeUndefined()
   })
 
-  it('cancel stops the voice and releases a waiting question', async () => {
+  it('cancel stops the voice, releases a waiting question and reopens the echo gate itself (the overlay may be gone)', async () => {
     const sp = interviewSpeaker(plan)
     const p = Promise.resolve(sp.say('A long question here.', 'q1'))
+    const id = rt.speak.mock.calls[0]![0] as string
+    onTtsPlayback({ phase: 'started', utteranceId: id })
     sp.cancel()
     await expect(p).resolves.toBeUndefined()
     expect(rt.cancel).toHaveBeenCalled()
+    expect(rt.onPlayback).toHaveBeenLastCalledWith({ phase: 'cancelled', utteranceId: id })
+  })
+
+  it('without a plan it speaks in the voice set in Settings › Interview prep', () => {
+    interviewSpeaker(plan); interviewSpeaker()
+    expect(seen.config!()).toMatchObject({ engine: 'system', echo: 'headphones' })
   })
 
   it("the running interview's voice and echo choice win over interview.json, until it ends", () => {

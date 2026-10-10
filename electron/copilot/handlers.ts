@@ -15,7 +15,7 @@ import { applyDebrief, scoreSession } from './debrief'
 import { buildDefaults } from './defaults'
 import { parsePlan } from '../interviewer/plan'
 import { createInterview, writeSkillSignal, type Interview, type InterviewDeps } from '../interviewer/session'
-import { createPracticeRunner, questionsFromReport, selectQuestions, type PracticeExtras, type PracticeRunner } from './practice'
+import { createPracticeRunner, questionsFromReport, selectQuestions, type PracticeExtras, type PracticeRunner, type PracticeSink } from './practice'
 import { buildContext } from './setup'
 import { createRecorder, openSessionStore, type SessionStore } from './store'
 import type {
@@ -80,6 +80,8 @@ export type CopilotDeps = {
   screenshot?(): Promise<void> | void
   /** Deletes held screenshot frames (session deleted, quit, panic). */
   clearScreenshots?(): void
+  /** Resolves once the overlay page can show and play events (or after a short timeout); practice asks its first question then. */
+  overlayReady?(): Promise<void>
   /** AI interviewer (KB-WP4): question base, voice, stats write-back. `events` routes the interviewer's lines/questions through the live wiring so cues and suggestions match live. */
   interviewer?: InterviewDeps & { events?: { line(l: TranscriptLine): void; question(q: DetectedQuestion): void } }
 }
@@ -181,7 +183,6 @@ export function createCopilot(deps: CopilotDeps) {
     const extras: PracticeExtras = { questionIds: strings(r.questionIds, 'questionIds'), custom: strings(r.custom, 'custom') }
     const plan = r.interview === undefined ? null : parsePlan(r.interview)
     if (plan && mode !== 'practice') throw new Error('The AI interviewer is for practice sessions only')
-    if (mode === 'practice' && !plan) selectQuestions(job.report, extras) // fail before anything is saved
     const cfg = readCopilotConfig()
     let sessionId: string = randomUUID()
     if (mode === 'live') {
@@ -203,30 +204,42 @@ export function createCopilot(deps: CopilotDeps) {
       })
     }
     const iv = plan ? buildInterview(jobId, sessionId, plan, cfg) : null // throws (no question base) before anything is saved
+    const runner = mode !== 'practice' ? null : iv ? iv.runner : reportPractice(jobId, job, cfg, extras) // throws (no question picked) before anything is saved or captured
     recorder.begin({ id: sessionId, mode, jobId, jobTitle: job.title, company: job.company })
     try {
       await deps.session?.start({ mode, jobId, interviewType, consent: mode === 'live' ? r.consent! : null }, sessionId)
     } catch (err) { recorder.end(); store.remove(sessionId); throw err }
-    if (mode === 'practice') { if (iv) { interview = iv; practice = iv.runner; practice.start() } else startPractice(jobId, job, cfg, extras); lastPractice = { mode, jobId, interviewType, consent: null, ...extras, ...(plan ? { interview: plan } : {}) } }
+    if (runner) {
+      interview = iv; practice = runner
+      // The first question waits for the overlay page: asked while it is still loading, its caption and voice would be lost.
+      const go = (): void => { if (practice === runner) runner.start() }
+      const ready = deps.overlayReady?.()
+      if (ready) void ready.then(go); else go()
+      lastPractice = { mode, jobId, interviewType, consent: null, ...extras, ...(plan ? { interview: plan } : {}) }
+    }
     if (!deps.session) broadcast('careerloom:copilotState', { state: 'listening', mode, sessionId, sources: ['mic'], startedAt: now() })
     return { sessionId }
   }
 
-  /** The AI interviewer's runner for one session. Its lines and questions take the live path when the wiring is present. */
-  function buildInterview(jobId: string, sessionId: string, plan: ReturnType<typeof parsePlan>, cfg: CopilotConfig): Interview {
+  /** Practice's interviewer lines and questions take the live path when the wiring is present, so cues, hotkeys and auto-answer work as in live. */
+  function practiceSink(): PracticeSink {
     const ev = deps.interviewer?.events
+    return {
+      line: l => {
+        if (l.speaker === 'you' && deps.session) return // already recorded and shown by the capture session
+        if (l.speaker === 'interviewer' && ev) return ev.line(l)
+        recorder.line(l); broadcast('careerloom:copilotTranscript', l)
+      },
+      question: q => { if (ev) ev.question(q); else { recorder.question(q); broadcast('careerloom:copilotQuestion', q) } },
+      done: () => { void stopAll('user') },
+    }
+  }
+
+  /** The AI interviewer's runner for one session. */
+  function buildInterview(jobId: string, sessionId: string, plan: ReturnType<typeof parsePlan>, cfg: CopilotConfig): Interview {
     return createInterview({
       jobId, sessionId, plan, complete: deps.complete, answerMs: cfg.practice.answerMinutes * 60_000, now,
-      deps: deps.interviewer ?? { pool: () => null },
-      sink: {
-        line: l => {
-          if (l.speaker === 'you' && deps.session) return // already recorded and shown by the capture session
-          if (l.speaker === 'interviewer' && ev) return ev.line(l)
-          recorder.line(l); broadcast('careerloom:copilotTranscript', l)
-        },
-        question: q => { if (ev) ev.question(q); else { recorder.question(q); broadcast('careerloom:copilotQuestion', q) } },
-        done: () => { void stopAll('user') },
-      },
+      deps: deps.interviewer ?? { pool: () => null }, sink: practiceSink(),
     })
   }
   /** Per-question results onto the stored session, plus the skill signal for Skill-up. Best effort: a disk error never blocks the stop. */
@@ -236,24 +249,19 @@ export function createCopilot(deps: CopilotDeps) {
     return next
   }
 
-  function startPractice(jobId: string, job: JobInfo, cfg: CopilotConfig, extras: PracticeExtras): void {
+  function reportPractice(jobId: string, job: JobInfo, cfg: CopilotConfig, extras: PracticeExtras): PracticeRunner {
     const questions = selectQuestions(job.report, extras, lastScores(jobId))
-    practice = createPracticeRunner({
-      questions, followups: cfg.practice.followups, answerMs: cfg.practice.answerMinutes * 60_000, complete: deps.complete, now,
-      sink: {
-        question: q => { recorder.question(q); broadcast('careerloom:copilotQuestion', q) },
-        // The candidate's own lines are already recorded and shown by the capture session; only the mock interviewer's are new.
-        line: l => { if (l.speaker === 'you' && deps.session) return; recorder.line(l); broadcast('careerloom:copilotTranscript', l) },
-        done: () => { void stopAll('user') },
-      },
+    const iv = deps.interviewer
+    return createPracticeRunner({
+      questions, followups: cfg.practice.followups, answerMs: cfg.practice.answerMinutes * 60_000, complete: deps.complete, now, sink: practiceSink(),
+      speak: iv?.speaker?.(), onState: s => iv?.onState?.({ ...s, voice: null }), // the voice set in Settings › Interview prep
     })
-    practice.start()
   }
 
   let typedN = 0
   /** The typed-answer fallback (no microphone or speech recognition): the same path as a spoken final. */
   async function typedAnswer(text: string): Promise<void> {
-    if (!practice || !interview || text.trim() === '') return
+    if (!practice || text.trim() === '') return
     const at = now()
     const l: TranscriptLine = { id: `typed-${++typedN}`, speaker: 'you', text: text.trim(), final: true, t0: at, t1: at }
     recorder.line(l); broadcast('careerloom:copilotTranscript', l) // nothing else records a typed line, with or without speech recognition
@@ -321,7 +329,7 @@ export function createCopilot(deps: CopilotDeps) {
         await start(lastPractice)
         return
       }
-      if (cmd.interviewer) return void interview?.control(cmd.interviewer)
+      if (cmd.interviewer) { const c = cmd.interviewer; return void (c === 'replay' ? practice?.replay() : c === 'skip' ? practice?.skip() : practice?.hint()) }
       if (cmd.typed !== undefined) return void (await typedAnswer(cmd.typed))
       if (cmd.retry) return void (await deps.retry?.())
       if (cmd.debrief) return void deps.openDebrief?.(store.list()[0]?.id ?? null)

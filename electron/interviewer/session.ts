@@ -16,15 +16,15 @@ export type InterviewDeps = {
   pool(jobId: string): InterviewPool | null
   /** Model call sized for probes and scoring (JSON, ~500 tokens); falls back to the practice follow-up call. */
   complete?(system: string, user: string): Promise<string>
-  /** The voice (WP5); absent = captions only. */
-  speaker?(plan: InterviewPlan): Speaker
+  /** The voice (WP5); absent = captions only. Without a plan it is the voice set in Settings › Interview prep. */
+  speaker?(plan?: InterviewPlan): Speaker
   /** Write-back of per-item stats (WP1 store). */
   recordStats?(jobId: string, itemId: string, stats: KbItem['stats']): void
   /** The session is over (stop or done): release the voice. */
   ended?(): void
   onState?(s: { state: SpeakState; questionId: string | null; voice: string | null }): void
 }
-export type Interview = { runner: InterviewerRunner; record(): InterviewRecord; control(c: 'replay' | 'skip' | 'hint'): void; skillSignal(): SkillSignal }
+export type Interview = { runner: InterviewerRunner; record(): InterviewRecord; skillSignal(): SkillSignal }
 /** Mean score per skill from this session's scored questions, for the Skill-up ordering. */
 export type SkillSignal = KbSkillSignal
 
@@ -47,7 +47,6 @@ export function createInterview(o: {
   return {
     runner,
     record: () => ({ planHash: planHash(o.plan), itemIds: runner.state().asked, perQuestion: results() }),
-    control: c => { if (c === 'replay') runner.replay(); else if (c === 'skip') runner.skip(); else runner.hint() },
     skillSignal: () => {
       const acc: Record<string, number[]> = {}
       for (const r of results()) if (r.score !== null) for (const s of byId.get(r.itemId)?.skills ?? []) (acc[s] ??= []).push(r.score)

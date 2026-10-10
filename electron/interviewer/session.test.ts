@@ -44,11 +44,11 @@ describe('createInterview', () => {
     await iv.runner.feed(you('ans', 2), true)
     await vi.waitFor(() => expect(qs).toHaveLength(3))
   })
-  it('control routes replay/skip/hint to the runner', async () => {
+  it('a hint and a skip are recorded on the question', async () => {
     const { iv, qs } = mk()
     iv.runner.start()
     await iv.runner.feed(you('hello', 1), true); await vi.waitFor(() => expect(qs).toHaveLength(2))
-    iv.control('hint'); iv.control('skip')
+    iv.runner.hint(); iv.runner.skip()
     await vi.waitFor(() => expect(qs).toHaveLength(3))
     expect(iv.record().perQuestion[0]).toMatchObject({ skipped: true, hintUsed: true })
   })

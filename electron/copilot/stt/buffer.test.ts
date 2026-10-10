@@ -25,6 +25,16 @@ const feed = async (a: ReturnType<typeof setup>['a'], pcm: Int16Array) => { for 
 const settle = () => new Promise(r => setTimeout(r, 5))
 
 describe('chunked adapter (non-streaming engine behind SttAdapter)', () => {
+  it('reports speaking from the first voiced frame until the turn has ended', async () => {
+    const { a } = setup()
+    await a.start(OPTS)
+    expect(a.speaking?.()).toBe(false)
+    await feed(a, tone(300))
+    expect(a.speaking?.()).toBe(true) // before any text exists
+    await feed(a, silence(1000)); await settle()
+    expect(a.speaking?.()).toBe(false)
+    await a.stop()
+  })
   it('emits a final then endOfTurn once silence reaches endSilenceMs, with audio-clock timestamps', async () => {
     const { a, seen, names } = setup()
     await a.start(OPTS)

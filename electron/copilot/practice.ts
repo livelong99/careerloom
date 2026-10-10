@@ -1,8 +1,9 @@
-// Practice mode: a mock interviewer that asks the report's likely questions and listens for your spoken answers.
-// Pure: input (answers) and output (questions, transcript lines) go through injected sinks, so it runs on fake STT + a fake provider.
+// Practice mode: a mock interviewer that asks the report's likely questions aloud and listens for your spoken answers.
+// Pure: input (answers) and output (questions, transcript lines, voice) go through injected sinks, so it runs on fake STT + a fake provider.
 import { createHash } from 'node:crypto'
 
 import type { ReportView } from '../job-view/types'
+import type { SpeakState, Speaker } from '../interviewer/runner'
 import type { DetectedQuestion, PracticeQuestion, QuestionType, TranscriptLine } from './types'
 
 const MAX_QUESTIONS = 12
@@ -75,38 +76,70 @@ export function selectQuestions(report: ReportView | null, extras: PracticeExtra
 
 export const FOLLOWUP_SYSTEM = 'You are a mock interviewer. Given the question and the candidate\'s answer, reply with ONE short follow-up question that probes the weakest part of the answer, or NONE. No preamble.'
 
+/** Report questions carry no rubric: Hint gives the shape of a strong answer instead. */
+const HINTS: Record<QuestionType, string> = {
+  behavioural: 'Hint: one real example in STAR order: the situation in a line, what you did, and the result with a number.',
+  technical: 'Hint: the answer in one line first, then how it works, one trade-off and where you used it.',
+  'system-design': 'Hint: agree the scale first, then the main parts, how data flows and one trade-off.',
+  coding: 'Hint: restate the problem, give a simple approach and its complexity, then improve it.',
+  other: 'Hint: answer in one line first, then back it with one example from your own work.',
+}
+
 export type PracticeSink = { question(q: DetectedQuestion): void; line(l: TranscriptLine): void; done(): void }
 export type PracticeOptions = {
   questions: PracticeQuestion[]; followups: boolean; answerMs: number
   /** Engine call for follow-ups (text in, text out); omitted = no follow-ups. */
   complete?: (system: string, user: string) => Promise<string>
   sink: PracticeSink; now?: () => number
+  /** The interviewer's voice; absent = captions only. */
+  speak?: Speaker
+  onState?(s: { state: SpeakState; questionId: string | null }): void
 }
-export type PracticeRunner = { start(): void; feed(line: TranscriptLine, endOfTurn: boolean): Promise<void>; stop(): void }
+/** `feed(line, false)` is the candidate still talking: the soft answer timer starts over, so it never cuts an answer off. */
+export type PracticeRunner = {
+  start(): void; feed(line: TranscriptLine, endOfTurn: boolean): Promise<void>; stop(): void
+  /** Re-speak the current question. */ replay(): void
+  /** Move on without an answer. */ skip(): void
+  /** A caption cue for the current question; null when there is none. */ hint(): string | null
+}
 
 export function createPracticeRunner(o: PracticeOptions): PracticeRunner {
   const now = o.now ?? Date.now
+  const speak: Speaker = o.speak ?? { say: () => undefined, cancel: () => undefined }
   let index = -1
   let current: PracticeQuestion | null = null
   let answer: string[] = []
   let followedUp = false
+  let hinted = false
   let stopped = false
   let busy = false
   let timer: ReturnType<typeof setTimeout> | null = null
+  let epoch = 0 // bumps on every utterance and move: a late speak() from an earlier one is ignored
 
+  const state = (s: SpeakState): void => o.onState?.({ state: s, questionId: current?.id ?? null })
   const arm = (): void => { clear(); timer = setTimeout(() => { void advance() }, o.answerMs) }
   const clear = (): void => { if (timer) { clearTimeout(timer); timer = null } }
-  const ask = (q: PracticeQuestion): void => {
-    current = q; answer = []
-    const at = now()
-    o.sink.question({ id: q.id, text: q.text, type: q.type, confidence: 1, at, auto: false })
-    o.sink.line({ id: `ask-${q.id}`, speaker: 'interviewer', text: q.text, final: true, t0: at, t1: at })
+  /** Speaks the question, then listens: the answer timer starts once the voice has finished. */
+  async function voice(q: PracticeQuestion): Promise<void> {
+    const mine = ++epoch
+    state('speaking')
+    try { await speak.say(q.text, q.id) } catch { /* a failing voice never stops practice: the caption already went out */ }
+    if (stopped || mine !== epoch) return
+    state('listening')
     arm()
+  }
+  const ask = (q: PracticeQuestion): void => {
+    current = q; answer = []; hinted = false
+    const at = now()
+    // Line first, then the question: the order a heard question arrives in live, so the engine sees it in the transcript.
+    o.sink.line({ id: `ask-${q.id}`, speaker: 'interviewer', text: q.text, final: true, t0: at, t1: at })
+    o.sink.question({ id: q.id, text: q.text, type: q.type, confidence: 1, at, auto: false })
+    void voice(q)
   }
   const next = (): void => {
     index += 1
     const q = o.questions[index]
-    if (q) { followedUp = false; ask(q) } else { clear(); current = null; stopped = true; o.sink.done() }
+    if (q) { followedUp = false; ask(q) } else { clear(); current = null; stopped = true; state('idle'); o.sink.done() }
   }
   const followUp = async (): Promise<PracticeQuestion | null> => {
     if (!o.followups || !o.complete || followedUp || !current || answer.length === 0) return null
@@ -116,11 +149,12 @@ export function createPracticeRunner(o: PracticeOptions): PracticeRunner {
       return text ? { id: `${current.id}-f1`, text, type: current.type, source: current.source, lastScore: null } : null
     } catch { return null }
   }
-  async function advance(): Promise<void> {
-    if (stopped || busy) return
-    busy = true; clear()
+  async function advance(skip = false): Promise<void> {
+    if (stopped || busy || !current) return
+    busy = true; clear(); epoch++; speak.cancel()
     try {
-      const f = await followUp()
+      state('thinking')
+      const f = skip ? null : await followUp()
       if (stopped) return
       if (f) ask(f); else next()
     } finally { busy = false }
@@ -130,8 +164,18 @@ export function createPracticeRunner(o: PracticeOptions): PracticeRunner {
     start() { if (index === -1) next() },
     async feed(line, endOfTurn) {
       if (stopped || line.speaker !== 'you' || !current) return
-      if (endOfTurn) { o.sink.line(line); answer.push(line.text); await advance() }
+      if (!endOfTurn) { if (timer) arm(); return }
+      o.sink.line(line); answer.push(line.text); await advance()
     },
-    stop() { stopped = true; clear() },
+    stop() { stopped = true; clear(); speak.cancel(); state('idle') },
+    replay() { const q = current; if (q && !stopped && !busy) { clear(); speak.cancel(); void voice(q) } },
+    skip() { void advance(true) },
+    hint() {
+      if (!current || stopped || hinted) return null
+      hinted = true
+      const text = HINTS[current.type]
+      o.sink.line({ id: `hint-${current.id}`, speaker: 'interviewer', text, final: true, t0: now(), t1: now() })
+      return text
+    },
   }
 }

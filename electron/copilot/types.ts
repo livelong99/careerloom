@@ -100,7 +100,7 @@ export type CopilotConfig = {
     retentionDays: number | null; localOnly: boolean; redact: boolean
     mode: { enabled: boolean; noticeVersion: string | null; hideFromCapture: boolean; noDockIcon: boolean; neutralTitle: boolean; indicator: 'chip' | 'dot' | 'off' }
   }
-  practice: { followups: boolean; readAloud: boolean; answerMinutes: number }
+  practice: { followups: boolean; answerMinutes: number }
 }
 
 // ————— IPC: renderer → main (invoke `careerloom:<name>`) —————

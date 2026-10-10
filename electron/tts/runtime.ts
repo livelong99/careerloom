@@ -1,5 +1,5 @@
 // Composition root for voice: engines + fallback chain + service + echo gate, and the three `interview*Voice` handlers.
-// Wiring (main.ts / preload, owned by integration): construct once, send PCM to the overlay on `careerloom:ttsAudio`, forward `careerloom:ttsPlayback` to onPlayback, route mic frames through gateAudioMsg(…, rt.gate()).
+// Wiring (main.ts / preload, owned by integration): construct once, send PCM to the overlay on `careerloom:ttsAudio`, forward `careerloom:ttsPlayback` to onPlayback, mute mic frames while mutedByGate(…, rt.gate()).
 import { createEchoGate, type EchoGate } from '../copilot/echo-gate'
 import type { InterviewConfig, KbEvents, TtsAudioMsg, VoiceInfo } from '../kb/types'
 import type { TtsEngineId } from '../interviewer/types'

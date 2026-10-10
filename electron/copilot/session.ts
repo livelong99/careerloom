@@ -95,8 +95,9 @@ export function createSessionController(deps: SessionDeps) {
     }))
   }
 
-  const controller: SessionController & { audio(msg: AudioChunkMsg): void } = {
+  const controller: SessionController & { audio(msg: AudioChunkMsg, muted?: boolean): void; speaking(source: SourceId): boolean } = {
     state: () => state,
+    speaking: source => adapters.get(source)?.speaking?.() ?? false,
 
     async start(req) {
       if (state === 'armed' || state === 'listening') throw new Error('A session is already running')
@@ -118,10 +119,11 @@ export function createSessionController(deps: SessionDeps) {
       return { sessionId }
     },
 
-    /** High-rate path: call from the `careerloom:copilotAudio` send handler. Ignored unless listening. */
-    audio(msg) {
+    /** High-rate path: call from the `careerloom:copilotAudio` send handler. Ignored unless listening. `muted` (the interviewer is
+     *  speaking): recognition gets silence of the same length, so its clock keeps wall time; the health check still hears the device. */
+    audio(msg, muted = false) {
       if (state !== 'listening') return
-      adapters.get(msg.source)?.push(msg.pcm16)
+      adapters.get(msg.source)?.push(muted ? new ArrayBuffer(msg.pcm16.byteLength) : msg.pcm16)
       const h = health.get(msg.source)
       if (!h) return
       h.feed(msg.pcm16)

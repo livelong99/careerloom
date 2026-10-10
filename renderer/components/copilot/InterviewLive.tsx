@@ -19,6 +19,7 @@ export function InterviewLive() {
   return (
     <Group title="Interview in progress" action={<span role="status" className="text-xs text-muted-foreground">AI interviewer · {STATE[iv.state]}</span>}>
       <p className="m-0 text-base font-semibold text-foreground" aria-live="polite" aria-atomic="true">{iv.question?.text ?? 'The interviewer will ask the first question in a moment…'}</p>
+      {iv.hint ? <p className="m-0 mt-2 text-sm text-muted-foreground" role="status">{iv.hint}</p> : null}
       <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Interviewer controls">
         <Button size="sm" variant="outline" onClick={() => run({ interviewer: 'replay' })}>Replay</Button>
         <Button size="sm" variant="outline" onClick={() => run({ interviewer: 'skip' })}>Skip</Button>

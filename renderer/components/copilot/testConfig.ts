@@ -10,5 +10,5 @@ export const DEFAULT_CONFIG_FOR_TESTS: CopilotConfig = {
   overlay: { layout: 'strip', anchor: 'tr', displayId: null, width: 440, fontPx: 14, opacity: 0.94, theme: 'app', clickThroughIdle: true, aboveFullscreen: true },
   hotkeys: { answer: 'Control+Alt+A', followup: 'Control+Alt+F', clarify: 'Control+Alt+C', screenshot: 'Control+Alt+S', summarise: 'Control+Alt+M', detail: 'Control+Alt+D', expand: 'Control+Alt+E', listen: 'Control+Alt+L', toggle: 'Control+Alt+H', quickHide: 'Control+Alt+Shift+H', clear: 'Control+Alt+K', panic: 'Control+Alt+Shift+X' },
   privacy: { retentionDays: 90, localOnly: false, redact: true, mode: { enabled: false, noticeVersion: null, hideFromCapture: false, noDockIcon: false, neutralTitle: false, indicator: 'chip' } },
-  practice: { followups: true, readAloud: false, answerMinutes: 2 },
+  practice: { followups: true, answerMinutes: 2 },
 }

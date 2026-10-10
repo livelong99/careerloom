@@ -105,6 +105,45 @@ describe('copilotStart with an interview plan', () => {
     await c.handlers.copilotStop('user')
   })
 
+  it('report-question practice speaks in the configured voice, takes the live path and obeys the same controls', async () => {
+    const said: string[] = []; const states: string[] = []; const heard: string[] = []; const shown: string[] = []
+    const speaker = vi.fn((_plan?: unknown) => ({ say: (text: string) => { said.push(text) }, cancel: () => undefined }))
+    const { c } = setup({ interviewer: { pool: () => null, speaker, onState: s => states.push(s.state), events: { line: l => heard.push(l.text), question: q => shown.push(q.id) } } })
+    const { sessionId } = await c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null }) as { sessionId: string }
+    expect(speaker).toHaveBeenCalledWith() // no plan: the voice from Settings › Interview prep
+    expect(shown).toEqual([expect.stringMatching(/^q-/)]) // the wiring shows it, so the Answer hotkey has a question
+    expect(said).toEqual([heard[0]]); expect(states[0]).toBe('speaking')
+    await c.handlers.copilotOverlay({ interviewer: 'hint' })
+    expect(heard.at(-1)).toMatch(/^Hint:/)
+    await c.handlers.copilotOverlay({ interviewer: 'skip' }); await vi.waitFor(() => expect(shown).toHaveLength(2))
+    await typed(c, 'We cut deploys from 20 to 8 minutes'); await vi.waitFor(() => expect(shown).toHaveLength(3))
+    await c.handlers.copilotStop('user')
+    expect(((await c.handlers.copilotGetSession(sessionId)) as SessionDetail).transcript.filter(l => l.speaker === 'you').map(l => l.text)).toEqual(['We cut deploys from 20 to 8 minutes'])
+  })
+
+  it('the first question waits for the overlay page (its caption and voice would be lost otherwise); a stop before then asks nothing', async () => {
+    let ready = (): void => undefined
+    const overlayReady = () => new Promise<void>(r => { ready = r })
+    const { c } = setup({ overlayReady })
+    await c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null })
+    expect(questions()).toHaveLength(0)
+    ready(); await vi.waitFor(() => expect(questions()).toHaveLength(1))
+    await c.handlers.copilotStop('user')
+    sent.length = 0
+    await c.handlers.copilotStart(START)
+    await c.handlers.copilotStop('user')
+    ready(); await new Promise(r => setTimeout(r, 0))
+    expect(questions()).toHaveLength(0)
+  })
+
+  it('a voice that fails to start fails the start before the microphone opens', async () => {
+    const session = { start: vi.fn(async () => undefined), stop: vi.fn(async () => undefined) }
+    const { c } = setup({ session, interviewer: { pool: () => null, speaker: () => { throw new Error('no voice') } } })
+    await expect(c.handlers.copilotStart({ mode: 'practice', jobId: 'job-1', interviewType: 'mixed', consent: null })).rejects.toThrow('no voice')
+    expect(session.start).not.toHaveBeenCalled()
+    expect(await c.handlers.copilotListSessions()).toEqual([])
+  })
+
   it('overlay commands are validated; typed text outside an interview is ignored', async () => {
     const { c } = setup()
     await expect(c.handlers.copilotOverlay({ interviewer: 'explode' })).rejects.toThrow()

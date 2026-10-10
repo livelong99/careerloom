@@ -61,11 +61,27 @@ export type WiringDeps = {
   screen?: ScreenDeps
   /** How long an answer waits for a screen capture before going out text-only (default 800 ms). */
   screenWaitMs?: number
+  /** The candidate's mic is mid-utterance (voice activity), text or not: practice keeps waiting. */
+  speaking?(): boolean
 }
 
 const MAX_LINES = 200
 const ANSWER_KINDS: ReadonlySet<string> = new Set<PromptKind>(['answer', 'followup', 'clarify', 'summarise', 'detail'])
 const SUMMARISE_PROMPT = 'Summarise the conversation so far'
+// Practice: how long the interviewer waits after the candidate's turn ends (on top of the STT's own end-of-turn silence)
+// before taking it as the answer. A short start ("So I think…") waits longer: the candidate is thinking or reading a suggestion.
+const REPLY_MS = 2_500
+const REPLY_SHORT_MS = 10_000
+const SHORT_WORDS = 6
+/** Speech that resumes after a turn ended holds the answer open; this ends it if no new turn end follows (an empty final has none). */
+const QUIET_MS = 10_000
+/** Voice activity holds the answer open (recognition sends no text for the middle of a long stretch); past this without any
+ *  text it is taken for noise, so a noisy room cannot hold the answer forever. */
+const NOISE_HOLD_MS = 45_000
+/** A turn of only these is not an answer ("Thank you." and "you" are also speech recognition's guesses on silence). */
+const FILLERS = new Set(['um', 'umm', 'uh', 'er', 'erm', 'hmm', 'mm', 'mhm', 'mm-hmm', 'uh-huh', 'ah', 'oh', 'ok', 'okay', 'so', 'well', 'thank', 'thanks', 'you', 'bye'])
+/** Words for the hand-off rules, in any script; a Chinese or Japanese character counts as one (those scripts put no spaces between words). */
+const wordsOf = (t: string): string[] => (t.toLowerCase().match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]|[\p{L}\p{N}'-]+/gu) ?? []).map(w => w.replace(/^[-']+|[-']+$/g, '')).filter(Boolean)
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 const upsert = (list: TranscriptLine[], l: TranscriptLine): TranscriptLine[] => {
   const i = list.findIndex(x => x.id === l.id)
@@ -91,6 +107,10 @@ export function createLiveWiring(d: WiringDeps) {
   let tail: { q: DetectedQuestion; text: string; at: number; asked: boolean } | null = null // the last interviewer final that became a question
   let gen = 0 // bumped by reset/Clear: a detection that was already awaiting the detector when it happened is dropped
   let deferred: ReturnType<typeof setTimeout> | null = null // an auto-ask waiting out the min gap
+  let handoff: ReturnType<typeof setTimeout> | null = null // practice: the candidate's finished turn, waiting to become their answer
+  let heardAt = 0 // practice: the candidate's last line or turn end
+  const holdTurn = (): void => { if (handoff) clearTimeout(handoff); handoff = null }
+  const handOverIn = (ms: number): void => { holdTurn(); handoff = setTimeout(handOver, ms); handoff.unref?.() }
   type Ask = { key: string; at: number; live: boolean; failed: boolean }
   let lastAsk: Ask | null = null // the answer most recently started, for the same-question dedupe
   let lastDetail: Ask | null = null // the same for More detail, kept apart so it never unblocks a repeated answer
@@ -160,7 +180,7 @@ export function createLiveWiring(d: WiringDeps) {
 
   const unschedule = (): void => { if (deferred) clearTimeout(deferred); deferred = null }
   const undefer = (): void => { gen++; unschedule() } // gen: detections already awaiting the detector are dropped (reset, Clear, stop, panic)
-  const reset = (): void => { dropScreen(); lines = []; questions = new Map(); lastQuestion = null; turn = []; answeredLines.clear(); current?.abort(); current = null; currentDetail?.abort(); currentDetail = null; shownFor.clear(); tail = null; lastAsk = null; lastDetail = null; undefer(); d.detector.reset(); auto.reset(); spec.cancel() }
+  const reset = (): void => { dropScreen(); lines = []; questions = new Map(); lastQuestion = null; turn = []; holdTurn(); answeredLines.clear(); current?.abort(); current = null; currentDetail?.abort(); currentDetail = null; shownFor.clear(); tail = null; lastAsk = null; lastDetail = null; undefer(); d.detector.reset(); auto.reset(); spec.cancel() }
   const error = (message: string, extra: { actions?: CopilotEvents['copilotError']['actions']; suggestion?: string } = {}): void => d.host.publish('copilotError', { kind: 'engine', message, retrying: false, ...extra })
   const engineError = (e: unknown): void => {
     if (!(e instanceof LlmError)) return error(msg(e))
@@ -220,6 +240,9 @@ export function createLiveWiring(d: WiringDeps) {
   }
 
   async function answer(kind: PromptKind, questionId?: string, extra: { route?: Route; run?: SpecRun; marks?: TraceMarks; info?: TurnInfo; press?: boolean } = {}): Promise<void> {
+    // Practice: asking for a suggestion means the answer is not over. A finished answer waits a little longer for more; a short
+    // start waits for the real answer (the next turn end, or the soft answer timer).
+    if (handoff) { if (turnWords().length >= SHORT_WORDS) handOverIn(REPLY_SHORT_MS); else holdTurn() }
     let q = (questionId ? questions.get(questionId) : undefined) ?? lastQuestion
     const detail = kind === 'detail'
     if (!q && detail) return detailNote('Nothing to expand yet: answer a question first.')
@@ -292,13 +315,15 @@ export function createLiveWiring(d: WiringDeps) {
     current?.abort(); current = null; endDetail(); shownFor.clear()
     d.engine.cancelAll(); spec.cancel(); dropScreen()
     for (const l of lines) if (l.final) answeredLines.add(l.id)
-    questions = new Map(); lastQuestion = null; tail = null; lastAsk = null; undefer()
+    const keep = mode === 'practice' ? lastQuestion : null // the mock interviewer still waits for an answer to its question
+    questions = keep ? new Map([[keep.id, keep]]) : new Map(); lastQuestion = keep; tail = null; lastAsk = null; undefer()
     debugLog('copilot', 'cleared')
     d.host.publish('copilotCleared', { at: now() })
   }
 
   /** The AI interviewer asked a question: it takes the same path as one heard on the interviewer channel (recorded, shown, auto-answered when on), so cues and suggestions match live. */
   async function interviewerAsked(q: DetectedQuestion): Promise<void> {
+    holdTurn(); turn = [] // anything said before this question belonged to the last one, which the interviewer has moved on from
     const heard: DetectedQuestion = { ...q, auto: true, hint: q.hint ?? heuristicHint(q.text) }
     addQuestion(heard)
     prefetch(heard)
@@ -320,7 +345,7 @@ export function createLiveWiring(d: WiringDeps) {
     if (ev === 'copilotState') {
       const s = payload as CopilotEvents['copilotState']
       if (s.state === 'armed') { reset(); startWarm() }
-      if (s.state === 'stopped') { stopWarm(); dropScreen(); undefer() }
+      if (s.state === 'stopped') { stopWarm(); dropScreen(); undefer(); holdTurn() }
       mode = s.mode; sources = s.sources.length ? s.sources : sources
       d.host.publishState(s)
       if (s.state === 'stopped') d.onStopped()
@@ -331,19 +356,35 @@ export function createLiveWiring(d: WiringDeps) {
       lines = upsert(lines, l)
       d.recorder.line(l)
       if (l.final && l.speaker === 'you') turn = [...turn, l]
+      if (mode === 'practice' && l.speaker === 'you') { heardAt = now(); if (handoff) handOverIn(QUIET_MS); void d.feed(l, false) } // still answering: the interviewer keeps waiting
       if (detectable(l)) void detect(l, now())
       else if (!l.final && mode === 'live' && l.speaker === 'interviewer' && sources.includes('system')) spec.onPartial(l)
     }
     d.host.publish(ev, payload)
   }
 
-  /** A speaker's turn closed: hand the candidate's finished answer (all finals of the turn, merged) to practice. */
-  function endOfTurn(speaker: Speaker): void {
-    if (speaker !== 'you' || turn.length === 0) return
+  /** The turn's words that carry content: fillers ('so', 'um', 'thank you') never make a short start look like an answer. */
+  const turnWords = (): string[] => turn.flatMap(l => wordsOf(l.text)).filter(w => !FILLERS.has(w))
+  /** Hands the candidate's finished answer (all finals of the turn, merged) to practice. */
+  function handOver(): void {
+    handoff = null
+    if (turn.length === 0) return
+    if (d.speaking?.() && now() - heardAt < NOISE_HOLD_MS) return handOverIn(REPLY_MS) // talking again, with no text yet
     const first = turn[0]!, last = turn[turn.length - 1]!
     const merged: TranscriptLine = { ...last, text: turn.map(l => l.text).join(' '), t0: first.t0 }
     turn = []
     void d.feed(merged, true)
+  }
+
+  /** A speaker's turn closed. In practice the interviewer waits a moment before taking it as the answer, as a person waits out a
+   *  thinking pause: speaking again (or asking for a suggestion) keeps the answer open, and fillers alone never end it. */
+  function endOfTurn(speaker: Speaker): void {
+    if (speaker !== 'you' || turn.length === 0) return
+    if (mode !== 'practice') return handOver()
+    heardAt = now()
+    const words = turnWords()
+    if (words.length === 0) return holdTurn()
+    handOverIn(words.length < SHORT_WORDS ? REPLY_SHORT_MS : REPLY_MS)
   }
 
   return {

@@ -45,11 +45,14 @@ export function onTtsPlayback(e: KbEvents['ttsPlayback']): void {
 const SAY_TIMEOUT_BASE_MS = 8_000
 const SAY_TIMEOUT_PER_CHAR_MS = 120
 let seq = 0
-export function interviewSpeaker(plan: InterviewPlan): Speaker {
-  session = { voice: plan.voice, echo: plan.echo }
+/** With a plan, the AI interviewer's chosen voice until the session ends; without one, the voice set in Settings › Interview prep. */
+export function interviewSpeaker(plan?: InterviewPlan): Speaker {
+  session = plan ? { voice: plan.voice, echo: plan.echo } : null
   const rtm = ttsRuntime()
   const pending = new Set<string>()
-  const release = (id: string): void => { waiting.get(id)?.(); waiting.delete(id); pending.delete(id) }
+  // Also tells the echo gate the utterance is over: the overlay that would confirm it may already be closed (Stop, panic),
+  // and a gate left "speaking" would mute the mic for every later session.
+  const release = (id: string): void => { rtm.onPlayback({ phase: 'cancelled', utteranceId: id }); waiting.get(id)?.(); waiting.delete(id); pending.delete(id) }
   return {
     say: (text, questionId) => new Promise<void>(resolve => {
       const id = `${questionId}#${++seq}`

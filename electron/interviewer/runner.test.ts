@@ -35,6 +35,29 @@ function setup(over: Partial<InterviewerOptions> = {}, p: InterviewPlan = plan()
 afterEach(() => vi.useRealTimers())
 
 describe('interviewer runner', () => {
+  it('the candidate still talking restarts the soft answer timer, so it never cuts an answer off', async () => {
+    vi.useFakeTimers()
+    const { r, questions } = setup()
+    r.start(); await vi.advanceTimersByTimeAsync(0) // warm-up asked, listening
+    await vi.advanceTimersByTimeAsync(50_000)
+    await r.feed({ ...you('So the first thing', 1), final: false }, false)
+    await vi.advanceTimersByTimeAsync(50_000)
+    expect(questions).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(10_001)
+    await vi.waitFor(() => expect(questions).toHaveLength(2))
+  })
+  it('replay says the question again as speaking, then listens; a replay that was replaced never flips the state', async () => {
+    let finish: Array<() => void> = []
+    const speak: Speaker = { say: () => new Promise<void>(res => { finish.push(res) }), cancel: () => { const f = finish; finish = []; f.forEach(x => x()) } }
+    const { r, states } = setup({ speak })
+    r.start(); finish.shift()!(); await Promise.resolve(); await Promise.resolve()
+    expect(states.at(-1)![0]).toBe('listening')
+    r.replay(); r.replay() // the second replaces the first
+    await Promise.resolve(); await Promise.resolve()
+    expect(states.at(-1)![0]).toBe('speaking')
+    finish.shift()!(); await Promise.resolve(); await Promise.resolve()
+    expect(states.at(-1)![0]).toBe('listening')
+  })
   it('opens with a warm-up, then KB questions, then closes and wraps up', async () => {
     const { r, questions, lines, done, answer } = setup({ complete: llm(false) }, plan({ minutes: 8 })) // budget 2
     r.start()

@@ -12,6 +12,8 @@ export interface SttAdapter {
   push(pcm16: ArrayBuffer): void
   on(ev: SttEventName, cb: (e: SttEvent) => void): void
   stop(): Promise<void>
+  /** Inside an utterance right now (voice activity), before any text: practice waits for a candidate who is still talking. */
+  speaking?(): boolean
 }
 
 export function createEmitter() {
