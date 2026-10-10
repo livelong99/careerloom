@@ -1,10 +1,13 @@
 /* Overview widgets. Scoped under .ovx; reuses the app tokens (--accent, --thread, --mut, --line2, --card-inner). */
+.ovx { --ov-applied: #3566c9; --ov-responded: #7a5bd0; --ov-interview: var(--thread); --ov-offer: var(--accent); --ov-closed: #8a8a8f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .ovx { --ov-applied: #6ea0ff; --ov-responded: #b39bff; --ov-closed: #9a9aa0; } }
+:root[data-theme='dark'] .ovx { --ov-applied: #6ea0ff; --ov-responded: #b39bff; --ov-closed: #9a9aa0; }
 .ovx { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--sp-3); align-items: start; font-variant-numeric: tabular-nums; }
 .ovx > * { min-width: 0; }
 .ovx > .panel:not(.ovx-widget):not(.ovx-kpi), .ovx > .ovx-head, .ovx > .ovx-kpis { grid-column: 1 / -1; }
 .ovx-s3 { grid-column: span 3; } .ovx-s4 { grid-column: span 4; } .ovx-s5 { grid-column: span 5; }
 .ovx-s6 { grid-column: span 6; } .ovx-s7 { grid-column: span 7; } .ovx-s12 { grid-column: 1 / -1; }
-@media (max-width: 1180px) { .ovx-s3, .ovx-s4, .ovx-s5, .ovx-s7 { grid-column: span 6; } }
+@media (max-width: 1280px) { .ovx-s5, .ovx-s6, .ovx-s7 { grid-column: 1 / -1; } .ovx-s3, .ovx-s4 { grid-column: span 6; } }
 
 .ovx-head { display: flex; align-items: center; gap: var(--sp-3); }
 .ovx-range { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
@@ -17,15 +20,15 @@
 
 .ovx-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--sp-3); list-style: none; margin: 0; padding: 0; }
 @media (max-width: 1100px) { .ovx-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.ovx-kpi { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-3) var(--sp-3) var(--sp-2); min-height: 108px; }
+.ovx .ovx-kpi { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-3) var(--sp-4) var(--sp-3); min-height: 112px; }
 .ovx-kpi-l { color: var(--mut); font-size: var(--fs-meta); }
 .ovx-kpi-v { font-size: 26px; font-weight: 650; line-height: 1.15; letter-spacing: -.01em; }
 .ovx-kpi-f { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-2); margin-top: auto; }
-.ovx-spark { flex: 0 0 auto; max-width: 50%; }
+.ovx-spark { flex: 0 1 auto; max-width: 52%; height: 28px; }
 .ovx-spark-line { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; }
 .ovx-spark-area { fill: color-mix(in srgb, var(--accent) 14%, transparent); stroke: none; }
 .ovx-spark-flat { stroke: var(--line); stroke-width: 1.5; }
-.ovx-delta { display: inline-flex; gap: 3px; align-items: center; font-size: var(--fs-meta); font-weight: 560; }
+.ovx-delta { display: inline-flex; white-space: nowrap; gap: 3px; align-items: center; font-size: var(--fs-meta); font-weight: 560; }
 .ovx-delta-good { color: var(--ok); } .ovx-delta-bad { color: var(--bad); } .ovx-delta-flat, .ovx-delta-na { color: var(--mut); font-weight: 400; }
 
 .ovx-widget .phead { min-height: 40px; }
@@ -43,10 +46,9 @@
 .ovx-grid-line { stroke: var(--line); stroke-width: 1; }
 
 /* hero */
-.ovx-pipe { position: relative; display: flex; flex-direction: column; justify-content: center; min-height: 170px; }
-.ovx-pipe-svg { position: absolute; inset: 0 0 auto 0; width: 100%; height: 72%; pointer-events: none; }
-.ovx-pipe-stages { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; margin-top: auto; padding-top: 56%; }
-@media (min-width: 1000px) { .ovx-pipe-stages { padding-top: 112px; } }
+.ovx-pipe { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ovx-pipe-svg { display: block; width: 100%; height: 104px; pointer-events: none; }
+.ovx-pipe-stages { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
 .ovx-stage { display: flex; flex-direction: column; align-items: center; gap: 1px; width: 100%; border: 0; background: transparent; padding: 6px 4px; border-radius: 8px; cursor: pointer; font: inherit; color: var(--ink); }
 .ovx-stage:hover { background: var(--card-inner); }
 .ovx-stage-n { font-size: 22px; font-weight: 650; }
@@ -80,6 +82,7 @@
 .ovx-table th[scope='row'] { color: var(--ink); }
 .ovx-table .num { text-align: right; padding-right: 0; padding-left: 8px; }
 .ovx-src-table td:nth-child(2) { width: 46%; }
+.ovx-src-table th[scope='row'] { white-space: nowrap; padding-right: var(--sp-3); }
 .ovx-bar { position: relative; display: block; height: 10px; border-radius: 3px; background: var(--card-inner); overflow: hidden; }
 .ovx-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
 .ovx-bar .found { background: color-mix(in srgb, var(--s-flagship) 55%, transparent); }

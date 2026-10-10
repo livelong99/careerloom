@@ -5,8 +5,8 @@ import { formatUsd } from '../../lib/format'
 import { formatChartDate } from '../../lib/period'
 import type { MetricDay } from '../../lib/types'
 
-const W = 360
-const H = 120
+const W = 520
+const H = 130
 const PAD = { l: 4, r: 4, t: 8, b: 16 }
 
 /** Daily agent spend as a line over faint run-count bars. */

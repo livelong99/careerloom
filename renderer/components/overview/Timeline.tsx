@@ -5,11 +5,11 @@ import { formatChartDate } from '../../lib/period'
 import { TIMELINE_SERIES, type TimelineBucket, type TimelineSeries } from '../../lib/overviewData'
 
 const META: Record<TimelineSeries, { label: string; color: string }> = {
-  applied: { label: 'Applied', color: 'var(--s-flagship)' },
-  responded: { label: 'Responded', color: 'var(--accent)' },
-  interview: { label: 'Interview', color: 'var(--thread)' },
-  offer: { label: 'Offer', color: 'var(--s-premium)' },
-  closed: { label: 'Closed', color: 'var(--s-other)' },
+  applied: { label: 'Applied', color: 'var(--ov-applied)' },
+  responded: { label: 'Responded', color: 'var(--ov-responded)' },
+  interview: { label: 'Interview', color: 'var(--ov-interview)' },
+  offer: { label: 'Offer', color: 'var(--ov-offer)' },
+  closed: { label: 'Closed', color: 'var(--ov-closed)' },
 }
 const W = 560
 const H = 170

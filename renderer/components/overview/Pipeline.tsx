@@ -2,7 +2,7 @@ import { rate, type PipelineStage } from '../../lib/overviewData'
 
 const pct = (r: number | null) => (r === null ? '—' : `${Math.round(r * 100)}%`)
 const W = 700
-const H = 120
+const H = 104
 
 /** Hero: found → offer as a tapering band. Band height is sqrt-scaled so the late, tiny stages stay visible; each stage is a button into Jobs. */
 export function Pipeline({ stages, onStage }: { stages: PipelineStage[]; onStage: (id: PipelineStage['id']) => void }) {

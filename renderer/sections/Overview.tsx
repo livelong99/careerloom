@@ -31,6 +31,8 @@ import { dailyCounts, stageOf } from '../lib/stages'
 import { localDateKey } from '../lib/period'
 
 const POLL_MS = 30_000
+/** Monitoring findings the Overview already derives itself (strong matches, follow-ups, overdue scan). */
+const COVERED_FINDINGS = new Set(['unapplied-matches', 'followups-due', 'scan-stale'])
 const none = <T,>(p: Polled<T>) => !p.data && !p.error
 const failed = (...ps: Array<Polled<unknown>>) => ps.find(p => p.error && !p.data)?.error?.message
 function state(ps: Array<Polled<unknown>>, empty: boolean): WidgetState {
@@ -101,7 +103,7 @@ export function Overview({ onNavigate }: { onNavigate: (s: Section) => void }) {
       else if (s.id === 'followups') out.push({ id: s.id, icon: 'calendar-range', title: `${s.count} ${s.count === 1 ? 'application needs' : 'applications need'} a follow-up`, sub: 'Applied a week or more ago with no reply.', label: 'Open', run: () => openJobsWith({ states: ['applied'] }) })
       else out.push({ id: s.id, icon: 'refresh-cw', title: s.daysSince === null ? 'No scan yet' : `Last scan was ${s.daysSince} days ago`, sub: 'Scan your boards for new roles.', label: 'Scan now', run: () => void start('scan').then(r => openRuns(r?.id)) })
     }
-    for (const f of (metrics.data?.findings ?? []).filter(x => x.severity !== 'low' && x.action).slice(0, 2)) {
+    for (const f of (metrics.data?.findings ?? []).filter(x => x.severity !== 'low' && x.action && !COVERED_FINDINGS.has(x.id)).slice(0, 2)) {
       const a = f.action!
       out.push({ id: f.id, icon: 'trending-up', title: f.title, sub: f.detail, label: a.label, run: () => (a.kind === 'mode' ? void start(a.mode, a.input).then(r => openRuns(r?.id)) : onNavigate(a.section as Section)) })
     }
